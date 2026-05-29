@@ -73,6 +73,15 @@ export class GameScene extends Phaser.Scene {
   // 升级面板状态
   private levelUpPanelActive = false;
 
+  // 虚拟摇杆（移动端）
+  private joystickBase: Phaser.GameObjects.Arc | null = null;
+  private joystickKnob: Phaser.GameObjects.Arc | null = null;
+  private joystickActive = false;
+  private joystickId: number | null = null;
+  private joystickStartX = 0;
+  private joystickStartY = 0;
+  private readonly joystickMaxDist = 50;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -103,6 +112,7 @@ export class GameScene extends Phaser.Scene {
     this.skillManager.addSkill('wood_reinforce');
 
     this.setupDebugControls();
+    this.setupTouchJoystick();
   }
 
   update(time: number, delta: number): void {
@@ -518,6 +528,58 @@ export class GameScene extends Phaser.Scene {
     restartBtn.on('pointerout', () => restartBtn.setColor('#ffcc44'));
     restartBtn.on('pointerdown', () => {
       this.scene.start('MenuScene');
+    });
+  }
+
+  // ── 移动端虚拟摇杆 ──
+  private setupTouchJoystick(): void {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.isGameOver || this.isPaused) return;
+      // 只在屏幕左半侧激活摇杆
+      if (pointer.x > GAME_WIDTH / 2) return;
+      if (this.joystickActive) return;
+
+      this.joystickActive = true;
+      this.joystickId = pointer.id;
+      this.joystickStartX = pointer.x;
+      this.joystickStartY = pointer.y;
+
+      // 摇杆底座
+      this.joystickBase = this.add.circle(pointer.x, pointer.y, 40, 0xffffff, 0.2)
+        .setScrollFactor(0).setDepth(400);
+      // 摇杆把手
+      this.joystickKnob = this.add.circle(pointer.x, pointer.y, 18, 0xffffff, 0.5)
+        .setScrollFactor(0).setDepth(401);
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.joystickActive || pointer.id !== this.joystickId) return;
+
+      const dx = pointer.x - this.joystickStartX;
+      const dy = pointer.y - this.joystickStartY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const clampDist = Math.min(dist, this.joystickMaxDist);
+      const nx = dist > 0 ? (dx / dist) * clampDist : 0;
+      const ny = dist > 0 ? (dy / dist) * clampDist : 0;
+
+      if (this.joystickKnob) {
+        this.joystickKnob.x = this.joystickStartX + nx;
+        this.joystickKnob.y = this.joystickStartY + ny;
+      }
+
+      // 归一化移动向量
+      this.player.joystickVx = clampDist > 5 ? nx / this.joystickMaxDist : 0;
+      this.player.joystickVy = clampDist > 5 ? ny / this.joystickMaxDist : 0;
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.id !== this.joystickId) return;
+      this.joystickActive = false;
+      this.joystickId = null;
+      this.player.joystickVx = 0;
+      this.player.joystickVy = 0;
+      if (this.joystickBase) { this.joystickBase.destroy(); this.joystickBase = null; }
+      if (this.joystickKnob) { this.joystickKnob.destroy(); this.joystickKnob = null; }
     });
   }
 

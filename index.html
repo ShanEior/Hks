@@ -1,23 +1,68 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>山西古建保卫战</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body {
-        background: #000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        overflow: hidden;
-      }
-      canvas { display: block; }
-    </style>
-  </head>
-  <body>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>山西古建保卫战</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #game-container {
+      width: 100%; height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas { display: block; }
+    #error-screen {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #1a1a2e;
+      z-index: 9999;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #error-screen .icon { font-size: 48px; margin-bottom: 16px; }
+    #error-screen .msg { font-size: 16px; color: #ccc; margin-bottom: 20px; }
+    #error-screen .retry {
+      padding: 10px 30px;
+      background: #885522;
+      color: #ffcc44;
+      border: 2px solid #ffcc44;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="error-screen">
+    <div class="icon">⚠️</div>
+    <div class="msg">哎呀，出错了，请重启试试吧~</div>
+    <button class="retry" onclick="location.reload()">重新加载</button>
+  </div>
+
+  <script>
+    window.addEventListener('error', function() {
+      var el = document.getElementById('error-screen');
+      if (el) el.style.display = 'flex';
+    });
+  </script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

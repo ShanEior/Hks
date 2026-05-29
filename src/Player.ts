@@ -16,6 +16,10 @@ export class Player {
   private knockbackVx = 0;
   private knockbackVy = 0;
 
+  // 虚拟摇杆输入（移动端，由 GameScene 设置）
+  joystickVx = 0;
+  joystickVy = 0;
+
   private keys: {
     W: Phaser.Input.Keyboard.Key;
     A: Phaser.Input.Keyboard.Key;
@@ -64,8 +68,8 @@ export class Player {
   update(delta: number): void {
     const dt = delta / 1000;
 
-    // 1. 计算输入方向
-    let vx = 0, vy = 0;
+    // 1. 计算输入方向（键盘 + 虚拟摇杆）
+    let vx = this.joystickVx, vy = this.joystickVy;
     if (this.keys.A.isDown) vx -= 1;
     if (this.keys.D.isDown) vx += 1;
     if (this.keys.W.isDown) vy -= 1;
