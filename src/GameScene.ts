@@ -79,7 +79,7 @@ export class GameScene extends Phaser.Scene {
   // 自动普攻
   private autoAttackTimer = 0;
   private readonly autoAttackCooldown = 0.7;
-  private readonly autoAttackDamage = 15;
+  private readonly autoAttackDamage = 22;
   private autoBolts: AutoBolt[] = [];
 
   // 升级面板状态
@@ -261,11 +261,14 @@ export class GameScene extends Phaser.Scene {
 
     this.monsters.push(monster);
 
-    // 首次遭遇弹窗
+    // 首次遭遇弹窗（暂停游戏）
     if (!this.seenMonsterTypes.has(type)) {
       this.seenMonsterTypes.add(type);
       this.time.delayedCall(300, () => {
-        if (!this.isGameOver) this.hud.showMonsterPopup(type);
+        if (!this.isGameOver) {
+          this.isPaused = true;
+          this.hud.showMonsterPopup(type, () => { this.isPaused = false; });
+        }
       });
     }
   }
@@ -432,21 +435,71 @@ export class GameScene extends Phaser.Scene {
 
   private getSkillDescription(skillId: SkillId, level: number): string {
     const cfg = SKILL_CONFIGS[skillId][level - 1];
-    const parts: string[] = [];
-    parts.push(`CD ${cfg.cooldown}s，伤害 ${cfg.damage}`);
-    if (cfg.range > 0) parts.push(`范围 ${cfg.range}`);
-    if (cfg.repairAmount > 0 && cfg.repairType.length > 0) {
-      parts.push(`回复${cfg.repairType.join('/')} ${cfg.repairAmount} 点`);
+    const prevCfg = level > 1 ? SKILL_CONFIGS[skillId][level - 2] : null;
+    const structNames: Record<string, string> = { wood: '木质', stone: '石质', tile: '砖瓦', painting: '彩绘' };
+    const monsterNames: Record<string, string> = { acid_rain: '酸雨怪', termite: '白蚁怪' };
+
+    const lines: string[] = [];
+
+    switch (skillId) {
+      case 'wood_reinforce':
+        lines.push(`向前方发射木梁冲击波`);
+        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        if (cfg.widthMultiplier) lines.push(`冲击波宽度 ×${cfg.widthMultiplier}`);
+        if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
+        if (prevCfg) {
+          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  CD ${cfg.cooldown}s`);
+          if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中回血');
+        }
+        break;
+
+      case 'stone_repair':
+        lines.push(`释放圆形震波，范围内全伤`);
+        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        if (cfg.knockbackForce) lines.push('附带击退效果，推开近身怪物');
+        if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
+        if (prevCfg) {
+          lines.push(`↑ 范围 +${cfg.range - prevCfg.range}`);
+          if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中回血+击退');
+        }
+        break;
+
+      case 'waterproof':
+        lines.push(`释放水纹护罩，对酸雨怪特攻`);
+        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        if (cfg.bonusDamageVs) lines.push(`对${monsterNames[cfg.bonusDamageVs]}伤害 ×${cfg.bonusDamageMultiplier}`);
+        if (cfg.repairAmount > 0) lines.push(`命中回复${cfg.repairType.map(t => structNames[t]).join('+')}各 ${cfg.repairAmount} HP`);
+        if (prevCfg) {
+          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  范围 +${cfg.range - prevCfg.range}`);
+          if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中酸雨怪大回血');
+        }
+        break;
+
+      case 'insect_control':
+        lines.push(`在脚下释放持续药雾区域`);
+        lines.push(`每秒 ${cfg.damage} 伤害  CD ${cfg.cooldown}s  范围 ${cfg.range}  持续 ${cfg.zoneDuration}s`);
+        if (cfg.bonusDamageVs) lines.push(`对${monsterNames[cfg.bonusDamageVs]}伤害 ×${cfg.bonusDamageMultiplier}`);
+        if (cfg.repairAmount > 0) lines.push(`区域内每秒回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
+        if (prevCfg) {
+          lines.push(`↑ 持续 +${(cfg.zoneDuration ?? 0) - (prevCfg.zoneDuration ?? 0)}s`);
+          if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：雾中持续回血');
+        }
+        break;
+
+      case 'painting_restore':
+        lines.push(`追踪最近敌人的颜料弹`);
+        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s`);
+        if (cfg.range > 0) lines.push(`命中后小范围爆炸 半径${cfg.range}`);
+        if (cfg.projectileBounce) lines.push('命中后弹射至第二目标');
+        if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
+        if (prevCfg) {
+          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  CD ${cfg.cooldown}s`);
+          if (cfg.projectileBounce && !prevCfg.projectileBounce) lines.push('↑ 新增强：弹射攻击');
+        }
+        break;
     }
-    if (cfg.bonusDamageVs) {
-      const names: Record<string, string> = { acid_rain: '酸雨怪', termite: '白蚁怪' };
-      parts.push(`对${names[cfg.bonusDamageVs] ?? cfg.bonusDamageVs}伤害 ×${cfg.bonusDamageMultiplier}`);
-    }
-    if (cfg.knockbackForce) parts.push('击退敌人');
-    if (cfg.widthMultiplier) parts.push('加宽冲击波');
-    if (cfg.projectileBounce) parts.push('弹射 1 次');
-    if (cfg.zoneDuration) parts.push(`持续 ${cfg.zoneDuration}s`);
-    return parts.join('，');
+
+    return lines.join('\n');
   }
 
   private shuffleArray<T>(arr: T[]): void {

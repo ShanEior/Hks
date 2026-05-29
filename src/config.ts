@@ -145,29 +145,29 @@ export interface ActiveSkill {
 
 export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
   wood_reinforce: [
-    { level: 1, name: '木构加固', cooldown: 5, damage: 20, range: 80, repairType: [], repairAmount: 0 },
-    { level: 2, name: '梁柱补强', cooldown: 5, damage: 30, range: 80, repairType: ['wood'], repairAmount: 1 },
-    { level: 3, name: '榫卯强化', cooldown: 5, damage: 45, range: 120, repairType: ['wood'], repairAmount: 2, widthMultiplier: 1.5 },
+    { level: 1, name: '木构加固', cooldown: 4, damage: 35, range: 100, repairType: [], repairAmount: 0 },
+    { level: 2, name: '梁柱补强', cooldown: 4, damage: 55, range: 100, repairType: ['wood'], repairAmount: 2 },
+    { level: 3, name: '榫卯强化', cooldown: 3.5, damage: 80, range: 140, repairType: ['wood'], repairAmount: 4, widthMultiplier: 2 },
   ],
   stone_repair: [
-    { level: 1, name: '石材修补', cooldown: 6, damage: 18, range: 150, repairType: [], repairAmount: 0 },
-    { level: 2, name: '石粉填补', cooldown: 6, damage: 28, range: 180, repairType: [], repairAmount: 0 },
-    { level: 3, name: '表层加固', cooldown: 6, damage: 40, range: 180, repairType: ['stone'], repairAmount: 2, knockbackForce: 200 },
+    { level: 1, name: '石材修补', cooldown: 5, damage: 30, range: 160, repairType: [], repairAmount: 0 },
+    { level: 2, name: '石粉填补', cooldown: 5, damage: 48, range: 200, repairType: [], repairAmount: 0 },
+    { level: 3, name: '表层加固', cooldown: 4.5, damage: 70, range: 220, repairType: ['stone'], repairAmount: 3, knockbackForce: 300 },
   ],
   waterproof: [
-    { level: 1, name: '防水封护', cooldown: 7, damage: 15, range: 180, repairType: [], repairAmount: 0 },
-    { level: 2, name: '排水导流', cooldown: 7, damage: 22, range: 180, repairType: [], repairAmount: 0, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 2 },
-    { level: 3, name: '防渗保护层', cooldown: 7, damage: 22, range: 210, repairType: ['stone', 'tile'], repairAmount: 2, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 2 },
+    { level: 1, name: '防水封护', cooldown: 6, damage: 25, range: 190, repairType: [], repairAmount: 0 },
+    { level: 2, name: '排水导流', cooldown: 6, damage: 40, range: 200, repairType: [], repairAmount: 0, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 2.5 },
+    { level: 3, name: '防渗保护层', cooldown: 5.5, damage: 45, range: 240, repairType: ['stone', 'tile'], repairAmount: 3, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 3 },
   ],
   insect_control: [
-    { level: 1, name: '防虫处理', cooldown: 6, damage: 8, range: 120, repairType: [], repairAmount: 0, zoneDuration: 3 },
-    { level: 2, name: '虫害清查', cooldown: 6, damage: 8, range: 120, repairType: [], repairAmount: 0, zoneDuration: 4, bonusDamageVs: 'termite', bonusDamageMultiplier: 2 },
-    { level: 3, name: '木构驱虫', cooldown: 6, damage: 8, range: 150, repairType: ['wood'], repairAmount: 1, zoneDuration: 4, bonusDamageVs: 'termite', bonusDamageMultiplier: 2 },
+    { level: 1, name: '防虫处理', cooldown: 5, damage: 12, range: 130, repairType: [], repairAmount: 0, zoneDuration: 3 },
+    { level: 2, name: '虫害清查', cooldown: 5, damage: 14, range: 140, repairType: [], repairAmount: 0, zoneDuration: 4.5, bonusDamageVs: 'termite', bonusDamageMultiplier: 2.5 },
+    { level: 3, name: '木构驱虫', cooldown: 4.5, damage: 18, range: 170, repairType: ['wood'], repairAmount: 2, zoneDuration: 5, bonusDamageVs: 'termite', bonusDamageMultiplier: 3 },
   ],
   painting_restore: [
-    { level: 1, name: '彩绘修复', cooldown: 4, damage: 20, range: 0, repairType: [], repairAmount: 0 },
-    { level: 2, name: '颜料补绘', cooldown: 4, damage: 30, range: 60, repairType: [], repairAmount: 0 },
-    { level: 3, name: '壁画护色', cooldown: 4, damage: 40, range: 0, repairType: ['painting'], repairAmount: 2, projectileBounce: true },
+    { level: 1, name: '彩绘修复', cooldown: 3.5, damage: 30, range: 0, repairType: [], repairAmount: 0 },
+    { level: 2, name: '颜料补绘', cooldown: 3, damage: 50, range: 70, repairType: [], repairAmount: 0 },
+    { level: 3, name: '壁画护色', cooldown: 2.5, damage: 70, range: 80, repairType: ['painting'], repairAmount: 3, projectileBounce: true },
   ],
 };
 
@@ -240,14 +240,14 @@ export const PALETTE = {
   BAR_BG:       '#2A2218',
 } as const;
 
-/** 像素风字体预设 — 统一用 monospace 偶数字号，在 pixelArt:true 下足够锐利 */
+/** 字体预设 — 系统 CJK 字体栈，清晰可读，关键层级加粗 */
 export const FONT = {
-  tiny:     { fontFamily: 'monospace', fontSize: '10px' },
-  small:    { fontFamily: 'monospace', fontSize: '14px' },
-  body:     { fontFamily: 'monospace', fontSize: '16px' },
-  large:    { fontFamily: 'monospace', fontSize: '20px' },
-  title:    { fontFamily: 'monospace', fontSize: '24px', fontStyle: 'bold' },
-  huge:     { fontFamily: 'monospace', fontSize: '40px', fontStyle: 'bold' },
+  tiny:     { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '12px' },
+  small:    { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '14px' },
+  body:     { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '16px', fontStyle: 'bold' },
+  large:    { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '20px', fontStyle: 'bold' },
+  title:    { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '24px', fontStyle: 'bold' },
+  huge:     { fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif', fontSize: '40px', fontStyle: 'bold' },
 } as const;
 
 /** 像素纹理的单位块大小（与 ArtGen.ts 中的 PX 一致） */
@@ -257,4 +257,4 @@ export const UI_PX = 2;
 export const STRUCT_BAR = { w: 160, h: 14, gap: 10 } as const;
 
 /** 升级卡片尺寸 */
-export const LEVELUP_CARD = { w: 220, h: 210 } as const;
+export const LEVELUP_CARD = { w: 230, h: 250 } as const;

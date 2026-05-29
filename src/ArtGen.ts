@@ -131,70 +131,111 @@ function genBackground(scene: Phaser.Scene) {
   const hash = (x: number, y: number): number =>
     ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
 
-  // ── 调色板 ──
-  const gBase  = ['#7A9A4A','#6A8E3E','#8AA656','#729642','#7E9E50'];
-  const gDark  = ['#5A7A32','#4E6E28','#567A2E','#62863A','#4A6A26'];
-  const gLight = ['#8EB05A','#9ABE64','#92B458','#86AA52','#96BA60'];
-  const gDry   = ['#B8A050','#C4AC5A','#B09844','#BCA848','#A8943C'];
-  const sLoess = ['#C4A870','#B89860','#CCB478','#C0A468','#B09058'];
-  const sGravel= ['#8A7E6E','#7E7262','#827668','#7A6E5E','#867A6A'];
-  const sDark  = ['#5A4A30','#4E3E26','#52422C','#564630','#4C3C24'];
-  const sPath  = ['#B89868','#C4A474','#B49060','#C0A070','#AC8C58'];
+  // ── 调色板：暖黄土地 + 斑驳草痕 ──
+  const earth0 = '#C8B080'; // 浅赭黄（远）
+  const earth1 = '#C0A870'; // 暖土黄
+  const earth2 = '#B89860'; // 中土黄
+  const earth3 = '#B09050'; // 暖棕黄
+  const earth4 = '#A08048'; // 深赭黄（近）
+  const earthR = '#9A6040'; // 红褐泥土
+  const earthD = '#8A7050'; // 暗土色
+  const grass0 = '#8A9E6A'; // 灰绿草斑（远）
+  const grass1 = '#7E9460'; // 灰绿草斑
+  const grass2 = '#6E8452'; // 橄榄绿草斑
+  const grass3 = '#6A7E4E'; // 暗橄榄绿
+  const pathC  = '#C4A878'; // 土路
+  const sdDark = '#4E3E26'; // 阴影
 
-  // ── 1. 基底纵向渐变（上淡灰绿 → 下暖橄榄绿） ──
+  // ── 1. 基底：暖黄土渐变（上淡下暖） ──
   for (let gy = 0; gy < H; gy++) {
     const t = gy / H;
     let c: string;
-    if (t < 0.25)       c = gy % 3 === 0 ? '#8A9E6A' : '#829862';
-    else if (t < 0.55)  c = gBase[gy % gBase.length];
-    else if (t < 0.8)   c = gy % 2 === 0 ? '#6E8E42' : gDark[gy % gDark.length];
-    else                c = '#5E7E38';
+    if      (t < 0.15) c = earth0;
+    else if (t < 0.35) c = earth1;
+    else if (t < 0.55) c = earth2;
+    else if (t < 0.75) c = earth3;
+    else               c = earth4;
     pxHLine(ctx, 0, gy, W, c);
   }
 
-  // ── 2. 草簇纹理（坐标哈希，无重复感） ──
-  for (let gy = 0; gy < H; gy++) {
-    for (let gx = 0; gx < W; gx++) {
-      const r = hash(gx, gy) % 100;
-      if (r < 7)        px(ctx, gx, gy, gLight[hash(gx, gy + 1) % 5]);
-      else if (r < 11)  px(ctx, gx, gy, gDark[hash(gx + 1, gy) % 5]);
-      else if (r < 13)  px(ctx, gx, gy, gDry[hash(gx, gy + 2) % 5]);
-    }
-  }
-
-  // ── 3. 黄土裸斑（不规则稀疏区域） ──
-  for (let i = 0; i < 180; i++) {
-    const cx = hash(i, 1) % W;
-    const cy = hash(2, i) % H;
-    const r = 2 + (hash(i, i) % 3);
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const qx = cx + dx, qy = cy + dy;
-        if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
-        if (Math.abs(dx) + Math.abs(dy) > r + 2) continue;
-        if (hash(qx, qy) % 4 === 0) continue;
-        px(ctx, qx, qy, sLoess[hash(qx + cx, qy) % 5]);
+  // ── 2. 泥土色块：大块不规则斑驳（赭红/暗土/浅棕交替） ──
+  function earthBlotch(bx:number,by:number,bw:number,bh:number,color:string):void{
+    for(let dy=0;dy<bh;dy++){
+      const ww=Math.floor(bw*(1-Math.abs(dy-bh/2)/(bh/2)*0.4));
+      const sx2=bx+Math.floor((bw-ww)/2);
+      for(let dx=0;dx<ww;dx++){
+        const qx=sx2+dx,qy=by+dy;
+        if(qx<0||qx>=W||qy<0||qy>=H)continue;
+        if(hash(qx,qy)%6<4)px(ctx,qx,qy,color);
       }
     }
   }
+  // 赭红色泥土斑
+  for(let i=0;i<35;i++){
+    const bx=hash(i,70)%W,by=hash(80,i)%H;
+    const bw=10+(hash(i,i*7)%20),bh=6+(hash(i*3,i)%10);
+    earthBlotch(bx,by,bw,bh,earthR);
+  }
+  // 暗土色斑
+  for(let i=0;i<45;i++){
+    const bx=hash(i+100,70)%W,by=hash(80,i+100)%H;
+    const bw=8+(hash(i,i*5)%25),bh=5+(hash(i*4,i)%12);
+    earthBlotch(bx,by,bw,bh,earthD);
+  }
+  // 浅棕色亮斑
+  for(let i=0;i<50;i++){
+    const bx=hash(i+200,70)%W,by=hash(80,i+200)%H;
+    const bw=6+(hash(i,i*9)%18),bh=4+(hash(i*2,i)%8);
+    earthBlotch(bx,by,bw,bh,'#D4C098');
+  }
 
-  // ── 4. 碎石散布 ──
-  for (let i = 0; i < 250; i++) {
-    const sx = hash(i, 100) % W;
-    const sy = hash(200, i) % H;
-    if (hash(sx, sy) % 9 > 0) continue;
-    px(ctx, sx, sy, sGravel[hash(sx + 1, sy) % 5]);
-    if (hash(sx, sy) % 13 === 0 && sx + 1 < W) {
-      px(ctx, sx + 1, sy, sGravel[hash(sx, sy + 1) % 5]);
+  // ── 3. 云状草斑：不规则灰绿/橄榄绿片区（稀疏覆盖，不占主导） ──
+  function grassCloud(gx:number,gy:number,rw:number,rh:number,color:string):void{
+    for(let dy=-rh;dy<=rh;dy++){
+      const hw=Math.floor(rw*Math.sqrt(Math.max(0,1-(dy/rh)**2))*0.9);
+      for(let dx=-hw;dx<=hw;dx++){
+        const qx=gx+dx,qy=gy+dy;
+        if(qx<0||qx>=W||qy<0||qy>=H)continue;
+        // 边缘稀疏，中心密实
+        const edge=Math.abs(dx)/Math.max(1,hw);
+        if(hash(qx,qy)%100<(edge>0.7?25:edge>0.4?55:80))
+          px(ctx,qx,qy,color);
+      }
+    }
+  }
+  // 灰绿草斑（远景偏灰）
+  for(let i=0;i<30;i++){
+    const gx=hash(i,40)%W,gy=hash(50,i)%H;
+    grassCloud(gx,gy,12+(hash(i,i)%20),8+(hash(i*2,i)%10),grass0);
+  }
+  // 橄榄绿草斑（中景）
+  for(let i=0;i<40;i++){
+    const gx=hash(i+60,40)%W,gy=hash(50,i+60)%H;
+    grassCloud(gx,gy,10+(hash(i,i*3)%22),7+(hash(i*2,i)%12),grass1);
+  }
+  // 暗橄榄草斑（近景偏暖）
+  for(let i=0;i<35;i++){
+    const gx=hash(i+120,40)%W,gy=hash(50,i+120)%H;
+    grassCloud(gx,gy,8+(hash(i,i*5)%18),6+(hash(i*3,i)%8),grass2);
+  }
+
+  // ── 4. 小簇草点（草斑边缘点缀，不是主纹理） ──
+  for(let i=0;i<200;i++){
+    const gx=hash(i,90)%W,gy=hash(100,i)%H;
+    const c=hash(gx,gy)%3===0?grass1:grass2;
+    if(hash(gx+1,gy)%12===0){
+      // 2-4px 小簇
+      const l=2+(hash(gx,gy+1)%2);
+      for(let j=0;j<l&&gx+j<W;j++)px(ctx,gx+j,gy,c);
     }
   }
 
-  // ── 5. 踩踏土径（中央十字 + 对角依稀小路） ──
+  // ── 5. 土路（纯色，在斑驳地面之上） ──
   const cx = W / 2, cy = H / 2;
-  const pathDefs = [
-    [cx, cy, cx, H, 10], [cx, cy, cx, 0, 8],
-    [cx, cy, 0, cy, 8], [cx, cy, W, cy, 9],
-    [cx - 60, cy, 0, H, 5], [cx + 60, cy, W, H, 5],
+  const pathDefs:[number,number,number,number,number][] = [
+    [cx, cy, cx, H, 14], [cx, cy, cx, 0, 10],
+    [cx, cy, 0, cy, 10], [cx, cy, W, cy, 12],
+    [cx - 60, cy, 0, H, 6], [cx + 60, cy, W, H, 6],
   ];
   for (const [sx, sy, ex, ey, pw] of pathDefs) {
     const len = Math.sqrt((ex - sx) ** 2 + (ey - sy) ** 2);
@@ -204,27 +245,29 @@ function genBackground(scene: Phaser.Scene) {
       const py = Math.floor(sy + (ey - sy) * t);
       for (let dw = -pw / 2; dw < pw / 2; dw++) {
         const qx = px2 + Math.floor(dw);
-        const qy = py + Math.floor((Math.random() - 0.5) * 2);
+        const qy = py;
         if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
-        if (hash(qx, qy) % 6 < 3) {
-          px(ctx, qx, qy, sPath[hash(qx + s, qy) % 5]);
-        }
+        px(ctx, qx, qy, pathC);
       }
     }
   }
 
-  // ── 6. 枯草丝缕（横向干草条） ──
-  for (let i = 0; i < 400; i++) {
-    const gx = hash(i, 300) % W;
-    const gy = hash(400, i) % H;
-    if (hash(gx, gy) % 10 > 0) continue;
-    const l = 2 + (hash(gx + 1, gy) % 2);
-    for (let j = 0; j < l && gx + j < W; j++) {
-      px(ctx, gx + j, gy, gDry[hash(gx + j, gy) % 5]);
+  // ── 4. 黄土斑（稀疏大块，不碎） ──
+  for (let i = 0; i < 60; i++) {
+    const lx = hash(i, 50) % W;
+    const ly = hash(60, i) % H;
+    const r = 3 + (hash(i, i * 3) % 5);
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const qx = lx + dx, qy = ly + dy;
+        if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
+        if (Math.abs(dx) + Math.abs(dy) > r + 1) continue;
+        px(ctx, qx, qy, '#C4A870');
+      }
     }
   }
 
-  // ── 7. 古建环境元素 ──
+  // ── 5. 古建环境元素 ──
   // 调色板（复用 PAL + 本地补充）
   const wTile   = '#6E6058'; // 灰瓦
   const wTileL  = '#7E7068'; // 灰瓦亮
@@ -245,7 +288,7 @@ function genBackground(scene: Phaser.Scene) {
         const qx = sx + dx, qy = sy + dy;
         if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
         if (hash(qx, qy) % 3 > 0) continue; // 半透明效果
-        px(ctx, qx, qy, sDark[(qx + qy) % 5]);
+        px(ctx, qx, qy, sdDark);
       }
     }
   }
@@ -268,7 +311,7 @@ function genBackground(scene: Phaser.Scene) {
       if (hash(x + dx, y) % 25 === 0) {
         for (let dy2 = -1; dy2 <= 1; dy2++) {
           if (y + h - 3 + dy2 >= y && y + h - 3 + dy2 < y + h) {
-            px(ctx, x + dx, y + h - 3 + dy2, sDark[(x + dx) % 5]);
+            px(ctx, x + dx, y + h - 3 + dy2, sdDark);
           }
         }
       }
@@ -381,67 +424,125 @@ function genBackground(scene: Phaser.Scene) {
     }
   }
 
+  // 石板路：连点成线
+  function drawStonePath(points: [number,number][], pw: number): void {
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x1, y1] = points[i], [x2, y2] = points[i + 1];
+      const segLen = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+      for (let s = 0; s < segLen; s++) {
+        const t = s / segLen;
+        const qx = Math.floor(x1 + (x2-x1) * t);
+        const qy = Math.floor(y1 + (y2-y1) * t);
+        for (let dw = -pw/2; dw < pw/2; dw++) {
+          for (let dh = -1; dh <= 1; dh++) {
+            const rx = qx + Math.floor(dw), ry = qy + dh;
+            if (rx<0||rx>=W||ry<0||ry>=H) continue;
+            if (hash(rx,ry) % 5 < 3) px(ctx, rx, ry, pathC);
+          }
+        }
+      }
+    }
+  }
+  function drawWell(wx:number,wy:number):void{
+    for(let dy=-2;dy<=2;dy++)for(let dx=-3;dx<=3;dx++)
+      if(Math.abs(dx)+Math.abs(dy)<=4)px(ctx,wx+dx,wy+dy,wStoneD);
+    pxRect(ctx,wx-2,wy-3,5,1,wStone);pxRect(ctx,wx-3,wy-2,1,4,wStone);
+    pxRect(ctx,wx-5,wy-12,2,10,wWood);pxRect(ctx,wx+3,wy-12,2,10,wWood);
+    pxRect(ctx,wx-6,wy-13,12,2,wWood);
+    pxRect(ctx,wx-2,wy-10,4,3,wWoodL);
+  }
+  function drawSmallPagoda(px2:number,py:number,s:number):void{
+    const lw=[6,5,4],lh=[10,8,7];let ty=py;
+    for(let l=0;l<3;l++){
+      const w2=Math.floor(lw[l]*s),h2=Math.floor(lh[l]*s),lx2=px2-w2;
+      for(let dy=0;dy<h2;dy++)pxHLine(ctx,lx2,ty-dy,w2*2,dy%4===0?wStone:wStoneD);
+      pxRect(ctx,lx2-1,ty-h2,w2*2+2,2,wTile);
+      px(ctx,lx2-1,ty-h2,wTileL);px(ctx,lx2+w2*2,ty-h2,wTile);
+      ty-=h2+1;
+    }
+    pxVLine(ctx,px2,ty-4,5,wWood);pxRect(ctx,px2-2,ty-5,5,3,wGold);px(ctx,px2,ty-6,'#FFE8B0');
+  }
+
+  // ═══ 石板路网 ═══
+  const plazaR=40;
+  for(let dy=-plazaR;dy<plazaR;dy++)for(let dx=-plazaR;dx<plazaR;dx++)
+    if(Math.abs(dx)+Math.abs(dy)<plazaR&&hash(cx+dx,cy+dy)%5<3)
+      px(ctx,cx+dx,cy+dy,pathC);
+  drawStonePath([[cx,cy],[cx,490] as any],12);
+  drawStonePath([[cx,cy],[cx,50] as any],10);
+  drawStonePath([[cx,cy],[10,cy] as any],10);
+  drawStonePath([[cx,cy],[890,cy] as any],11);
+  drawStonePath([[cx-80,cy+60],[80,330] as any],6);
+  drawStonePath([[cx+80,cy+60],[W-90,325] as any],6);
+  drawStonePath([[cx-60,cy-50],[120,258] as any],5);
+  drawStonePath([[80,330],[120,258] as any],5);
+  drawStonePath([[W-90,325],[W-55,455] as any],5);
+  drawStonePath([[80,330],[65,475] as any],5);
+  drawStonePath([[cx-40,cy+80],[110,425] as any],5);
+  drawStonePath([[cx+50,cy+90],[W-140,415] as any],5);
+
   // ═══ 布局放置 ═══
 
-  // ── 远景层（y: 120-200, 淡灰, 小比例） ──
-  // 左上远墙
-  drawLowWall(60, 155, 80, 6); shadow(100, 161, 42, 6);
-  // 右上远墙
-  drawLowWall(W - 140, 150, 90, 5); shadow(W - 95, 155, 48, 5);
-  // 远处小牌坊（左上）
-  shadow(170, 148, 14, 10);
-  drawSmallGate(170, 148, 0.8);
-  // 远处小偏殿（右上）
-  shadow(W - 120, 160, 22, 12);
-  drawSideHall(W - 120, 160, 24, 28, 0.8);
-  // 远处石碑
-  drawStele(80, 170, 8);
-  shadow(80, 170, 5, 4);
+  // ── 远景层（y:120-200, 淡, 0.6-0.8x） ──
+  drawLowWall(50,148,70,5);shadow(85,153,38,5);
+  drawLowWall(W-140,142,100,5);shadow(W-90,147,52,5);
+  drawLowWall(300,138,40,5);shadow(320,143,22,5);
+  shadow(160,140,12,8);drawSmallGate(160,140,0.7);
+  shadow(W-110,152,18,10);drawSideHall(W-110,152,20,24,0.7);
+  drawStele(70,162,6);shadow(70,162,4,3);
+  drawStele(350,155,5);shadow(350,155,4,3);
+  shadow(400,148,12,8);drawSmallPagoda(400,148,0.6);
+  shadow(200,165,14,10);drawSmallGate(200,165,0.7);
+  shadow(280,170,8,6);drawWell(280,170);
 
-  // ── 中景层（y: 250-350, 正常色） ──
-  // 左上牌坊
-  shadow(130, 265, 16, 12);
-  drawSmallGate(130, 265, 1.0);
-  // 左侧院墙
-  drawLowWall(30, 280, 70, 7); shadow(65, 287, 38, 6);
-  // 右侧围墙
-  drawLowWall(W - 130, 290, 90, 6); shadow(W - 85, 296, 48, 5);
-  // 左侧偏殿
-  shadow(90, 330, 28, 18);
-  drawSideHall(90, 330, 32, 36, 1.0);
-  // 右侧小偏殿
-  shadow(W - 80, 325, 22, 15);
-  drawSideHall(W - 80, 325, 26, 30, 0.9);
+  // ── 中景层（y:250-360, 正常, 0.9-1.0x） ──
+  shadow(120,258,14,10);drawSmallGate(120,258,1.0);
+  drawLowWall(25,275,65,6);shadow(58,281,35,5);
+  drawLowWall(W-140,285,95,6);shadow(W-93,291,50,5);
+  drawLowWall(300,270,55,6);shadow(328,276,30,5);
+  shadow(80,322,26,16);drawSideHall(80,322,28,32,1.0);
+  shadow(W-90,318,22,14);drawSideHall(W-90,318,24,28,0.9);
+  shadow(340,300,16,12);drawSideHall(340,300,18,22,0.85);
+  shadow(180,280,12,8);drawSmallGate(180,280,0.85);
+  drawStele(50,310,8);shadow(50,310,5,4);
+  drawStele(W-50,305,7);shadow(W-50,305,5,3);
+  drawStele(320,290,6);shadow(320,290,4,3);
+  shadow(250,340,10,8);drawWell(250,340);
+  shadow(160,345,8,6);drawIncenseBurner(160,345);
+  shadow(420,320,6,4);drawStoneLantern(420,320);
+  shadow(460,335,12,8);drawSmallPagoda(460,335,0.7);
+  shadow(30,350,18,12);drawSmallGate(30,350,0.8);
 
-  // ── 近景层（y: 380-500, 深色, 略大） ──
-  // 左前石灯
-  shadow(55, 400, 6, 4);
-  drawStoneLantern(55, 400);
-  // 右前石灯
-  shadow(W - 65, 395, 6, 4);
-  drawStoneLantern(W - 65, 395);
-  // 香炉（左下）
-  shadow(120, 430, 8, 6);
-  drawIncenseBurner(120, 430);
-  // 石碑（右侧）
-  shadow(W - 150, 420, 6, 5);
-  drawStele(W - 150, 420, 10);
-  // 右侧围墙段
-  drawLowWall(W - 100, 440, 70, 7); shadow(W - 65, 447, 38, 6);
-  // 左侧围墙段
-  drawLowWall(20, 460, 55, 6); shadow(48, 466, 30, 5);
-  // 右侧近处偏殿（稍大）
-  shadow(W - 60, 460, 28, 20);
-  drawSideHall(W - 60, 460, 30, 38, 1.1);
-  // 左侧小牌坊
-  shadow(70, 480, 14, 10);
-  drawSmallGate(70, 480, 0.9);
+  // ── 近景层（y:380-510, 深, 1.0-1.2x） ──
+  shadow(50,395,6,4);drawStoneLantern(50,395);
+  shadow(W-60,390,6,4);drawStoneLantern(W-60,390);
+  shadow(200,385,6,4);drawStoneLantern(200,385);
+  shadow(400,385,6,4);drawStoneLantern(400,385);
+  shadow(110,425,8,6);drawIncenseBurner(110,425);
+  shadow(W-140,415,5,4);drawStele(W-140,415,9);
+  shadow(300,410,5,4);drawStele(300,410,8);
+  shadow(450,420,5,3);drawStele(450,420,7);
+  drawLowWall(W-110,435,80,7);shadow(W-70,442,42,6);
+  drawLowWall(15,455,60,6);shadow(45,461,32,5);
+  drawLowWall(350,445,55,6);shadow(378,451,30,5);
+  shadow(W-55,455,28,20);drawSideHall(W-55,455,30,38,1.1);
+  shadow(65,475,14,10);drawSmallGate(65,475,0.95);
+  shadow(330,470,16,12);drawSmallGate(330,470,0.9);
+  shadow(250,490,10,8);drawWell(250,490);
+  shadow(420,480,8,6);drawIncenseBurner(420,480);
+  shadow(480,465,6,4);drawStoneLantern(480,465);
+  shadow(15,500,18,14);drawSideHall(15,500,20,26,1.0);
+  shadow(500,500,18,14);drawSideHall(500,500,20,26,1.0);
+  shadow(170,505,8,6);drawIncenseBurner(170,505);
+  shadow(W-200,500,8,6);drawIncenseBurner(W-200,500);
+  shadow(380,510,12,8);drawSmallGate(380,510,0.85);
+  shadow(580,495,6,4);drawStoneLantern(580,495);
 
   // ── 7. 底部暗角 ──
   for (let gy = H - 20; gy < H; gy++) {
     for (let gx = 0; gx < W; gx++) {
       if (hash(gx, gy) % 5 === 0) {
-        px(ctx, gx, gy, sDark[gx % 5]);
+        px(ctx, gx, gy, sdDark);
       }
     }
   }
@@ -454,7 +555,7 @@ function genBackground(scene: Phaser.Scene) {
         const qx = cx2 === 0 ? dx : W - 1 - dx;
         const qy = cy2 === 0 ? dy : H - 1 - dy;
         if (Math.sqrt(dx*dx + dy*dy) < 40 && hash(qx, qy) % 6 === 0) {
-          px(ctx, qx, qy, sDark[(qx + qy) % 5]);
+          px(ctx, qx, qy, sdDark);
         }
       }
     }
@@ -1334,7 +1435,7 @@ function genBarFill(scene: Phaser.Scene, key: string, w: number, h: number, fill
 // ═══════════════════════════════════
 
 function genExpBarFrame(scene: Phaser.Scene): void {
-  const w = 1000, h = 12, b = '#8A8A80';
+  const w = 1000, h = 14, b = '#8A8A80';
   const { canvas, ctx } = makeCanvas(w * PX, h * PX);
   pxRect(ctx, 0, 0, w, h, '#1A1410');
   pxHLine(ctx, 0, 0, w, b); pxHLine(ctx, 0, h - 1, w, b);
@@ -1495,12 +1596,12 @@ function genHPBarMonster(scene: Phaser.Scene): void {
 // ═══════════════════════════════════
 
 function genUIAllTextures(scene: Phaser.Scene): void {
-  genBarBg(scene, 'bar_bg', 160, 14, '#2A2218', '#5C3A1E', '#3E2510');
-  genBarFill(scene, 'bar_fill_wood', 160, 14, '#C4884D');
-  genBarFill(scene, 'bar_fill_stone', 160, 14, '#8A8A80');
-  genBarFill(scene, 'bar_fill_tile', 160, 14, '#C04040');
-  genBarFill(scene, 'bar_fill_painting', 160, 14, '#9966CC');
-  genBarFill(scene, 'bar_fill_exp', 1000, 12, '#4488CC');
+  genBarBg(scene, 'bar_bg', 130, 16, '#2A2218', '#5C3A1E', '#3E2510');
+  genBarFill(scene, 'bar_fill_wood', 130, 16, '#C4884D');
+  genBarFill(scene, 'bar_fill_stone', 130, 16, '#8A8A80');
+  genBarFill(scene, 'bar_fill_tile', 130, 16, '#C04040');
+  genBarFill(scene, 'bar_fill_painting', 130, 16, '#9966CC');
+  genBarFill(scene, 'bar_fill_exp', 1000, 14, '#DAA520');
   genExpBarFrame(scene);
   genTimerPanel(scene);
   genPixelBorder16(scene);

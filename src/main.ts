@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MenuScene } from './MenuScene';
+import { TutorialScene } from './TutorialScene';
 import { GameScene } from './GameScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './config';
 
@@ -12,7 +13,7 @@ try {
     backgroundColor: '#1a1a2e',
     pixelArt: true,
     roundPixels: true,
-    scene: [MenuScene, GameScene],
+    scene: [MenuScene, TutorialScene, GameScene],
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
