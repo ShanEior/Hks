@@ -11,7 +11,8 @@ import { VFX } from './VFX';
 
 // ── 投射物 ──
 interface Projectile {
-  graphic: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Arc;
+  graphic: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
+  glow?: Phaser.GameObjects.Image;  // 光晕图
   startX: number; startY: number;
   angle: number;
   speed: number;
@@ -130,8 +131,7 @@ export class SkillManager {
     // 清理过期对象
     this.projectiles = this.projectiles.filter(p => {
       if (p.elapsed >= p.lifetime) {
-        const g3 = (p.graphic as any)._glow; if (g3) g3.destroy();
-        const h3 = (p.graphic as any)._hl; if (h3) h3.destroy();
+        if (p.glow) p.glow.destroy();
         p.graphic.destroy();
         return false;
       }
@@ -171,12 +171,10 @@ export class SkillManager {
     }
   }
 
-  // ── 木构加固：向最近敌人发射矩形冲击波 ──
+  // ── 木构加固：向最近敌人发射木梁冲击波 ──
   private castWoodReinforce(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
     const speed = 400;
     const lifetime = 0.6;
-    const width = 30;
-    const height = (skill.range / 2) * (skill.widthMultiplier ?? 1);
 
     // 找最近怪物作为目标方向
     let nearest: Monster | null = null;
@@ -188,22 +186,20 @@ export class SkillManager {
     }
     const angle = nearest
       ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
-      : -Math.PI / 2; // 无目标时默认向上
+      : -Math.PI / 2;
 
-    // 梁身（粗木梁 + 高光条纹）
-    const rect = this.scene.add.rectangle(player.x, player.y, width * 1.5, height, 0xC4884D, 0.9);
-    rect.setDepth(15);
-    rect.setRotation(angle);
-    // 梁身高光
-    const hl = this.scene.add.rectangle(player.x, player.y, width * 0.5, height * 0.6, 0xdaa060, 0.7);
-    hl.setDepth(16);
-    hl.setRotation(angle);
-
-    // 作为投射物追踪（同时推进两个矩形）
-    (rect as any)._hl = hl;
+    // 使用像素木梁纹理
+    const texKey = 'wood_beam';
+    const beam = this.scene.textures.exists(texKey)
+      ? this.scene.add.image(player.x, player.y, texKey)
+      : this.scene.add.rectangle(player.x, player.y, 30, 80, 0xC4884D, 0.9) as any;
+    beam.setDepth(15);
+    beam.setRotation(angle);
+    if (skill.level >= 2) beam.setScale(1.2);
+    if (skill.level >= 3) beam.setScale(1.5);
 
     this.projectiles.push({
-      graphic: rect,
+      graphic: beam as Phaser.GameObjects.Image,
       startX: player.x, startY: player.y,
       angle, speed, lifetime, elapsed: 0,
       damage: skill.damage,
@@ -293,16 +289,21 @@ export class SkillManager {
     }
     if (!nearest) return;
 
-    // 颜料弹本体（更大+光晕）
-    const ball = this.scene.add.circle(player.x, player.y, 7, 0xFF66CC, 1);
+    // 使用像素颜料弹纹理
+    const ball = this.scene.add.image(player.x, player.y, 'paint_ball');
     ball.setDepth(15);
+    if (skill.level >= 2) ball.setScale(1.3);
+
     // 光晕
-    const glow = this.scene.add.circle(player.x, player.y, 12, 0xFF88DD, 0.3);
-    glow.setDepth(14);
-    (ball as any)._glow = glow;
+    const glowTexKey = 'exp_orb';
+    const glow = this.scene.textures.exists(glowTexKey)
+      ? this.scene.add.image(player.x, player.y, glowTexKey)
+      : null;
+    if (glow) { glow.setDepth(14); glow.setAlpha(0.35); glow.setScale(1.2); }
 
     this.projectiles.push({
-      graphic: ball,
+      graphic: ball as Phaser.GameObjects.Image,
+      glow: glow ?? undefined,
       startX: player.x, startY: player.y,
       angle: 0, speed: 300, lifetime: 3, elapsed: 0,
       damage: skill.damage,
@@ -350,8 +351,7 @@ export class SkillManager {
         p.graphic.x += Math.cos(angle) * p.speed * dt;
         p.graphic.y += Math.sin(angle) * p.speed * dt;
         // 同步光晕
-        const pg = (p.graphic as any)._glow as Phaser.GameObjects.Arc;
-        if (pg) { pg.x = p.graphic.x; pg.y = p.graphic.y; }
+        if (p.glow) { p.glow.x = p.graphic.x; p.glow.y = p.graphic.y; }
 
         // 命中检测
         const dist = Phaser.Math.Distance.Between(
@@ -382,8 +382,10 @@ export class SkillManager {
               p.graphic.x = m.x;
               p.graphic.y = m.y;
               p.bounceUsed = true;
-              const ball = p.graphic as Phaser.GameObjects.Arc;
-              ball.setFillStyle(0xFFCC00); // 弹射变金色
+              // 弹射变金色
+              if ('setTint' in p.graphic) {
+                (p.graphic as Phaser.GameObjects.Image).setTint(0xFFCC00);
+              }
               continue;
             }
           }
@@ -394,9 +396,6 @@ export class SkillManager {
         // 方向投射物（木构加固）
         p.graphic.x += Math.cos(p.angle) * p.speed * dt;
         p.graphic.y += Math.sin(p.angle) * p.speed * dt;
-        // 同步高光
-        const phl = (p.graphic as any)._hl as Phaser.GameObjects.Rectangle;
-        if (phl) { phl.x = p.graphic.x; phl.y = p.graphic.y; }
 
         // 与怪物碰撞检测
         for (const m of monsters) {

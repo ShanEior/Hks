@@ -42,6 +42,13 @@ interface ExpOrb {
   lifetime: number;
 }
 
+// ── 修补箱 ──
+interface RepairCrate {
+  graphic: Phaser.GameObjects.Image;
+  x: number; y: number;
+  lifetime: number;
+}
+
 // ── 升级选项 ──
 interface LevelUpOption {
   id: SkillId;
@@ -59,6 +66,7 @@ export class GameScene extends Phaser.Scene {
   private monsters: Monster[] = [];
   private puddles: Puddle[] = [];
   private expOrbs: ExpOrb[] = [];
+  private repairCrates: RepairCrate[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -153,6 +161,8 @@ export class GameScene extends Phaser.Scene {
 
     // 经验球更新
     this.updateExpOrbs(delta);
+    // 修补箱更新
+    this.updateRepairCrates(delta);
 
     // 自动普攻
     this.updateAutoAttack(delta);
@@ -245,10 +255,12 @@ export class GameScene extends Phaser.Scene {
 
     monster.onDeath = (m) => {
       this.killCount++;
-      // 击杀直接给经验
       this.player.exp += m.expDrop;
-      // 额外掉经验球拾取再加
       this.spawnExpOrb(m.x, m.y, m.expDrop);
+      // 15% 概率掉落修补箱
+      if (Math.random() < 0.15) {
+        this.spawnRepairCrate(m.x, m.y);
+      }
     };
 
     this.monsters.push(monster);
@@ -296,6 +308,47 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.expOrbs = this.expOrbs.filter(o => o.lifetime > 0 && o.graphic.active);
+  }
+
+  // ── 修补箱 ──
+  private spawnRepairCrate(x: number, y: number): void {
+    const crate = this.add.image(x, y, 'repair_crate');
+    crate.setDepth(9);
+    this.repairCrates.push({ graphic: crate, x, y, lifetime: 20 });
+  }
+
+  private updateRepairCrates(delta: number): void {
+    const dt = delta / 1000;
+    for (const c of this.repairCrates) {
+      c.lifetime -= dt;
+      if (c.lifetime <= 0) { c.graphic.destroy(); continue; }
+
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
+      if (dist < PICKUP_RANGE) {
+        // 吸附
+        const a = Math.atan2(this.player.y - c.y, this.player.x - c.x);
+        c.x += Math.cos(a) * EXP_ORB_CONFIG.attractSpeed * dt;
+        c.y += Math.sin(a) * EXP_ORB_CONFIG.attractSpeed * dt;
+        c.graphic.x = c.x;
+        c.graphic.y = c.y;
+
+        if (dist < 16) {
+          // 拾取：每个结构 +10 HP
+          for (const type of ['wood', 'stone', 'tile', 'painting'] as const) {
+            this.building.healStructure(type, 10);
+          }
+          VFX.burst(this, c.x, c.y, 12, [0x44ff88, 0xffdd44, 0xffffff], 80, 3, 400);
+          SoundManager.expPickup();
+          c.graphic.destroy();
+        }
+      }
+
+      // 快过期闪烁
+      if (c.lifetime < 5) {
+        c.graphic.setAlpha(Math.sin(c.lifetime * 10) > 0 ? 1 : 0.3);
+      }
+    }
+    this.repairCrates = this.repairCrates.filter(c => c.lifetime > 0 && c.graphic.active);
   }
 
   // ── 升级检测 ──

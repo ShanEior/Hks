@@ -16,6 +16,9 @@ export class Player {
   joystickVx = 0;
   joystickVy = 0;
 
+  /** 上次 X 坐标（用于判断朝向） */
+  private lastX: number;
+
   private keys: {
     W: Phaser.Input.Keyboard.Key;
     A: Phaser.Input.Keyboard.Key;
@@ -34,6 +37,7 @@ export class Player {
 
     this.sprite = scene.add.image(x, y, 'player');
     this.sprite.setDepth(10);
+    this.lastX = x;
 
     const kb = scene.input.keyboard;
     if (kb) {
@@ -86,6 +90,23 @@ export class Player {
 
     this.sprite.x = nx;
     this.sprite.y = ny;
+
+    // 根据移动方向翻转精灵
+    const dx = nx - this.lastX;
+    if (Math.abs(dx) > 0.5) {
+      this.sprite.setFlipX(dx < 0);
+    }
+    this.lastX = nx;
+
+    // 移动时轻微弹跳缩放（lerp 平滑过渡）
+    const isMoving = len > 0.1;
+    const targetScale = isMoving ? 1.04 : 1.0;
+    const currentScale = Math.abs(this.sprite.scaleX);
+    const newScale = currentScale + (targetScale - currentScale) * 0.12;
+    this.sprite.setScale(
+      this.sprite.flipX ? -newScale : newScale,
+      newScale,
+    );
   }
 
   get x(): number { return this.sprite.x; }

@@ -31,6 +31,7 @@ export class Monster {
   private targetY: number;
   private attackRange: number;
   private lastAttackTime = 0;
+  private idleTween: Phaser.Tweens.Tween | null = null;
 
   isDead = false;
 
@@ -78,6 +79,9 @@ export class Monster {
       this.sprite = scene.add.image(x, y, key);
     }
     this.sprite.setDepth(5);
+
+    // 启动待机动画
+    this.startIdleAnim();
 
     // 头顶血条
     this.hpBar = scene.add.graphics();
@@ -138,11 +142,82 @@ export class Monster {
     this.isDead = true;
     this.onDeath?.(this);
 
+    // 停止待机动画
+    if (this.idleTween) { this.idleTween.stop(); this.idleTween = null; }
+
     const color = MONSTER_COLORS[this.type] ?? 0xDDDDDD;
     VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color);
 
     this.sprite.destroy();
     this.hpBar.destroy();
+  }
+
+  /** 启动待机动画（Tween 驱动，无额外纹理开销） */
+  private startIdleAnim(): void {
+    switch (this.type) {
+      case 'termite':
+        // 快速小幅度左右摇摆 + 轻微伸缩
+        this.idleTween = this.scene.tweens.add({
+          targets: this.sprite,
+          scaleX: { from: 1.0, to: 1.08 },
+          scaleY: { from: 1.08, to: 1.0 },
+          duration: 300 + Math.random() * 100,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        break;
+      case 'wind':
+        // 旋转 + 缩放脉冲
+        this.idleTween = this.scene.tweens.add({
+          targets: this.sprite,
+          angle: { from: -8, to: 8 },
+          scaleX: { from: 1.0, to: 1.06 },
+          scaleY: { from: 1.0, to: 1.06 },
+          duration: 500 + Math.random() * 200,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        break;
+      case 'acid_rain':
+        // 上下压缩拉伸 bounce（仅缩放，不改变位置）
+        this.idleTween = this.scene.tweens.add({
+          targets: this.sprite,
+          scaleY: { from: 1.0, to: 0.82 },
+          scaleX: { from: 1.0, to: 1.15 },
+          duration: 450,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Bounce.easeOut',
+        });
+        break;
+      case 'fire':
+        // 火焰闪烁（快速不规则缩放）
+        this.idleTween = this.scene.tweens.add({
+          targets: this.sprite,
+          scaleX: { from: 0.94, to: 1.08 },
+          scaleY: { from: 1.04, to: 0.90 },
+          duration: 200 + Math.random() * 150,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        break;
+      case 'freeze_thaw':
+        // 缓慢漂浮（透明度脉冲 + 微小缩放）
+        this.idleTween = this.scene.tweens.add({
+          targets: this.sprite,
+          alpha: { from: 0.88, to: 1.0 },
+          scaleX: { from: 0.98, to: 1.02 },
+          scaleY: { from: 0.98, to: 1.02 },
+          duration: 1500 + Math.random() * 500,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        break;
+    }
   }
 
   private drawHpBar(): void {

@@ -217,3 +217,44 @@ export const SPAWN_WEIGHTS: { type: MonsterType; weight: number }[] = [
   { type: 'fire', weight: 15 },
   { type: 'freeze_thaw', weight: 5 },
 ];
+
+// ============================================================
+// UI 样式 — 像素风调色板 + 字体预设
+// ============================================================
+
+export const PALETTE = {
+  GOLD:         '#DAA520',
+  BRIGHT_GOLD:  '#FFD700',
+  DARK_GOLD:    '#B8960A',
+  DARK_WOOD:    '#3E2510',
+  OAK_WOOD:     '#6B4226',
+  PALE_WOOD:    '#C4884D',
+  CINNABAR:     '#C04040',
+  JADE_GREEN:   '#5B8C5A',
+  STONE_GRAY:   '#8A8A80',
+  PARCHMENT:    '#F0E8D0',
+  INK_BLACK:    '#1A1410',
+  DANGER_RED:   '#E04040',
+  HEAL_GREEN:   '#44CC66',
+  PANEL_BG:     '#1E1810',
+  BAR_BG:       '#2A2218',
+} as const;
+
+/** 像素风字体预设 — 统一用 monospace 偶数字号，在 pixelArt:true 下足够锐利 */
+export const FONT = {
+  tiny:     { fontFamily: 'monospace', fontSize: '8px' },
+  small:    { fontFamily: 'monospace', fontSize: '10px' },
+  body:     { fontFamily: 'monospace', fontSize: '12px' },
+  large:    { fontFamily: 'monospace', fontSize: '16px' },
+  title:    { fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold' },
+  huge:     { fontFamily: 'monospace', fontSize: '32px', fontStyle: 'bold' },
+} as const;
+
+/** 像素纹理的单位块大小（与 ArtGen.ts 中的 PX 一致） */
+export const UI_PX = 2;
+
+/** 结构血条通用尺寸 */
+export const STRUCT_BAR = { w: 160, h: 14, gap: 10 } as const;
+
+/** 升级卡片尺寸 */
+export const LEVELUP_CARD = { w: 220, h: 210 } as const;

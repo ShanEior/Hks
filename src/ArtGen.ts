@@ -113,6 +113,7 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genBuilding(scene);
   genExpOrb(scene);
   genBolt(scene);
+  genRepairCrate(scene);
   genSkillTextures(scene);
 }
 
@@ -857,6 +858,39 @@ function genBolt(scene: Phaser.Scene) {
 // ═══════════════════════════════════════════════
 // 技能特效纹理
 // ═══════════════════════════════════════════════
+
+// ── 修补箱 12×12 像素格（=24×24物理px） ──
+
+function genRepairCrate(scene: Phaser.Scene) {
+  const S = 12;
+  const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+
+  // 木箱本体
+  pxRect(ctx, 1, 2, 10, 9, PAL.midBrown);
+  // 箱面亮面
+  pxRect(ctx, 2, 3, 8, 7, PAL.warmBrown);
+  // 木纹
+  pxHLine(ctx, 2, 5, 8, PAL.goldBrown);
+  pxHLine(ctx, 2, 8, 8, PAL.goldBrown);
+  // 金属包角
+  px(ctx, 1, 2, PAL.gold);
+  px(ctx, 10, 2, PAL.gold);
+  px(ctx, 1, 10, PAL.gold);
+  px(ctx, 10, 10, PAL.gold);
+  // 十字绷带/加固带
+  pxVLine(ctx, 6, 2, 9, PAL.lightBrown);
+  pxHLine(ctx, 1, 6, 10, PAL.lightBrown);
+  // 中心金色加固扣
+  pxRect(ctx, 5, 5, 2, 2, PAL.gold);
+  px(ctx, 6, 6, PAL.lightGold);
+  // 绿色十字（修复标记）
+  px(ctx, 4, 1, PAL.lightGreen);
+  px(ctx, 8, 1, PAL.lightGreen);
+  px(ctx, 2, 3, PAL.lightGreen);
+  px(ctx, 10, 3, PAL.lightGreen);
+
+  addTex(scene, 'repair_crate', canvas);
+}
 
 function genSkillTextures(scene: Phaser.Scene) {
   // ── 木构加固：木梁冲击波 16×6 px格 ──
