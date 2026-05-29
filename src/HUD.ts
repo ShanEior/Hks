@@ -21,11 +21,6 @@ interface LevelUpOption {
 export class HUD {
   scene: Phaser.Scene;
 
-  // 玩家 HP
-  private hpBg!: Phaser.GameObjects.Rectangle;
-  private hpFill!: Phaser.GameObjects.Rectangle;
-  private hpLabel!: Phaser.GameObjects.Text;
-
   // 4 条古建结构血条
   private structBars: StructBar[] = [];
 
@@ -44,22 +39,9 @@ export class HUD {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.createPlayerHpBar();
     this.createStructureBars();
     this.createTimer();
     this.createExpBar();
-  }
-
-  // ── 玩家 HP 条（左上） ──
-  private createPlayerHpBar(): void {
-    const x = 12, y = 12, w = 180, h = 14;
-    this.hpBg = this.scene.add.rectangle(x, y, w, h, 0x333333)
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.hpFill = this.scene.add.rectangle(x, y, w, h, 0xff4444)
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
-    this.hpLabel = this.scene.add.text(x + 4, y + 1, '',
-      { fontSize: '11px', color: '#fff', fontFamily: 'monospace' })
-      .setScrollFactor(0).setDepth(102);
   }
 
   // ── 4 条古建血条（屏幕上方居中） ──
@@ -121,11 +103,6 @@ export class HUD {
   // ── 每帧刷新 ──
   update(player: Player, building: Building, gameTime: number): void {
     const fullW = GAME_WIDTH - 24;
-
-    // 玩家 HP
-    const hpRatio = player.hp / player.maxHp;
-    this.hpFill.setSize(180 * hpRatio, 14);
-    this.hpLabel.setText(`HP  ${player.hp}/${player.maxHp}`);
 
     // 古建结构血条
     for (const bar of this.structBars) {

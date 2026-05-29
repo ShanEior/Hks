@@ -148,11 +148,6 @@ export class GameScene extends Phaser.Scene {
     // 升级检测（在经验球拾取后）
     this.checkLevelUp();
 
-    if (this.player.isDead) {
-      this.endGame(false);
-      return;
-    }
-
     this.gameTime -= delta / 1000;
     if (this.gameTime <= 0) {
       this.gameTime = 0;
@@ -375,7 +370,7 @@ export class GameScene extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
       if (dist < PLAYER_CONFIG.radius + m.sprite.radius) {
         m.onPlayerContact?.(m);
-        this.player.takeDamage(m.damage);
+        // 玩家无敌，不扣血
       }
     }
   }

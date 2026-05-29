@@ -4,11 +4,9 @@ import { MAP_WIDTH, MAP_HEIGHT, SPEED_FACTOR } from './config';
 export class Player {
   scene: Phaser.Scene;
   sprite: Phaser.GameObjects.Arc;
-  hp: number;
-  maxHp: number;
-  private baseMoveSpeed: number; // px/s（原始速度）
+  private baseMoveSpeed: number;
 
-  // 成长属性（Phase 5 接入）
+  // 成长属性
   exp = 0;
   level = 1;
   expToNext = 15;
@@ -28,12 +26,10 @@ export class Player {
   constructor(
     scene: Phaser.Scene,
     x: number, y: number,
-    maxHp: number, moveSpeed: number,
+    _maxHp: number, moveSpeed: number,
     radius: number, color: number,
   ) {
     this.scene = scene;
-    this.hp = maxHp;
-    this.maxHp = maxHp;
     this.baseMoveSpeed = moveSpeed * SPEED_FACTOR;
 
     this.sprite = scene.add.circle(x, y, radius, color);
@@ -94,18 +90,6 @@ export class Player {
 
     this.sprite.x = nx;
     this.sprite.y = ny;
-  }
-
-  takeDamage(amount: number): void {
-    this.hp = Math.max(0, this.hp - amount);
-    this.sprite.setFillStyle(0xffffff);
-    this.scene.time.delayedCall(100, () => {
-      if (this.sprite.active) this.sprite.setFillStyle(0x4488ff);
-    });
-  }
-
-  get isDead(): boolean {
-    return this.hp <= 0;
   }
 
   get x(): number { return this.sprite.x; }
