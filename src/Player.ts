@@ -39,13 +39,18 @@ export class Player {
     this.sprite = scene.add.circle(x, y, radius, color);
     this.sprite.setDepth(10);
 
-    const kb = scene.input.keyboard!;
-    this.keys = {
-      W: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: kb.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-    };
+    const kb = scene.input.keyboard;
+    if (kb) {
+      this.keys = {
+        W: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+        A: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        S: kb.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+        D: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      };
+    } else {
+      // 无键盘时（移动端），创建 dummy 对象防止崩溃
+      this.keys = { W: {} as any, A: {} as any, S: {} as any, D: {} as any };
+    }
   }
 
   /** 当前有效移动速度（含减速） */

@@ -585,8 +585,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── 调试 ──
   private setupDebugControls(): void {
-    // 游戏已完成可用，调试键保留但缩减
-    const kb = this.input.keyboard!;
+    const kb = this.input.keyboard;
+    if (!kb) return;
     kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
   }
 }
