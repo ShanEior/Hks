@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
   // 自动普攻
   private autoAttackTimer = 0;
   private readonly autoAttackCooldown = 0.7;
-  private readonly autoAttackDamage = 8;
+  private readonly autoAttackDamage = 15;
   private autoBolts: AutoBolt[] = [];
 
   // 升级面板状态
@@ -245,6 +245,9 @@ export class GameScene extends Phaser.Scene {
 
     monster.onDeath = (m) => {
       this.killCount++;
+      // 击杀直接给经验
+      this.player.exp += m.expDrop;
+      // 额外掉经验球拾取再加
       this.spawnExpOrb(m.x, m.y, m.expDrop);
     };
 

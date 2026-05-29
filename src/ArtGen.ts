@@ -1,7 +1,8 @@
 /**
- * ArtGen — 像素风精灵纹理生成器
+ * ArtGen — 像素风精灵纹理生成器 v2
  * 全部使用 Canvas2D 绘制，零外部文件
- * 风格：精细像素风，硬边缘，有限色板，高光阴影
+ * 风格参考：东方夜雀食堂（暖色调、精细像素、Q版萌系）
+ * 像素块：PX=2（1 像素格 = 2×2 物理像素）
  */
 
 import Phaser from 'phaser';
@@ -9,6 +10,8 @@ import Phaser from 'phaser';
 // ═══════════════════════════════════════════════
 // 工具函数
 // ═══════════════════════════════════════════════
+
+const PX = 2; // 像素块大小
 
 function makeCanvas(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -23,25 +26,77 @@ function addTex(scene: Phaser.Scene, key: string, canvas: HTMLCanvasElement) {
   scene.textures.addCanvas(key, canvas);
 }
 
-// 绘制单个"像素块"（实际是 2×2 物理像素，形成像素风格）
-const PX = 2; // 像素块大小
+/** 绘制单个像素块 */
 function px(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
   ctx.fillStyle = color;
   ctx.fillRect(x * PX, y * PX, PX, PX);
 }
 
+/** 绘制矩形像素块 */
 function pxRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
   ctx.fillStyle = color;
   ctx.fillRect(x * PX, y * PX, w * PX, h * PX);
 }
 
+/** 水平线 */
 function pxHLine(ctx: CanvasRenderingContext2D, x: number, y: number, len: number, color: string) {
   pxRect(ctx, x, y, len, 1, color);
 }
 
+/** 垂直线 */
 function pxVLine(ctx: CanvasRenderingContext2D, x: number, y: number, len: number, color: string) {
   pxRect(ctx, x, y, 1, len, color);
 }
+
+// ═══════════════════════════════════════════════
+// 全局暖色调色板（参考美术文档 15.2）
+// ═══════════════════════════════════════════════
+
+const PAL = {
+  // 暖棕系
+  darkBrown:   '#2D1B0E',
+  midBrown:    '#4A3528',
+  warmBrown:   '#6B4C3B',
+  goldBrown:   '#8B6914',
+  lightBrown:  '#B8956E',
+  creamGold:   '#D4A76A',
+  // 暖红系
+  darkRed:     '#8B3A1A',
+  warmRed:     '#A0522D',
+  orangeBrown: '#C87848',
+  brightOrange:'#E89858',
+  // 暖绿系
+  darkGreen:   '#2D4A1E',
+  midGreen:    '#3D6A2A',
+  leafGreen:   '#5A8A4A',
+  lightGreen:  '#8AB868',
+  // 暖金系
+  gold:        '#FFCC44',
+  lightGold:   '#FFDD88',
+  warmWhite:   '#FFF0C0',
+  pureWhite:   '#FFFFFF',
+  // 中性色
+  deepBrown:   '#554433',
+  darkGray:    '#777766',
+  midGray:     '#999999',
+  lightGray:   '#BBBBAA',
+  // 冷色（仅冻融怪/水纹）
+  iceBlue:     '#3366AA',
+  midBlue:     '#5599CC',
+  lightBlue:   '#88CCEE',
+  iceWhite:    '#CCEEFF',
+  // 肤色
+  skin:        '#FFDDBB',
+  skinShadow:  '#FFCCAA',
+  skinDark:    '#CC9977',
+  // 布料
+  blueCloth:   '#3355AA',
+  blueClothL:  '#3A6ED8',
+  // 笔/墨
+  inkBlack:    '#222222',
+  penBrown:    '#8B6914',
+  penTip:      '#333333',
+};
 
 // ═══════════════════════════════════════════════
 // 主入口
@@ -58,391 +113,503 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genBuilding(scene);
   genExpOrb(scene);
   genBolt(scene);
+  genSkillTextures(scene);
 }
 
 // ═══════════════════════════════════════════════
-// 背景：古风庭院 240×135 像素格（=480×270物理px）
+// 背景：古风庭院 480×270 像素格（=960×540 物理px）
 // ═══════════════════════════════════════════════
 
 function genBackground(scene: Phaser.Scene) {
-  const W = 240, H = 135;
+  const W = 480, H = 270;
   const { canvas, ctx } = makeCanvas(W * PX, H * PX);
 
-  // 草地
-  pxRect(ctx, 0, 0, W, H, '#4a8c3f');
-  // 草斑
-  for (let i = 0; i < 80; i++) {
+  // 草地基底 — 暖绿色
+  pxRect(ctx, 0, 0, W, H, PAL.leafGreen);
+
+  // 草斑纹理（更密集，150+ 点）
+  const grassColors = [PAL.midGreen, PAL.darkGreen, '#4A7A3A', '#6A9A5A', PAL.lightGreen];
+  for (let i = 0; i < 150; i++) {
     const rx = Math.floor(Math.random() * W);
     const ry = Math.floor(Math.random() * H);
-    const colors = ['#5a9c4f', '#3d7a32', '#529044', '#45873a'];
-    px(ctx, rx, ry, colors[i % 4]);
+    px(ctx, rx, ry, grassColors[i % grassColors.length]);
   }
 
-  // 土路（十字）
-  pxRect(ctx, 0, H / 2 - 3, W, 6, '#b8956e');
-  pxRect(ctx, W / 2 - 3, 0, 6, H, '#b8956e');
+  // 土路（十字）— 暖棕色
+  pxRect(ctx, 0, H / 2 - 4, W, 8, PAL.lightBrown);
+  pxRect(ctx, W / 2 - 4, 0, 8, H, PAL.lightBrown);
   // 路面纹理
-  for (let i = 0; i < 40; i++) {
-    px(ctx, Math.floor(Math.random() * W), H / 2 - 2 + Math.floor(Math.random() * 4), '#c9a47a');
-    px(ctx, W / 2 - 2 + Math.floor(Math.random() * 4), Math.floor(Math.random() * H), '#c9a47a');
+  const roadTex = [PAL.creamGold, PAL.warmBrown, '#C9A47A'];
+  for (let i = 0; i < 100; i++) {
+    px(ctx, Math.floor(Math.random() * W), H / 2 - 3 + Math.floor(Math.random() * 6), roadTex[i % 3]);
+    px(ctx, W / 2 - 3 + Math.floor(Math.random() * 6), Math.floor(Math.random() * H), roadTex[i % 3]);
   }
 
-  // 中央石板庭院
-  pxRect(ctx, W / 2 - 18, H / 2 - 18, 36, 36, '#a89880');
-  for (let gx = 0; gx < 5; gx++) {
-    for (let gy = 0; gy < 5; gy++) {
-      const sx = W / 2 - 16 + gx * 7;
-      const sy = H / 2 - 16 + gy * 7;
-      pxRect(ctx, sx, sy, 6, 6, '#b8a890');
-      pxRect(ctx, sx + 1, sy + 1, 4, 4, '#c8b898');
+  // 中央石板庭院 — 扩大
+  const plazaCX = W / 2, plazaCY = H / 2;
+  pxRect(ctx, plazaCX - 28, plazaCY - 28, 56, 56, PAL.lightGray);
+  for (let gx = 0; gx < 6; gx++) {
+    for (let gy = 0; gy < 6; gy++) {
+      const sx = plazaCX - 26 + gx * 9;
+      const sy = plazaCY - 26 + gy * 9;
+      pxRect(ctx, sx, sy, 8, 8, '#B8A890');
+      pxRect(ctx, sx + 1, sy + 1, 6, 6, '#C8B898');
     }
   }
 
-  // 四角松柏
+  // 四角松柏 — 更大更精细
   function tree(tx: number, ty: number) {
-    // 树干
-    pxRect(ctx, tx - 1, ty + 8, 2, 10, '#6b4c3b');
-    // 树冠（三层三角）
-    pxRect(ctx, tx - 6, ty - 2, 12, 5, '#2d5a1e');
-    pxRect(ctx, tx - 8, ty + 2, 16, 5, '#357a2a');
-    pxRect(ctx, tx - 10, ty + 6, 20, 4, '#3d8a32');
-    // 高光
-    px(ctx, tx - 2, ty - 1, '#4a9a3e');
-    px(ctx, tx + 1, ty + 3, '#4a9a3e');
-    px(ctx, tx, ty + 7, '#4a9a3e');
+    // 树干（三层色）
+    pxRect(ctx, tx - 2, ty + 14, 4, 14, PAL.deepBrown);
+    pxVLine(ctx, tx, ty + 12, 16, PAL.midBrown);       // 高光
+    // 树冠（四层三角，从暗到亮）
+    pxRect(ctx, tx - 10, ty - 2, 20, 6, PAL.darkGreen);  // L1 暗底
+    pxRect(ctx, tx - 8, ty + 0, 16, 5, PAL.midGreen);    // L1 亮面
+    pxRect(ctx, tx - 13, ty + 4, 26, 6, PAL.darkGreen);  // L2 暗底
+    pxRect(ctx, tx - 11, ty + 6, 22, 5, PAL.midGreen);   // L2 亮面
+    pxRect(ctx, tx - 16, ty + 10, 32, 5, PAL.darkGreen); // L3 暗底
+    pxRect(ctx, tx - 14, ty + 12, 28, 4, PAL.midGreen);  // L3 亮面
+    // 高光点
+    px(ctx, tx - 3, ty - 1, PAL.lightGreen);
+    px(ctx, tx + 1, ty + 5, PAL.lightGreen);
+    px(ctx, tx - 5, ty + 11, PAL.lightGreen);
+    px(ctx, tx + 2, ty + 13, PAL.lightGreen);
   }
-  tree(12, 20); tree(W - 14, 20);
-  tree(12, H - 30); tree(W - 14, H - 30);
+  tree(26, 38);
+  tree(W - 28, 38);
+  tree(26, H - 52);
+  tree(W - 28, H - 52);
 
-  // 围墙
-  for (let wx = 6; wx < W - 6; wx++) {
-    px(ctx, wx, 6, '#8d6e63');  // 上墙
-    px(ctx, wx, H - 7, '#8d6e63'); // 下墙
+  // 围墙 — 更完整的院墙
+  for (let wx = 8; wx < W - 8; wx++) {
+    px(ctx, wx, 8, PAL.midGray);     // 上墙
+    px(ctx, wx, H - 9, PAL.midGray); // 下墙
   }
-  for (let wy = 6; wy < H - 6; wy++) {
-    px(ctx, 6, wy, '#8d6e63');   // 左墙
-    px(ctx, W - 7, wy, '#8d6e63'); // 右墙
+  for (let wy = 8; wy < H - 8; wy++) {
+    px(ctx, 8, wy, PAL.midGray);     // 左墙
+    px(ctx, W - 9, wy, PAL.midGray); // 右墙
   }
-  // 墙垛
-  for (let wx = 6; wx < W - 6; wx += 16) {
-    pxRect(ctx, wx, 4, 4, 2, '#a08070');
-    pxRect(ctx, wx, H - 5, 4, 2, '#a08070');
+  // 墙垛（更密）
+  for (let wx = 8; wx < W - 8; wx += 20) {
+    pxRect(ctx, wx, 6, 5, 2, '#A08070');
+    pxRect(ctx, wx, H - 7, 5, 2, '#A08070');
   }
 
-  // 香炉（左下角）
-  const lx = 30, ly = H - 30;
-  pxRect(ctx, lx - 3, ly - 2, 6, 6, '#6d4c41');  // 炉身
-  pxRect(ctx, lx - 4, ly - 4, 8, 2, '#8d6e63');  // 炉口
-  // 炊烟
+  // 四角灯笼柱
+  function lanternPole(lx: number, ly: number) {
+    pxRect(ctx, lx, ly, 2, 18, PAL.deepBrown);          // 柱
+    pxRect(ctx, lx - 2, ly - 4, 6, 5, PAL.warmRed);     // 灯笼
+    pxRect(ctx, lx - 1, ly - 3, 4, 3, PAL.brightOrange);// 灯笼亮面
+    px(ctx, lx + 1, ly - 1, PAL.gold);                   // 烛光
+  }
+  lanternPole(15, 10);
+  lanternPole(W - 18, 10);
+  lanternPole(15, H - 28);
+  lanternPole(W - 18, H - 28);
+
+  // 香炉（左下，更精细）
+  const lx = 50, ly = H - 44;
+  pxRect(ctx, lx - 5, ly, 10, 10, PAL.midBrown);      // 炉身
+  pxRect(ctx, lx - 4, ly - 1, 8, 2, PAL.warmBrown);   // 炉身亮面
+  pxRect(ctx, lx - 6, ly - 2, 12, 3, PAL.midGray);     // 炉口
+  pxRect(ctx, lx - 7, ly - 4, 14, 2, PAL.lightGray);   // 炉檐
+  // 三足
+  pxRect(ctx, lx - 4, ly + 9, 3, 3, PAL.darkGray);
+  pxRect(ctx, lx + 1, ly + 9, 3, 3, PAL.darkGray);
+  // 炊烟（3 缕弯曲上升）
   for (let s = 0; s < 3; s++) {
-    px(ctx, lx - 1 + s, ly - 6 - s * 2, '#ccc');
-    px(ctx, lx + s, ly - 8 - s * 2, '#ddd');
+    const ox = lx - 2 + s * 3;
+    for (let j = 0; j < 6; j++) {
+      const sx = ox + (j % 2 === 0 ? 0 : 1);
+      const sy = ly - 8 - j * 3;
+      px(ctx, sx, sy, j < 2 ? '#CCCCCC' : '#DDDDDD');
+    }
   }
 
   addTex(scene, 'background', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 玩家：古建守护者 24×24 像素格（=48×48物理px）
+// 玩家：古建守护者 32×48 像素格（=64×96 物理px）
+// Q版二头身，斗笠+蓝袍+毛笔
 // ═══════════════════════════════════════════════
 
 function genPlayer(scene: Phaser.Scene) {
-  const S = 24;
-  const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+  const W = 32, H = 48;
+  const { canvas, ctx } = makeCanvas(W * PX, H * PX);
 
-  // 身体（蓝袍）
-  pxRect(ctx, 7, 14, 10, 8, '#3366cc');
-  pxRect(ctx, 6, 15, 12, 6, '#2a55b0');  // 暗面
-  // 袍边
-  pxHLine(ctx, 7, 21, 10, '#224499');
-  // 腰带
-  pxHLine(ctx, 8, 17, 8, '#ffcc44');
-  pxRect(ctx, 10, 17, 4, 1, '#ffdd66');  // 带扣高光
-
-  // 袖子
-  pxRect(ctx, 5, 14, 3, 5, '#3a6ed8');
-  pxRect(ctx, 16, 14, 3, 5, '#3a6ed8');
-
-  // 手臂
-  pxRect(ctx, 4, 16, 2, 4, '#ffddbb');
-  pxRect(ctx, 18, 16, 2, 4, '#ffddbb');
-
-  // 毛笔（右手）
-  pxRect(ctx, 19, 15, 1, 8, '#8b6914');
-  pxRect(ctx, 18, 21, 3, 2, '#333333');  // 笔尖
-
-  // 头
-  pxRect(ctx, 8, 7, 8, 8, '#ffddbb');
-  pxRect(ctx, 7, 9, 10, 5, '#ffccaa');  // 脸颊
-  // 眼睛
-  px(ctx, 10, 9, '#333333');
-  px(ctx, 13, 9, '#333333');
-  // 嘴
-  px(ctx, 11, 12, '#cc9977');
-
-  // 斗笠
-  pxRect(ctx, 6, 2, 12, 2, '#8b5e3c');
-  pxRect(ctx, 5, 4, 14, 1, '#7a4e2c');
-  pxRect(ctx, 4, 5, 16, 2, '#6a3e1c');
+  // ── 斗笠（大而圆润） ──
+  // 笠底暗面
+  pxRect(ctx, 7, 12, 18, 2, PAL.darkBrown);
+  // 笠身（三层锥形）
+  pxRect(ctx, 6, 10, 20, 3, PAL.midBrown);
+  pxRect(ctx, 4, 8, 24, 3, PAL.warmBrown);
+  pxRect(ctx, 2, 6, 28, 3, PAL.goldBrown);
   // 笠顶
-  px(ctx, 11, 0, '#a07050');
-  px(ctx, 12, 0, '#a07050');
-  px(ctx, 11, 1, '#9a6a4a');
+  px(ctx, 14, 4, PAL.lightBrown);
+  px(ctx, 15, 4, PAL.creamGold);
+  px(ctx, 14, 5, PAL.goldBrown);
+  px(ctx, 15, 5, PAL.lightBrown);
+  // 笠沿装饰线
+  pxHLine(ctx, 4, 13, 24, PAL.lightBrown);
+  pxHLine(ctx, 5, 14, 22, PAL.creamGold);
 
-  // 腿
-  pxRect(ctx, 9, 22, 3, 2, '#554433');
-  pxRect(ctx, 13, 22, 3, 2, '#554433');
-  // 鞋
-  pxRect(ctx, 8, 23, 5, 1, '#332211');
-  pxRect(ctx, 12, 23, 5, 1, '#332211');
+  // ── 头部（圆脸） ──
+  pxRect(ctx, 10, 14, 12, 9, PAL.skin);
+  pxRect(ctx, 9, 16, 14, 5, PAL.skinShadow);
+  // 脸颊红晕
+  px(ctx, 9, 19, '#FFBBAA');
+  px(ctx, 21, 19, '#FFBBAA');
+  // 眼睛（大圆眼 + 高光）
+  pxRect(ctx, 12, 16, 3, 3, PAL.inkBlack);
+  px(ctx, 12, 16, PAL.pureWhite);   // 高光
+  pxRect(ctx, 17, 16, 3, 3, PAL.inkBlack);
+  px(ctx, 17, 16, PAL.pureWhite);   // 高光
+  // 小嘴
+  px(ctx, 15, 21, PAL.skinDark);
+  // 眉毛（短横线）
+  pxRect(ctx, 11, 15, 3, 1, PAL.inkBlack);
+  pxRect(ctx, 18, 15, 3, 1, PAL.inkBlack);
+
+  // ── 身体（蓝袍交领） ──
+  // 领口
+  pxRect(ctx, 13, 23, 6, 2, PAL.blueClothL);
+  // 袍身
+  pxRect(ctx, 9, 25, 14, 13, PAL.blueCloth);
+  pxRect(ctx, 8, 26, 16, 10, '#2A4AA0');  // 暗面（左侧）
+  // 交领右衽 — 斜线装饰
+  px(ctx, 13, 25, '#4455BB');
+  px(ctx, 12, 26, '#4455BB');
+  px(ctx, 11, 27, '#4455BB');
+  // 袍摆
+  pxHLine(ctx, 9, 37, 14, '#224499');
+  // 袖口（左右宽袖）
+  pxRect(ctx, 6, 25, 4, 7, PAL.blueClothL);
+  pxRect(ctx, 22, 25, 4, 7, PAL.blueClothL);
+  // 袖口边
+  pxHLine(ctx, 6, 31, 4, PAL.gold);
+
+  // ── 腰带 ──
+  pxHLine(ctx, 10, 32, 12, PAL.gold);
+  pxHLine(ctx, 11, 33, 10, PAL.lightGold);
+  // 带扣
+  pxRect(ctx, 14, 31, 4, 3, PAL.warmBrown);
+  px(ctx, 15, 32, PAL.gold);
+
+  // ── 手臂 ──
+  pxRect(ctx, 5, 27, 3, 5, PAL.skin);
+  pxRect(ctx, 24, 27, 3, 5, PAL.skin);
+  // 左手（自然下垂）
+  pxRect(ctx, 4, 31, 3, 3, PAL.skin);
+
+  // ── 右手握毛笔 ──
+  pxRect(ctx, 25, 26, 3, 3, PAL.skin);
+  // 笔杆
+  pxRect(ctx, 26, 21, 2, 8, PAL.penBrown);
+  // 笔尖
+  pxRect(ctx, 25, 28, 3, 3, PAL.penTip);
+  px(ctx, 26, 29, PAL.penTip);
+
+  // ── 腿 ──
+  pxRect(ctx, 11, 38, 4, 6, PAL.deepBrown);
+  pxRect(ctx, 17, 38, 4, 6, PAL.deepBrown);
+  // 鞋（圆头布鞋）
+  pxRect(ctx, 9, 43, 7, 3, PAL.inkBlack);
+  pxRect(ctx, 16, 43, 7, 3, PAL.inkBlack);
+  // 鞋底白边
+  pxHLine(ctx, 9, 45, 7, '#BBBBBB');
+  pxHLine(ctx, 16, 45, 7, '#BBBBBB');
 
   addTex(scene, 'player', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 白蚁怪 14×14 像素格（=28×28物理px）
+// 白蚁怪 20×20 像素格（=40×40 物理px）
 // ═══════════════════════════════════════════════
 
 function genTermite(scene: Phaser.Scene) {
-  const S = 14;
+  const S = 20;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
 
-  // 身体（分节）
-  pxRect(ctx, 4, 5, 6, 4, '#e8e8e0');  // 前段
-  pxRect(ctx, 4, 9, 6, 2, '#ddd8d0');  // 中段
-  pxRect(ctx, 3, 11, 8, 2, '#d0c8c0');  // 后段
+  // 身体（四节，渐变从亮到暗）
+  pxRect(ctx, 6, 7, 8, 4, '#F0ECE4');   // 前段
+  pxRect(ctx, 6, 11, 8, 3, '#E8E4DC');  // 中前段
+  pxRect(ctx, 5, 14, 9, 2, '#DDD8D0');  // 中后段
+  pxRect(ctx, 4, 16, 10, 2, '#D0C8C0'); // 后段
   // 体节线
-  pxHLine(ctx, 4, 8, 6, '#ccc8c0');
-  pxHLine(ctx, 4, 10, 6, '#ccc8c0');
+  pxHLine(ctx, 6, 10, 8, '#CCC8C0');
+  pxHLine(ctx, 6, 13, 8, '#C8C0B8');
+  pxHLine(ctx, 5, 15, 8, '#C0B8B0');
 
-  // 头
-  pxRect(ctx, 5, 2, 4, 4, '#f0ece4');
-  // 大颚
-  px(ctx, 4, 4, '#c8b898');
-  px(ctx, 9, 4, '#c8b898');
-  // 触角
-  px(ctx, 4, 1, '#ccc');
-  px(ctx, 9, 1, '#ccc');
-  px(ctx, 3, 0, '#bbb');
-  px(ctx, 10, 0, '#bbb');
-  // 眼
-  px(ctx, 5, 3, '#881111');
-  px(ctx, 8, 3, '#881111');
+  // 头（大圆头）
+  pxRect(ctx, 7, 3, 6, 5, '#F5F0E8');
+  pxRect(ctx, 6, 5, 8, 3, '#F0ECE4');
+  // 大颚（一对）
+  pxRect(ctx, 5, 6, 2, 2, '#C8B898');
+  pxRect(ctx, 13, 6, 2, 2, '#C8B898');
+  // 触角（长而弯）
+  px(ctx, 6, 1, '#CCCCCC');
+  px(ctx, 13, 1, '#CCCCCC');
+  px(ctx, 5, 0, '#BBBBBB');
+  px(ctx, 14, 0, '#BBBBBB');
+  px(ctx, 4, 1, '#AAAAAA');
+  px(ctx, 15, 1, '#AAAAAA');
+  // 眼睛（暗红，带高光）
+  pxRect(ctx, 7, 4, 2, 2, '#AA1111');
+  px(ctx, 7, 4, '#FF4444');
+  pxRect(ctx, 11, 4, 2, 2, '#AA1111');
+  px(ctx, 11, 4, '#FF4444');
 
-  // 六足
-  px(ctx, 3, 6, '#d8d0c8');
-  px(ctx, 10, 6, '#d8d0c8');
-  px(ctx, 2, 9, '#d0c8c0');
-  px(ctx, 11, 9, '#d0c8c0');
-  px(ctx, 3, 12, '#c8c0b8');
-  px(ctx, 10, 12, '#c8c0b8');
+  // 六足（分节明显）
+  function leg(x: number, y: number, dir: number) {
+    pxRect(ctx, x, y, 2, 2, '#D8D0C8');
+    if (dir < 0) {
+      px(ctx, x - 1, y + 1, '#C8C0B8');
+    } else {
+      px(ctx, x + 2, y + 1, '#C8C0B8');
+    }
+  }
+  leg(4, 8, -1);  leg(S - 6, 8, 1);   // 前足
+  leg(3, 12, -1); leg(S - 5, 12, 1);  // 中足
+  leg(4, 17, -1); leg(S - 6, 17, 1);  // 后足
 
   addTex(scene, 'termite', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 风蚀怪 18×18 像素格（=36×36物理px）
+// 风蚀怪 28×28 像素格（=56×56 物理px）
 // ═══════════════════════════════════════════════
 
 function genWind(scene: Phaser.Scene) {
-  const S = 18;
+  const S = 28;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+  const cx = 14, cy = 14;
 
-  // 风刃漩涡（菱形多层）
-  const cx = 9, cy = 9;
-  const colors = ['#fff8cc', '#f0e090', '#e0cc60', '#c8b030'];
-  for (let layer = 0; layer < 4; layer++) {
-    const r = 7 - layer * 1.5;
-    const c = colors[layer];
-    for (let a = 0; a < 8; a++) {
-      const angle = (a / 8) * Math.PI * 2 + layer * 0.3;
-      const sx = Math.floor(cx + Math.cos(angle) * r);
-      const sy = Math.floor(cy + Math.sin(angle) * r);
-      px(ctx, sx, sy, c);
+  // 多层风刃漩涡（菱形旋转，每层偏移）
+  const layers = [
+    { r: 11, color: '#FFF8CC', count: 12 },
+    { r: 9, color: '#F5E8A0', count: 10, offset: 0.15 },
+    { r: 7, color: '#E8D470', count: 8, offset: 0.3 },
+    { r: 5, color: '#D4C040', count: 6, offset: 0.45 },
+  ];
+
+  for (const layer of layers) {
+    for (let a = 0; a < layer.count; a++) {
+      const angle = (a / layer.count) * Math.PI * 2 + (layer.offset ?? 0);
+      const sx = Math.floor(cx + Math.cos(angle) * layer.r);
+      const sy = Math.floor(cy + Math.sin(angle) * layer.r);
+      px(ctx, sx, sy, layer.color);
     }
   }
 
-  // 风刃线
-  pxRect(ctx, cx - 1, cy - 6, 2, 12, '#ffffdd');
-  pxRect(ctx, cx - 6, cy - 1, 12, 2, '#ffffdd');
-  px(ctx, cx, cy, '#ffffff');
+  // 十字风刃线（更粗）
+  pxRect(ctx, cx - 1, cy - 10, 3, 20, '#FFFFDD');
+  pxRect(ctx, cx - 10, cy - 1, 20, 3, '#FFFFDD');
+  // 对角线风刃
+  for (let d = -8; d <= 8; d++) {
+    if (Math.abs(d) > 3) {
+      px(ctx, cx + d, cy + d, d % 2 === 0 ? '#FFFFDD' : '#FFF8CC');
+      px(ctx, cx + d, cy - d, d % 2 === 0 ? '#FFFFDD' : '#FFF8CC');
+    }
+  }
 
   // 中心眼
-  pxRect(ctx, cx - 1, cy - 1, 3, 3, '#ffffff');
-  px(ctx, cx, cy, '#222222');
+  pxRect(ctx, cx - 2, cy - 2, 5, 5, PAL.pureWhite);
+  pxRect(ctx, cx - 1, cy - 1, 3, 3, PAL.inkBlack);
+  px(ctx, cx, cy, PAL.pureWhite);  // 眼高光
 
   addTex(scene, 'wind', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 酸雨怪 16×18 像素格（=32×36物理px）
+// 酸雨怪 24×28 像素格（=48×56 物理px）
 // ═══════════════════════════════════════════════
 
 function genAcidRain(scene: Phaser.Scene) {
-  const S = 16;
-  const { canvas, ctx } = makeCanvas(S * PX, S * PX + 4);
+  const W = 24, H = 28;
+  const { canvas, ctx } = makeCanvas(W * PX, H * PX);
 
-  // 水滴身体
-  const drops = [
-    // x, y
-    [7, 1], [8, 0],
-    [6, 2], [7, 2], [8, 2], [9, 2],
-    [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3],
-    [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4],
-    [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5],
-    [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6],
-    [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7],
-    [4, 8], [5, 8], [6, 8], [7, 8], [8, 8], [9, 8], [10, 8], [11, 8],
-    [4, 9], [5, 9], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9],
-    [3, 10], [4, 10], [5, 10], [6, 10], [7, 10], [8, 10], [9, 10], [10, 10], [11, 10], [12, 10],
-    [3, 11], [4, 11], [5, 11], [6, 11], [7, 11], [8, 11], [9, 11], [10, 11], [11, 11], [12, 11],
-    [3, 12], [4, 12], [5, 12], [6, 12], [7, 12], [8, 12], [9, 12], [10, 12], [11, 12], [12, 12],
-    [4, 13], [5, 13], [6, 13], [7, 13], [8, 13], [9, 13], [10, 13], [11, 13],
-    [5, 14], [6, 14], [7, 14], [8, 14], [9, 14], [10, 14],
-    [6, 15], [7, 15], [8, 15], [9, 15],
-    [7, 16], [8, 16],
-  ];
-
-  for (const [dx, dy] of drops) {
-    const shade = dy < 4 ? '#88ee88' : dy < 8 ? '#44bb44' : dy < 12 ? '#33aa33' : '#228822';
-    px(ctx, dx, dy, shade);
+  // 泪滴形身体（像素画轮廓）
+  const bodyPixels: [number, number, string][] = [];
+  // 上半部（窄）
+  for (let y = 2; y <= 6; y++) {
+    const w = 4 + y;
+    const start = Math.floor((W - w) / 2);
+    for (let x = start; x < start + w; x++) {
+      const shade = y <= 3 ? PAL.lightGreen : '#55CC55';
+      bodyPixels.push([x, y, shade]);
+    }
+  }
+  // 中部（最宽）
+  for (let y = 7; y <= 16; y++) {
+    const w = 14;
+    const start = Math.floor((W - w) / 2);
+    for (let x = start; x < start + w; x++) {
+      const shade = y <= 10 ? '#44BB44' : '#33AA33';
+      bodyPixels.push([x, y, shade]);
+    }
+  }
+  // 下半部（收窄成尖）
+  for (let y = 17; y <= 25; y++) {
+    const w = 14 - (y - 16) * 2;
+    const start = Math.floor((W - w) / 2);
+    for (let x = start; x < start + w; x++) {
+      bodyPixels.push([x, y, '#228822']);
+    }
   }
 
-  // 气泡
-  px(ctx, 4, 4, '#aaffaa');
-  px(ctx, 5, 3, '#ccffcc');
-  px(ctx, 10, 5, '#aaffaa');
-  px(ctx, 11, 4, '#ccffcc');
+  for (const [bx, by, color] of bodyPixels) {
+    if (bx >= 0 && bx < W && by >= 0 && by < H) {
+      px(ctx, bx, by, color);
+    }
+  }
 
-  // 眼睛
-  pxRect(ctx, 6, 6, 2, 2, '#ffffff');
-  pxRect(ctx, 9, 6, 2, 2, '#ffffff');
-  px(ctx, 6, 6, '#111111');
-  px(ctx, 9, 6, '#111111');
+  // 内部气泡（3-4 个）
+  pxRect(ctx, 7, 8, 2, 2, '#AAFFAA');
+  px(ctx, 14, 9, '#CCFFCC');
+  pxRect(ctx, 9, 14, 2, 2, '#AAFFAA');
+  px(ctx, 13, 11, '#CCFFCC');
+
+  // 顶部水珠高光
+  px(ctx, 11, 1, PAL.lightGreen);
+  px(ctx, 12, 2, '#AAFFAA');
+
+  // 眼睛（圆眼，白底黑瞳）
+  pxRect(ctx, 8, 7, 4, 3, PAL.pureWhite);
+  pxRect(ctx, 13, 7, 4, 3, PAL.pureWhite);
+  px(ctx, 9, 8, PAL.inkBlack);
+  px(ctx, 14, 8, PAL.inkBlack);
 
   addTex(scene, 'acid_rain', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 火焰怪 20×20 像素格（=40×40物理px）
+// 火焰怪 32×32 像素格（=64×64 物理px）
 // ═══════════════════════════════════════════════
 
 function genFire(scene: Phaser.Scene) {
-  const S = 20;
+  const S = 32;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  const cx = 10, cy = 10;
+  const cx = 16, cy = 16;
 
-  // 外焰（不规则形状）
-  const outerFlame = [
-    [cx, cy - 8], [cx - 1, cy - 7], [cx + 1, cy - 7],
-    [cx - 2, cy - 6], [cx + 2, cy - 6],
-    [cx - 3, cy - 5], [cx + 3, cy - 5],
-    [cx - 4, cy - 4], [cx + 4, cy - 4],
-    [cx - 5, cy - 3], [cx + 5, cy - 3],
-    [cx - 6, cy - 2], [cx + 6, cy - 2],
-    [cx - 6, cy - 1], [cx + 6, cy - 1],
-    [cx - 5, cy], [cx + 5, cy],
-    [cx - 5, cy + 1], [cx + 5, cy + 1],
-    [cx - 6, cy + 2], [cx + 6, cy + 2],
-    [cx - 6, cy + 3], [cx + 6, cy + 3],
-    [cx - 5, cy + 4], [cx + 5, cy + 4],
-    [cx - 4, cy + 5], [cx + 4, cy + 5],
-    [cx - 3, cy + 6], [cx + 3, cy + 6],
-    [cx - 2, cy + 7], [cx + 2, cy + 7],
-    [cx - 1, cy + 8], [cx + 1, cy + 8],
-    [cx, cy + 9],
-  ];
+  // 外焰（不规则火焰轮廓，顶端分叉）
+  const outerFlame: [number, number][] = [];
+  // 左边火焰
+  for (let y = -14; y <= 12; y++) {
+    const w = 8 + Math.abs(y) * 0.4 + (Math.sin(y * 0.5) * 3);
+    for (let x = -Math.floor(w); x <= Math.floor(w); x++) {
+      outerFlame.push([cx + x, cy + y]);
+    }
+  }
+  // 顶端分叉
+  outerFlame.push([cx - 2, cy - 15], [cx - 1, cy - 15], [cx, cy - 16],
+    [cx + 1, cy - 15], [cx + 2, cy - 15],
+    [cx - 4, cy - 14], [cx + 4, cy - 14]);
+
   for (const [fx, fy] of outerFlame) {
-    px(ctx, fx, fy, '#ff4400');
+    if (fx >= 0 && fx < S && fy >= 0 && fy < S) {
+      px(ctx, fx, fy, PAL.darkRed);
+    }
   }
 
-  // 内焰
-  const innerFlame = [
-    [cx, cy - 5], [cx - 1, cy - 4], [cx + 1, cy - 4],
-    [cx - 2, cy - 3], [cx + 2, cy - 3],
-    [cx - 3, cy - 2], [cx + 3, cy - 2],
-    [cx - 3, cy - 1], [cx + 3, cy - 1],
-    [cx - 3, cy], [cx + 3, cy],
-    [cx - 4, cy + 1], [cx + 4, cy + 1],
-    [cx - 4, cy + 2], [cx + 4, cy + 2],
-    [cx - 3, cy + 3], [cx + 3, cy + 3],
-    [cx - 2, cy + 4], [cx + 2, cy + 4],
-    [cx - 1, cy + 5], [cx + 1, cy + 5],
-  ];
-  for (const [fx, fy] of innerFlame) {
-    px(ctx, fx, fy, '#ffaa00');
+  // 内焰（缩小 3px）
+  for (let y = -10; y <= 8; y++) {
+    const w = 5 + Math.abs(y) * 0.3;
+    for (let x = -Math.floor(w); x <= Math.floor(w); x++) {
+      const px2 = cx + x, py2 = cy + y;
+      if (px2 >= 0 && px2 < S && py2 >= 0 && py2 < S) {
+        px(ctx, px2, py2, PAL.warmRed);
+      }
+    }
   }
 
-  // 核心
-  pxRect(ctx, cx - 2, cy - 1, 4, 3, '#ffee44');
-  px(ctx, cx, cy, '#ffffff');
+  // 内核焰（更小）
+  for (let y = -6; y <= 4; y++) {
+    const w = 3 + Math.abs(y) * 0.2;
+    for (let x = -Math.floor(w); x <= Math.floor(w); x++) {
+      const px3 = cx + x, py3 = cy + y;
+      if (px3 >= 0 && px3 < S && py3 >= 0 && py3 < S) {
+        px(ctx, px3, py3, PAL.gold);
+      }
+    }
+  }
 
-  // 眼睛（凶）
-  pxRect(ctx, cx - 3, cy - 2, 2, 2, '#ffffff');
-  pxRect(ctx, cx + 1, cy - 2, 2, 2, '#ffffff');
-  px(ctx, cx - 3, cy - 1, '#cc0000');
-  px(ctx, cx + 1, cy - 1, '#cc0000');
+  // 核心白亮
+  pxRect(ctx, cx - 3, cy - 2, 7, 5, PAL.lightGold);
+  pxRect(ctx, cx - 2, cy - 1, 5, 3, PAL.warmWhite);
+  px(ctx, cx, cy, PAL.pureWhite);
+
+  // 眼睛（凶眼，在核心上方）
+  pxRect(ctx, cx - 5, cy - 5, 3, 3, PAL.pureWhite);
+  pxRect(ctx, cx + 2, cy - 5, 3, 3, PAL.pureWhite);
+  px(ctx, cx - 4, cy - 4, '#CC0000');
+  px(ctx, cx + 3, cy - 4, '#CC0000');
+  // 眉毛（怒眉）
+  pxRect(ctx, cx - 6, cy - 7, 4, 1, PAL.darkRed);
+  pxRect(ctx, cx + 2, cy - 7, 4, 1, PAL.darkRed);
 
   addTex(scene, 'fire', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 冻融怪 22×22 像素格（=44×44物理px）
+// 冻融怪 34×34 像素格（=68×68 物理px）
 // ═══════════════════════════════════════════════
 
 function genFreezeThaw(scene: Phaser.Scene) {
-  const S = 22;
+  const S = 34;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  const cx = 11, cy = 11;
+  const cx = 17, cy = 17;
 
-  // 六边形冰块主体
-  const hexPoints: [number, number][] = [];
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
-    const r = i % 2 === 0 ? 9 : 7;
-    hexPoints.push([Math.floor(cx + Math.cos(a) * r), Math.floor(cy + Math.sin(a) * r)]);
-  }
-
-  // 填充冰块
-  for (let dy = -8; dy <= 8; dy++) {
-    for (let dx = -8; dx <= 8; dx++) {
-      const px2 = cx + dx, py = cy + dy;
-      // 简单六边形内检测
+  // 六边形冰块主体（填充）
+  for (let dy = -13; dy <= 13; dy++) {
+    for (let dx = -13; dx <= 13; dx++) {
       const qx = Math.abs(dx) * 0.866 + Math.abs(dy) * 0.5;
       const qy = Math.abs(dy) * 0.866;
-      if (qx < 8 && qy < 8) {
-        const shade = (dx + dy) % 3 === 0 ? '#7ab8e0' : '#5a9cc8';
-        px(ctx, px2, py, shade);
+      if (qx < 12 && qy < 12) {
+        const px2 = cx + dx, py2 = cy + dy;
+        const shade = (dx + dy) % 4 === 0
+          ? PAL.lightBlue
+          : (dx + dy) % 4 === 1
+            ? PAL.midBlue
+            : (dx + dy) % 4 === 2
+              ? '#6AAADD'
+              : PAL.iceBlue;
+        px(ctx, px2, py2, shade);
       }
     }
   }
 
-  // 冰晶高光
-  pxRect(ctx, cx - 2, cy - 6, 4, 8, '#aaddff');
-  px(ctx, cx, cy - 4, '#ddeeff');
-  px(ctx, cx, cy, '#ddeeff');
+  // 冰晶高光（左上方向强光条）
+  pxRect(ctx, cx - 5, cy - 10, 2, 12, PAL.iceWhite);
+  pxRect(ctx, cx - 3, cy - 8, 2, 8, '#DDEEFF');
+  px(ctx, cx - 1, cy - 9, PAL.iceWhite);
+  px(ctx, cx - 7, cy - 8, PAL.lightBlue);
+  px(ctx, cx - 8, cy - 6, PAL.lightBlue);
+  px(ctx, cx + 3, cy - 4, PAL.iceWhite);
 
-  // 裂纹
-  px(ctx, cx - 5, cy - 2, '#4488b0');
-  px(ctx, cx - 4, cy - 1, '#4488b0');
-  px(ctx, cx - 3, cy, '#4488b0');
-  px(ctx, cx - 2, cy + 1, '#4488b0');
-  px(ctx, cx - 1, cy + 3, '#4488b0');
-  px(ctx, cx + 3, cy - 4, '#4488b0');
-  px(ctx, cx + 4, cy - 3, '#4488b0');
-  px(ctx, cx + 4, cy, '#4488b0');
+  // 裂纹（深蓝色不规则线）
+  const cracks = [
+    [cx - 8, cy - 2], [cx - 7, cy - 1], [cx - 6, cy], [cx - 5, cy + 1],
+    [cx - 4, cy + 3], [cx - 3, cy + 5],
+    [cx + 5, cy - 7], [cx + 6, cy - 6], [cx + 7, cy - 5],
+    [cx + 6, cy - 2], [cx + 5, cy], [cx + 4, cy + 2],
+    [cx + 1, cy + 8], [cx + 2, cy + 9],
+  ];
+  for (const [cx2, cy2] of cracks) {
+    px(ctx, cx2, cy2, PAL.iceBlue);
+  }
 
-  // 眼睛（冷光）
-  pxRect(ctx, cx - 4, cy - 2, 3, 2, '#ffffff');
-  pxRect(ctx, cx + 1, cy - 2, 3, 2, '#ffffff');
-  px(ctx, cx - 3, cy - 1, '#0055cc');
-  px(ctx, cx + 2, cy - 1, '#0055cc');
+  // 眼睛（冷光，在冰晶核心）
+  pxRect(ctx, cx - 6, cy - 3, 4, 3, PAL.pureWhite);
+  pxRect(ctx, cx + 2, cy - 3, 4, 3, PAL.pureWhite);
+  px(ctx, cx - 5, cy - 2, '#0044AA');
+  px(ctx, cx + 3, cy - 2, '#0044AA');
 
   addTex(scene, 'freeze_thaw', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 古建寺庙：5 段受损状态  60×36 像素格（=120×72物理px）
+// 古建寺庙：5 段受损状态  96×56 像素格（=192×112 物理px）
 // ═══════════════════════════════════════════════
 
 function genBuilding(scene: Phaser.Scene) {
@@ -455,125 +622,168 @@ function genBuilding(scene: Phaser.Scene) {
   ];
 
   for (const st of states) {
-    const W = 60, H = 36;
+    const W = 96, H = 56;
     const { canvas, ctx } = makeCanvas(W * PX, H * PX);
     const dm = st.damage; // 0=完好, 4=废墟
 
-    // 台基
-    pxRect(ctx, 3, H - 4, W - 6, 4, dm >= 3 ? '#777' : '#888888');
+    // ═══ 台基 ═══
+    const baseY = H - 6;
+    pxRect(ctx, 4, baseY, W - 8, 6, dm >= 3 ? PAL.darkGray : PAL.midGray);
+    // 台阶纹路（三层）
+    if (dm < 3) {
+      pxHLine(ctx, 8, baseY + 1, W - 16, PAL.lightGray);
+      pxHLine(ctx, 6, baseY + 3, W - 12, PAL.lightGray);
+    }
     if (dm >= 4) {
-      // 台基裂缝
-      for (let i = 0; i < 6; i++) {
-        px(ctx, 8 + Math.floor(Math.random() * (W - 16)), H - 3 + Math.floor(Math.random() * 2), '#555');
+      // 台基碎裂
+      for (let i = 0; i < 12; i++) {
+        px(ctx, 10 + Math.floor(Math.random() * (W - 20)), baseY + Math.floor(Math.random() * 4), PAL.deepBrown);
       }
     }
 
-    // 外墙
-    const wallLeft = 8, wallRight = W - 8;
+    // ═══ 外墙 ═══
+    const wallTop = 20, wallBot = baseY;
+    const wallLeft = 10, wallRight = W - 10;
+
     if (dm < 4) {
-      pxRect(ctx, wallLeft, 12, wallRight - wallLeft, H - 16, '#6B4226');
+      // 主墙面
+      pxRect(ctx, wallLeft, wallTop, wallRight - wallLeft, wallBot - wallTop, PAL.warmBrown);
+      // 墙面纹理横线（模拟木板拼接）
+      for (let wy2 = wallTop + 6; wy2 < wallBot - 2; wy2 += 8) {
+        pxHLine(ctx, wallLeft + 2, wy2, wallRight - wallLeft - 4, PAL.midBrown);
+      }
     } else {
-      // 废墟：外墙只剩残垣
-      pxRect(ctx, wallLeft, H - 10, 10, 6, '#6B4226');
-      pxRect(ctx, W - 18, H - 10, 10, 6, '#6B4226');
+      // 废墟：残垣
+      pxRect(ctx, wallLeft, wallBot - 12, 16, 8, PAL.warmBrown);
+      pxRect(ctx, W - 26, wallBot - 10, 16, 6, PAL.warmBrown);
     }
 
     // 外墙裂缝（dm>=2）
     if (dm >= 2) {
-      const cracks = dm === 4 ? 8 : dm * 2;
-      for (let i = 0; i < cracks; i++) {
-        const cx2 = wallLeft + 3 + Math.floor(Math.random() * (wallRight - wallLeft - 6));
-        const cy2 = 13 + Math.floor(Math.random() * (H - 20));
-        px(ctx, cx2, cy2, '#3a2010');
-        if (dm >= 3) px(ctx, cx2 + 1, cy2, '#3a2010');
+      const crackCount = dm === 4 ? 10 : dm * 3;
+      for (let i = 0; i < crackCount; i++) {
+        const cx2 = wallLeft + 4 + Math.floor(Math.random() * (wallRight - wallLeft - 8));
+        const cy2 = wallTop + 2 + Math.floor(Math.random() * (wallBot - wallTop - 6));
+        px(ctx, cx2, cy2, PAL.darkBrown);
+        if (dm >= 3) {
+          px(ctx, Math.min(cx2 + 1, wallRight - 4), cy2, PAL.darkBrown);
+        }
       }
     }
 
-    // 木柱
-    const pillars = [14, 22, 30, 38, 46];
-    for (const px3 of pillars) {
-      if (dm >= 3 && px3 === 30) continue; // 中柱断裂
-      if (dm >= 4 && (px3 === 14 || px3 === 46)) continue;
-      pxRect(ctx, px3, 12, 2, H - 16, '#C4884D');
-      // 柱高光
-      if (dm < 3 || px3 !== 22) {
-        pxVLine(ctx, px3, 12, H - 16, '#d4985d');
-      }
+    // ═══ 木柱 ═══
+    const pillars = [18, 32, 48, 64, 78];
+    for (const pX of pillars) {
+      if (dm >= 3 && pX === 48) continue;         // 中柱断裂
+      if (dm >= 4 && (pX === 18 || pX === 78)) continue;
+      // 柱身
+      pxRect(ctx, pX, wallTop - 2, 3, wallBot - wallTop + 2, PAL.goldBrown);
+      // 柱高光（左边缘）
+      pxVLine(ctx, pX, wallTop - 2, wallBot - wallTop + 2, PAL.creamGold);
+      // 柱础
+      pxRect(ctx, pX - 1, wallBot - 2, 5, 3, PAL.lightGray);
     }
-    // 断裂柱残段
+    // 断裂柱
     if (dm >= 3) {
-      pxRect(ctx, 30, 12, 2, 5, '#C4884D');
-      if (dm >= 4) {
-        pxRect(ctx, 14, H - 10, 2, 4, '#B0783D');
-      }
+      pxRect(ctx, 48, wallTop - 2, 3, 8, PAL.goldBrown);
+      // 断裂面
+      pxHLine(ctx, 47, wallTop + 5, 5, PAL.creamGold);
     }
 
-    // 屋顶（飞檐）- dm=4 完全塌
-    if (dm < 4) {
-      const roofColor = dm >= 2 ? '#8a3a1a' : '#A0522D';
-      const roofBase = dm >= 3 ? 18 : 12;
-      // 主屋面
-      pxRect(ctx, 3, roofBase, W - 6, 5, roofColor);
-      // 飞檐翘角
-      px(ctx, 2, roofBase - 1, roofColor);
-      px(ctx, W - 3, roofBase - 1, roofColor);
-      if (dm < 2) {
-        px(ctx, 1, roofBase - 2, '#B0623D');
-        px(ctx, W - 2, roofBase - 2, '#B0623D');
-      }
-      // 屋脊
-      pxRect(ctx, W / 2 - 6, roofBase - 3, 12, 3, '#8B4513');
-      if (dm < 1) {
-        px(ctx, W / 2, roofBase - 5, '#FFCC44');  // 脊饰
-        px(ctx, W / 2 - 1, roofBase - 4, '#FFCC44');
-        px(ctx, W / 2 + 1, roofBase - 4, '#FFCC44');
-      }
-    } else {
-      // 废墟屋顶碎片
-      pxRect(ctx, 5, 16, 12, 3, '#8a3a1a');
-      pxRect(ctx, W - 17, 17, 10, 2, '#8a3a1a');
-    }
-
-    // 斗拱层
+    // ═══ 斗拱层 ═══
+    const dougongY = wallTop - 8;
     if (dm < 3) {
-      pxRect(ctx, 5, 10, W - 10, 3, '#8B4513');
-      for (let dx = 10; dx < W - 10; dx += 8) {
-        pxRect(ctx, dx, 7, 3, 5, '#9B5523');
+      pxRect(ctx, 6, dougongY, W - 12, 4, PAL.midBrown);
+      for (let dx = 12; dx < W - 12; dx += 10) {
+        pxRect(ctx, dx, dougongY - 3, 4, 5, PAL.warmBrown);
+        pxRect(ctx, dx + 1, dougongY - 4, 2, 6, PAL.goldBrown);
       }
     } else if (dm < 4) {
       // 部分斗拱损坏
-      pxRect(ctx, 5, 10, 20, 3, '#8B4513');
-      pxRect(ctx, W - 25, 10, 20, 3, '#8B4513');
+      pxRect(ctx, 6, dougongY, 28, 4, PAL.midBrown);
+      pxRect(ctx, W - 34, dougongY, 28, 4, PAL.midBrown);
     }
 
-    // 大门
-    if (dm < 3) {
-      pxRect(ctx, W / 2 - 6, 20, 12, H - 24, '#3E2723');
-      pxVLine(ctx, W / 2, 20, H - 24, '#FFCC44');  // 门缝
-    } else if (dm < 4) {
-      pxRect(ctx, W / 2 - 4, 22, 8, H - 26, '#3E2723');
-    }
-
-    // 窗户 - dm>=3 破损
+    // ═══ 屋顶（歇山顶 + 飞檐） ═══
+    const roofBaseY = dm >= 3 ? dougongY + 2 : dougongY;
     if (dm < 4) {
-      [W / 2 - 18, W / 2 + 12].forEach(wx2 => {
-        if (dm >= 3 && wx2 === W / 2 + 12) return; // 一扇窗损坏
-        pxRect(ctx, wx2, 16, 5, 6, '#2E1703');
-        pxVLine(ctx, wx2 + 2, 16, 6, '#C4884D');
-        pxHLine(ctx, wx2, 19, 5, '#C4884D');
+      const roofColor = dm >= 2 ? PAL.darkRed : PAL.warmRed;
+      const roofDark = dm >= 2 ? '#6B2010' : '#8B3A1A';
+
+      // 主屋面（宽大）
+      pxRect(ctx, 3, roofBaseY - 3, W - 6, 6, roofColor);
+      pxRect(ctx, 5, roofBaseY - 5, W - 10, 5, roofDark);
+      // 屋面纹理瓦垄
+      for (let tx = 6; tx < W - 6; tx += 3) {
+        pxVLine(ctx, tx, roofBaseY - 4, 5, PAL.orangeBrown);
+      }
+
+      // 飞檐翘角（左右）
+      if (dm < 2) {
+        px(ctx, 1, roofBaseY - 5, roofColor);
+        px(ctx, 1, roofBaseY - 6, PAL.orangeBrown);
+        px(ctx, W - 2, roofBaseY - 5, roofColor);
+        px(ctx, W - 2, roofBaseY - 6, PAL.orangeBrown);
+      }
+      // 檐下阴影
+      pxHLine(ctx, 4, roofBaseY + 2, W - 8, PAL.deepBrown);
+
+      // 正脊（顶部横脊）
+      pxRect(ctx, W / 2 - 14, roofBaseY - 7, 28, 3, PAL.darkRed);
+      // 脊饰（金色鸱吻）
+      if (dm < 1) {
+        pxRect(ctx, W / 2 - 4, roofBaseY - 10, 8, 4, PAL.gold);
+        px(ctx, W / 2, roofBaseY - 12, PAL.gold);
+        px(ctx, W / 2 - 1, roofBaseY - 11, PAL.lightGold);
+        px(ctx, W / 2 + 1, roofBaseY - 11, PAL.lightGold);
+      } else if (dm === 1) {
+        pxRect(ctx, W / 2 - 3, roofBaseY - 9, 6, 3, PAL.gold);
+      }
+    } else {
+      // 废墟屋顶碎片
+      pxRect(ctx, 6, roofBaseY + 4, 16, 4, PAL.darkRed);
+      pxRect(ctx, W - 22, roofBaseY + 5, 14, 3, PAL.darkRed);
+    }
+
+    // ═══ 大门 ═══
+    const doorY = wallTop + 8;
+    if (dm < 3) {
+      pxRect(ctx, W / 2 - 10, doorY, 20, wallBot - doorY, PAL.darkBrown);
+      // 门框
+      pxRect(ctx, W / 2 - 11, doorY - 1, 22, 2, PAL.goldBrown);
+      // 门缝
+      pxVLine(ctx, W / 2, doorY + 2, wallBot - doorY - 2, PAL.gold);
+      // 门环
+      pxRect(ctx, W / 2 - 4, doorY + 10, 3, 3, PAL.gold);
+      pxRect(ctx, W / 2 + 1, doorY + 10, 3, 3, PAL.gold);
+    } else if (dm < 4) {
+      pxRect(ctx, W / 2 - 6, doorY + 4, 12, wallBot - doorY - 4, PAL.darkBrown);
+    }
+
+    // ═══ 窗户 ═══
+    if (dm < 4) {
+      [W / 2 - 28, W / 2 + 22].forEach((wX, wi) => {
+        if (dm >= 3 && wi === 1) return; // 右窗损坏
+        pxRect(ctx, wX, doorY + 2, 7, 8, '#2E1703');
+        // 直棂窗格
+        for (let lx = 0; lx < 3; lx++) {
+          pxVLine(ctx, wX + 1 + lx * 2, doorY + 2, 8, PAL.goldBrown);
+        }
+        pxHLine(ctx, wX, doorY + 5, 7, PAL.goldBrown);
       });
     }
 
-    // 废墟杂草（dm>=4）
+    // ═══ 废墟杂草（dm≥4） ═══
     if (dm >= 4) {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 16; i++) {
         const gx = 4 + Math.floor(Math.random() * (W - 8));
-        const gy = H - 6 + Math.floor(Math.random() * 4);
-        px(ctx, gx, gy, '#3a7a2e');
+        const gy = baseY - 4 + Math.floor(Math.random() * 6);
+        px(ctx, gx, gy, PAL.midGreen);
+        if (Math.random() > 0.5) px(ctx, gx, gy - 1, PAL.leafGreen);
       }
     }
 
-    // 同时注册 'building' 指向完好版
+    // 注册纹理
     if (dm === 0) {
       addTex(scene, 'building', canvas);
     }
@@ -582,54 +792,153 @@ function genBuilding(scene: Phaser.Scene) {
 }
 
 // ═══════════════════════════════════════════════
-// 经验球 8×8 像素格（=16×16物理px）
+// 经验球 10×10 像素格（=20×20 物理px）
 // ═══════════════════════════════════════════════
 
 function genExpOrb(scene: Phaser.Scene) {
-  const S = 8;
+  const S = 10;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  const cx2 = 4, cy2 = 4;
+  const cx2 = 5, cy2 = 5;
 
-  // 辉光
-  for (let dy = -3; dy <= 3; dy++) {
-    for (let dx = -3; dx <= 3; dx++) {
+  // 辉光（多层柔光）
+  for (let dy = -4; dy <= 4; dy++) {
+    for (let dx = -4; dx <= 4; dx++) {
       const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 3.5) {
-        const brightness = 1 - d / 3.5;
-        const g = Math.floor(200 + brightness * 55);
-        const r = Math.floor(brightness * 100);
-        const b = Math.floor(brightness * 100);
+      if (d < 4.5) {
+        const brightness = 1 - d / 4.5;
+        const g = Math.floor(180 + brightness * 75);
+        const r = Math.floor(brightness * 80);
+        const b = Math.floor(brightness * 60);
         px(ctx, cx2 + dx, cy2 + dy, `rgb(${r},${g},${b})`);
       }
     }
   }
 
+  // 内圈亮光
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) <= 3) {
+        px(ctx, cx2 + dx, cy2 + dy, PAL.lightGold);
+      }
+    }
+  }
+
   // 核心亮点
-  px(ctx, cx2, cy2 - 1, '#ffffff');
-  px(ctx, cx2 - 1, cy2, '#eeffee');
-  px(ctx, cx2 + 1, cy2, '#eeffee');
+  px(ctx, cx2, cy2, PAL.warmWhite);
+  px(ctx, cx2 - 1, cy2, PAL.pureWhite);
 
   addTex(scene, 'exp_orb', canvas);
 }
 
 // ═══════════════════════════════════════════════
-// 普攻弹 5×5 像素格（=10×10物理px）
+// 普攻弹 8×8 像素格（=16×16 物理px）
 // ═══════════════════════════════════════════════
 
 function genBolt(scene: Phaser.Scene) {
-  const S = 5;
+  const S = 8;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  const cx2 = 2, cy2 = 2;
+  const cx2 = 4, cy2 = 4;
 
-  px(ctx, cx2, cy2, '#ffffff');
-  px(ctx, cx2 - 1, cy2, '#88ccff');
-  px(ctx, cx2 + 1, cy2, '#88ccff');
-  px(ctx, cx2, cy2 - 1, '#88ccff');
-  px(ctx, cx2, cy2 + 1, '#88ccff');
-  px(ctx, cx2 - 1, cy2 - 1, '#4488cc');
-  px(ctx, cx2 + 1, cy2 - 1, '#4488cc');
-  px(ctx, cx2 - 1, cy2 + 1, '#4488cc');
-  px(ctx, cx2 + 1, cy2 + 1, '#4488cc');
+  // 外围光晕
+  px(ctx, cx2 - 1, cy2, PAL.lightBlue);
+  px(ctx, cx2 + 1, cy2, PAL.lightBlue);
+  px(ctx, cx2, cy2 - 1, PAL.lightBlue);
+  px(ctx, cx2, cy2 + 1, PAL.lightBlue);
+  px(ctx, cx2 - 1, cy2 - 1, PAL.midBlue);
+  px(ctx, cx2 + 1, cy2 - 1, PAL.midBlue);
+  px(ctx, cx2 - 1, cy2 + 1, PAL.midBlue);
+  px(ctx, cx2 + 1, cy2 + 1, PAL.midBlue);
+  // 核心
+  px(ctx, cx2, cy2, PAL.pureWhite);
 
   addTex(scene, 'bolt', canvas);
+}
+
+// ═══════════════════════════════════════════════
+// 技能特效纹理
+// ═══════════════════════════════════════════════
+
+function genSkillTextures(scene: Phaser.Scene) {
+  // ── 木构加固：木梁冲击波 16×6 px格 ──
+  {
+    const W = 16, H = 6;
+    const { canvas, ctx } = makeCanvas(W * PX, H * PX);
+    pxRect(ctx, 0, 0, W, H, PAL.goldBrown);
+    pxRect(ctx, 0, 1, W, 1, PAL.creamGold);     // 高光中线
+    pxRect(ctx, 0, 5, W, 1, PAL.midBrown);      // 暗底边
+    // 木纹竖线
+    for (let i = 2; i < W; i += 3) {
+      pxVLine(ctx, i, 1, 4, PAL.warmBrown);
+    }
+    // 头部箭头
+    px(ctx, W - 1, 0, PAL.lightGold);
+    px(ctx, W - 1, H - 1, PAL.lightGold);
+    px(ctx, W, 1, PAL.lightGold);
+    px(ctx, W, H - 2, PAL.lightGold);
+    addTex(scene, 'wood_beam', canvas);
+  }
+
+  // ── 石材修补：石粉震波碎片 6×6 px格 ──
+  {
+    const S = 6;
+    const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+    px(ctx, 2, 1, PAL.lightGray);
+    px(ctx, 3, 1, PAL.midGray);
+    px(ctx, 1, 2, PAL.midGray);
+    px(ctx, 2, 2, PAL.lightGray);
+    px(ctx, 3, 2, PAL.darkGray);
+    px(ctx, 4, 2, PAL.lightGray);
+    px(ctx, 2, 3, PAL.darkGray);
+    px(ctx, 3, 3, PAL.midGray);
+    px(ctx, 3, 4, PAL.lightGray);
+    addTex(scene, 'stone_dust', canvas);
+  }
+
+  // ── 防水封护：水纹护罩环段 10×4 px格 ──
+  {
+    const W = 10, H = 4;
+    const { canvas, ctx } = makeCanvas(W * PX, H * PX);
+    pxRect(ctx, 0, 1, W, 2, PAL.midBlue);
+    pxRect(ctx, 1, 0, W - 2, 4, PAL.lightBlue);
+    pxRect(ctx, 2, 1, W - 4, 2, PAL.iceWhite);
+    px(ctx, 1, 1, PAL.pureWhite);
+    px(ctx, W - 2, 1, PAL.pureWhite);
+    addTex(scene, 'water_shield', canvas);
+  }
+
+  // ── 防虫处理：药雾颗粒 5×5 px格 ──
+  {
+    const S = 5;
+    const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+    px(ctx, 2, 1, PAL.lightGreen);
+    px(ctx, 1, 2, PAL.midGreen);
+    px(ctx, 2, 2, PAL.leafGreen);
+    px(ctx, 3, 2, PAL.lightGreen);
+    px(ctx, 2, 3, PAL.midGreen);
+    px(ctx, 2, 0, '#AAFFAA');
+    addTex(scene, 'insect_mist', canvas);
+  }
+
+  // ── 彩绘修复：颜料弹 8×8 px格 ──
+  {
+    const S = 8;
+    const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+    const cx2 = 4, cy2 = 4;
+    // 彩球
+    const colorBands = ['#9966CC', '#CC88EE', '#FFCC44', '#88CCEE'];
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) <= 3) {
+          const colorIdx = (dx + dy + 4) % 4;
+          px(ctx, cx2 + dx, cy2 + dy, colorBands[colorIdx]);
+        }
+      }
+    }
+    // 高光
+    px(ctx, cx2, cy2 - 1, PAL.warmWhite);
+    // 拖尾（2px）
+    px(ctx, cx2 - 1, cy2 + 2, PAL.gold);
+    px(ctx, cx2 + 1, cy2 + 2, PAL.lightBlue);
+    addTex(scene, 'paint_ball', canvas);
+  }
 }
