@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR } from './config';
+import { SoundManager } from './SoundManager';
 
 export class Monster {
   scene: Phaser.Scene;
@@ -88,6 +89,7 @@ export class Monster {
   takeDamage(amount: number): boolean {
     if (this.isDead) return false;
     this.hp -= amount;
+    SoundManager.hitMonster();
     // 浮动伤害数字
     if (amount > 0) {
       const num = this.scene.add.text(this.x + (Math.random() - 0.5) * 16, this.y - 12, `${Math.round(amount)}`, {
@@ -111,6 +113,7 @@ export class Monster {
     });
     if (this.hp <= 0) {
       this.hp = 0;
+      SoundManager.killMonster();
       this.die();
       return true;
     }

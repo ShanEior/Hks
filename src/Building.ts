@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { StructureType } from './config';
+import { SoundManager } from './SoundManager';
 
 interface StructureState {
   currentHp: number;
@@ -90,6 +91,7 @@ export class Building {
     const s = this.structures.get(type);
     if (!s) return;
     s.currentHp = Math.max(0, s.currentHp - amount);
+    SoundManager.buildingHit();
     this.flashDamage();
     // 屏幕震动
     this.scene.cameras.main.shake(80, 0.004);
@@ -106,6 +108,7 @@ export class Building {
     const oldHp = s.currentHp;
     s.currentHp = Math.min(s.maxHp, s.currentHp + amount);
     if (s.currentHp > oldHp) {
+      SoundManager.buildingHeal();
       this.flashHeal();
     }
   }

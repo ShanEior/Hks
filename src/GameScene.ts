@@ -13,6 +13,7 @@ import { Building } from './Building';
 import { Monster } from './Monster';
 import { HUD } from './HUD';
 import { SkillManager } from './SkillManager';
+import { SoundManager } from './SoundManager';
 
 // ── 水洼 ──
 interface Puddle {
@@ -275,6 +276,7 @@ export class GameScene extends Phaser.Scene {
         // 收集
         if (dist < EXP_ORB_CONFIG.collectDist) {
           this.player.exp += orb.value;
+          SoundManager.expPickup();
           orb.graphic.destroy();
         }
       }
@@ -291,6 +293,7 @@ export class GameScene extends Phaser.Scene {
   private checkLevelUp(): void {
     if (this.levelUpPanelActive) return;
     if (this.player.exp >= this.player.expToNext) {
+      SoundManager.levelUp();
       this.player.exp -= this.player.expToNext;
       this.player.level++;
       this.player.expToNext = BASE_EXP_TO_LEVEL + this.player.level * EXP_PER_LEVEL;
@@ -442,6 +445,7 @@ export class GameScene extends Phaser.Scene {
       if (d < nearestDist) { nearestDist = d; nearest = m; }
     }
     if (!nearest) return;
+    SoundManager.autoAttack();
     const bolt = this.add.circle(this.player.x, this.player.y, 3, 0x88ccff);
     bolt.setDepth(12);
     this.autoBolts.push({ graphic: bolt, target: nearest, speed: 350, damage: this.autoAttackDamage, lifetime: 2 });
@@ -471,6 +475,7 @@ export class GameScene extends Phaser.Scene {
   private endGame(victory: boolean): void {
     if (this.isGameOver) return;
     this.isGameOver = true;
+    if (victory) SoundManager.victory(); else SoundManager.defeat();
     const elapsed = GAME_DURATION - this.gameTime;
     const m = Math.floor(elapsed / 60), s = Math.floor(elapsed % 60);
 
