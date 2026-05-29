@@ -134,7 +134,7 @@ export class SkillManager {
   private castSkill(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
     switch (skill.id) {
       case 'wood_reinforce':
-        this.castWoodReinforce(skill, player);
+        this.castWoodReinforce(skill, player, monsters);
         break;
       case 'stone_repair':
         this.castStoneRepair(skill, player, monsters);
@@ -151,15 +151,24 @@ export class SkillManager {
     }
   }
 
-  // ── 木构加固：前方矩形冲击波 ──
-  private castWoodReinforce(skill: ActiveSkill, player: Player): void {
+  // ── 木构加固：向最近敌人发射矩形冲击波 ──
+  private castWoodReinforce(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
     const speed = 400;
     const lifetime = 0.6;
     const width = 30;
     const height = (skill.range / 2) * (skill.widthMultiplier ?? 1);
 
-    // 使用玩家上一帧移动方向或默认向上
-    const angle = this.getPlayerFacingAngle();
+    // 找最近怪物作为目标方向
+    let nearest: Monster | null = null;
+    let nearestDist = Infinity;
+    for (const m of monsters) {
+      if (m.isDead) continue;
+      const d = Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y);
+      if (d < nearestDist) { nearestDist = d; nearest = m; }
+    }
+    const angle = nearest
+      ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
+      : -Math.PI / 2; // 无目标时默认向上
 
     const rect = this.scene.add.rectangle(player.x, player.y, width, height, 0xC4884D, 0.8);
     rect.setDepth(15);
@@ -437,21 +446,6 @@ export class SkillManager {
       duration: 250,
       onComplete: () => g.destroy(),
     });
-  }
-
-  // ── 估算玩家面朝方向（基于最近移动轨迹 or 默认向上） ──
-  private lastPlayerPos = { x: 0, y: 0 };
-  private playerFacingAngle = -Math.PI / 2; // 默认朝上
-
-  private getPlayerFacingAngle(): number {
-    const player = this.getPlayer();
-    const dx = player.x - this.lastPlayerPos.x;
-    const dy = player.y - this.lastPlayerPos.y;
-    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      this.playerFacingAngle = Math.atan2(dy, dx);
-    }
-    this.lastPlayerPos = { x: player.x, y: player.y };
-    return this.playerFacingAngle;
   }
 
   // ── 工具 ──
