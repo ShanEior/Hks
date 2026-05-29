@@ -401,7 +401,7 @@ export class GameScene extends Phaser.Scene {
     for (const m of this.monsters) {
       if (m.isDead) continue;
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
-      if (dist < PLAYER_CONFIG.radius + m.sprite.radius) {
+      if (dist < PLAYER_CONFIG.radius + m.radius) {
         m.onPlayerContact?.(m);
         // 玩家无敌，不扣血
       }

@@ -3,9 +3,18 @@ import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR } from './con
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
+/** 怪物颜色映射表（用于无纹理时的圆形占位 + 受击闪回） */
+const MONSTER_COLORS: Record<string, number> = {
+  termite: 0xDDDDDD,
+  wind: 0xDDCC88,
+  acid_rain: 0x44CC44,
+  fire: 0xFF6633,
+  freeze_thaw: 0x6699FF,
+};
+
 export class Monster {
   scene: Phaser.Scene;
-  sprite: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image;
   hpBar: Phaser.GameObjects.Graphics;
   type: MonsterType;
 
@@ -16,6 +25,7 @@ export class Monster {
   attackInterval: number; // ms
   attackStructures: StructureType[];
   expDrop: number;
+  radius: number;
 
   private targetX: number;
   private targetY: number;
@@ -50,15 +60,23 @@ export class Monster {
     this.targetX = targetX;
     this.targetY = targetY;
     this.attackRange = attackRange;
+    this.radius = template.radius;
 
-    // 用精灵图替代纯色圆
+    // 使用 ArtGen 像素纹理创建精灵（优先），无纹理时用纯色圆占位
     if (scene.textures.exists(template.type)) {
-      const img = scene.add.image(x, y, template.type);
-      img.setDepth(5);
-      (this as any)._image = img;
+      this.sprite = scene.add.image(x, y, template.type);
+    } else {
+      // 占位：用 graphics 生成一个纯色圆纹理（fallback）
+      const key = `_fallback_${template.type}`;
+      if (!scene.textures.exists(key)) {
+        const gfx = scene.add.graphics();
+        gfx.fillStyle(template.color, 1);
+        gfx.fillCircle(template.radius, template.radius, template.radius);
+        gfx.generateTexture(key, template.radius * 2, template.radius * 2);
+        gfx.destroy();
+      }
+      this.sprite = scene.add.image(x, y, key);
     }
-    // 保留圆用于碰撞检测
-    this.sprite = scene.add.circle(x, y, template.radius, template.color, 0);
     this.sprite.setDepth(5);
 
     // 头顶血条
@@ -90,10 +108,6 @@ export class Monster {
       }
     }
 
-    // 同步精灵图位置
-    const img = (this as any)._image as Phaser.GameObjects.Image | undefined;
-    if (img) { img.x = this.sprite.x; img.y = this.sprite.y; }
-
     this.drawHpBar();
   }
 
@@ -102,17 +116,15 @@ export class Monster {
     this.hp -= amount;
     SoundManager.hitMonster();
     VFX.hitMonster(this.scene, this.x, this.y, amount);
-    // 受击闪白
-    this.sprite.setFillStyle(0xffffff);
+
+    // 受击闪白（tint 方式，像素艺术友好）
+    this.sprite.setTint(0xffffff);
     this.scene.time.delayedCall(60, () => {
       if (this.sprite.active && !this.isDead) {
-        const colors: Record<string, number> = {
-          termite: 0xDDDDDD, wind: 0xDDCC88, acid_rain: 0x44CC44,
-          fire: 0xFF6633, freeze_thaw: 0x6699FF,
-        };
-        this.sprite.setFillStyle(colors[this.type] ?? 0xDDDDDD);
+        this.sprite.clearTint();
       }
     });
+
     if (this.hp <= 0) {
       this.hp = 0;
       SoundManager.killMonster();
@@ -126,14 +138,9 @@ export class Monster {
     this.isDead = true;
     this.onDeath?.(this);
 
-    const colorsMap: Record<string, number> = {
-      termite: 0xDDDDDD, wind: 0xDDCC88, acid_rain: 0x44CC44,
-      fire: 0xFF6633, freeze_thaw: 0x6699FF,
-    };
-    VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, colorsMap[this.type] ?? 0xDDDDDD);
+    const color = MONSTER_COLORS[this.type] ?? 0xDDDDDD;
+    VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color);
 
-    const img = (this as any)._image as Phaser.GameObjects.Image | undefined;
-    if (img) img.destroy();
     this.sprite.destroy();
     this.hpBar.destroy();
   }

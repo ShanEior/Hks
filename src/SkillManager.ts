@@ -402,7 +402,7 @@ export class SkillManager {
         for (const m of monsters) {
           if (m.isDead) continue;
           const dist = Phaser.Math.Distance.Between(p.graphic.x, p.graphic.y, m.x, m.y);
-          const hitRadius = 20 + m.sprite.radius;
+          const hitRadius = 20 + m.radius;
           if (dist < hitRadius) {
             m.takeDamage(p.damage);
             this.applyRepair(p.repairType, p.repairAmount, m.type);

@@ -10,6 +10,8 @@ try {
     height: GAME_HEIGHT,
     parent: 'game-container',
     backgroundColor: '#1a1a2e',
+    pixelArt: true,
+    roundPixels: true,
     scene: [MenuScene, GameScene],
     scale: {
       mode: Phaser.Scale.FIT,
