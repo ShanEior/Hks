@@ -6,6 +6,7 @@
 import Phaser from 'phaser';
 
 export function generateAllTextures(scene: Phaser.Scene): void {
+  genBackground(scene);
   genPlayer(scene);
   genTermite(scene);
   genWind(scene);
@@ -30,6 +31,109 @@ function createCanvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: C
 function addToPhaser(scene: Phaser.Scene, key: string, canvas: HTMLCanvasElement): void {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   scene.textures.addCanvas(key, canvas);
+}
+
+// ── 背景：古风庭院（480×270，铺满1920×1080） ──
+
+function genBackground(scene: Phaser.Scene): void {
+  const tw = 480, th = 270;
+  const { canvas, ctx } = createCanvas(tw, th);
+
+  // 草地底色
+  ctx.fillStyle = '#3A7D2C';
+  ctx.fillRect(0, 0, tw, th);
+
+  // 草斑（随机浅绿块）
+  ctx.fillStyle = '#4A8D3C';
+  for (let i = 0; i < 60; i++) {
+    const rx = Math.random() * tw, ry = Math.random() * th;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 6 + Math.random() * 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 深色土路
+  ctx.fillStyle = '#8B7355';
+  ctx.beginPath();
+  // 十字路通中央
+  ctx.moveTo(0, th * 0.45);
+  ctx.lineTo(tw, th * 0.45);
+  ctx.lineTo(tw, th * 0.55);
+  ctx.lineTo(0, th * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(tw * 0.45, 0);
+  ctx.lineTo(tw * 0.55, 0);
+  ctx.lineTo(tw * 0.55, th);
+  ctx.lineTo(tw * 0.45, th);
+  ctx.closePath();
+  ctx.fill();
+
+  // 中央庭院（石板地）
+  ctx.fillStyle = '#9E9E9E';
+  const cx = tw / 2, cy = th / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 50, 0, Math.PI * 2);
+  ctx.fill();
+  // 石板纹路
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  for (let a = 0; a < 6; a++) {
+    const angle = (a / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * 48, cy + Math.sin(angle) * 48);
+    ctx.stroke();
+  }
+
+  // 四角装饰树（简化松柏）
+  function drawTree(tx: number, ty: number, s: number): void {
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(tx - s * 0.08, ty, s * 0.16, s * 0.5);
+    ctx.fillStyle = '#2E7D32';
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - s * 0.3);
+    ctx.lineTo(tx + s * 0.25, ty + s * 0.15);
+    ctx.lineTo(tx - s * 0.25, ty + s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - s * 0.1);
+    ctx.lineTo(tx + s * 0.3, ty + s * 0.3);
+    ctx.lineTo(tx - s * 0.3, ty + s * 0.3);
+    ctx.closePath();
+    ctx.fill();
+  }
+  drawTree(30, 30, 40);
+  drawTree(tw - 30, 30, 40);
+  drawTree(30, th - 30, 40);
+  drawTree(tw - 30, th - 30, 40);
+
+  // 围墙
+  ctx.strokeStyle = '#6D4C41';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(4, 4, tw - 8, th - 8);
+
+  // 西南角香炉
+  const lx = 70, ly = th - 60;
+  ctx.fillStyle = '#795548';
+  ctx.beginPath();
+  ctx.arc(lx, ly, 8, Math.PI, 0);
+  ctx.fill();
+  ctx.fillStyle = '#5D4037';
+  ctx.fillRect(lx - 6, ly - 4, 12, 4);
+  // 香烟
+  ctx.strokeStyle = '#CCC';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(lx - 2 + i * 2, ly - 8);
+    ctx.quadraticCurveTo(lx - 3 + i * 3, ly - 16, lx - 1 + i * 2, ly - 22);
+    ctx.stroke();
+  }
+
+  addToPhaser(scene, 'background', canvas);
 }
 
 // ── 玩家：古建守护者（32×32） ──

@@ -178,19 +178,20 @@ export class GameScene extends Phaser.Scene {
 
   // ── 背景 ──
   private drawBackground(): void {
-    const bg = this.add.graphics();
-    bg.fillStyle(0x2d5a1e, 1);
-    bg.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-    bg.lineStyle(1, 0x3d6a2e, 0.25);
-    const step = 64;
-    for (let x = 0; x <= MAP_WIDTH; x += step) {
-      bg.moveTo(x, 0); bg.lineTo(x, MAP_HEIGHT);
+    const tex = this.textures.get('background');
+    if (tex) {
+      const tw = 480, th = 270;
+      for (let x = 0; x < MAP_WIDTH; x += tw) {
+        for (let y = 0; y < MAP_HEIGHT; y += th) {
+          this.add.image(x + tw / 2, y + th / 2, 'background').setDepth(0);
+        }
+      }
+    } else {
+      const bg = this.add.graphics();
+      bg.fillStyle(0x2d5a1e, 1);
+      bg.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+      bg.setDepth(0);
     }
-    for (let y = 0; y <= MAP_HEIGHT; y += step) {
-      bg.moveTo(0, y); bg.lineTo(MAP_WIDTH, y);
-    }
-    bg.strokePath();
-    bg.setDepth(0);
   }
 
   // ── 波次系统 ──
