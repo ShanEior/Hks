@@ -19,6 +19,15 @@ interface Puddle {
   graphic: Phaser.GameObjects.Graphics;
 }
 
+// ── 自动普攻弹 ──
+interface AutoBolt {
+  graphic: Phaser.GameObjects.Arc;
+  target: Monster;
+  speed: number;
+  damage: number;
+  lifetime: number;
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private building!: Building;
@@ -32,6 +41,12 @@ export class GameScene extends Phaser.Scene {
   private spawnInterval = INITIAL_SPAWN_INTERVAL;
   private isGameOver = false;
   private killCount = 0;
+
+  // 自动普攻
+  private autoAttackTimer = 0;
+  private readonly autoAttackCooldown = 0.7;
+  private readonly autoAttackDamage = 8;
+  private autoBolts: AutoBolt[] = [];
 
   constructor() {
     super({ key: 'GameScene' });
@@ -104,6 +119,9 @@ export class GameScene extends Phaser.Scene {
 
     // 清理死怪
     this.monsters = this.monsters.filter(m => !m.isDead);
+
+    // 自动普攻
+    this.updateAutoAttack(delta);
 
     // 技能更新
     this.skillManager.update(delta, time);
@@ -233,6 +251,73 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.player.setSlow(nearFreeze, 0.4);
+  }
+
+  // ── 自动普攻 ──
+  private updateAutoAttack(delta: number): void {
+    const dt = delta / 1000;
+
+    // 冷却计时
+    this.autoAttackTimer += dt;
+    if (this.autoAttackTimer >= this.autoAttackCooldown) {
+      this.autoAttackTimer -= this.autoAttackCooldown;
+      this.fireAutoBolt();
+    }
+
+    // 更新飞行中的普攻弹
+    for (const bolt of this.autoBolts) {
+      bolt.lifetime -= dt;
+      if (bolt.lifetime <= 0 || bolt.target.isDead) {
+        bolt.graphic.destroy();
+        continue;
+      }
+
+      // 追踪目标
+      const angle = Math.atan2(
+        bolt.target.y - bolt.graphic.y,
+        bolt.target.x - bolt.graphic.x,
+      );
+      bolt.graphic.x += Math.cos(angle) * bolt.speed * dt;
+      bolt.graphic.y += Math.sin(angle) * bolt.speed * dt;
+
+      // 命中检测
+      const dist = Phaser.Math.Distance.Between(
+        bolt.graphic.x, bolt.graphic.y,
+        bolt.target.x, bolt.target.y,
+      );
+      if (dist < 12) {
+        bolt.target.takeDamage(bolt.damage);
+        bolt.graphic.destroy();
+      }
+    }
+
+    this.autoBolts = this.autoBolts.filter(b => b.lifetime > 0 && b.graphic.active);
+  }
+
+  private fireAutoBolt(): void {
+    // 找最近怪物
+    let nearest: Monster | null = null;
+    let nearestDist = Infinity;
+    for (const m of this.monsters) {
+      if (m.isDead) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = m;
+      }
+    }
+    if (!nearest) return;
+
+    const bolt = this.add.circle(this.player.x, this.player.y, 3, 0x88ccff);
+    bolt.setDepth(12);
+
+    this.autoBolts.push({
+      graphic: bolt,
+      target: nearest,
+      speed: 350,
+      damage: this.autoAttackDamage,
+      lifetime: 2,
+    });
   }
 
   // ── 水洼系统 ──
