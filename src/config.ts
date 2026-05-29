@@ -195,11 +195,18 @@ export interface WaveStage {
 }
 
 export const WAVE_STAGES: WaveStage[] = [
-  { timeStart: 0,  timeEnd: 60,  spawnInterval: 2000, monsters: [{type:'termite',weight:80},{type:'wind',weight:20}], countPerWave: 4 },
-  { timeStart: 60, timeEnd: 120, spawnInterval: 1800, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 5 },
-  { timeStart: 120,timeEnd: 180, spawnInterval: 1500, monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 6 },
-  { timeStart: 180,timeEnd: 240, spawnInterval: 1200, monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 7 },
-  { timeStart: 240,timeEnd: 300, spawnInterval: 1000, monsters: [{type:'termite',weight:30},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:15}], countPerWave: 9 },
+  // 0-30s 教学期：仅白蚁，极慢
+  { timeStart: 0,  timeEnd: 30,  spawnInterval: 3000, monsters: [{type:'termite',weight:100}], countPerWave: 2 },
+  // 30-60s 加入风蚀
+  { timeStart: 30, timeEnd: 60,  spawnInterval: 2500, monsters: [{type:'termite',weight:85},{type:'wind',weight:15}], countPerWave: 3 },
+  // 60-120s 加入酸雨
+  { timeStart: 60, timeEnd: 120, spawnInterval: 2000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 4 },
+  // 120-180s 加入火焰
+  { timeStart: 120,timeEnd: 180, spawnInterval: 1700, monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 5 },
+  // 180-240s 加入冻融，压力明显
+  { timeStart: 180,timeEnd: 240, spawnInterval: 1400, monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 6 },
+  // 240-300s 全力输出
+  { timeStart: 240,timeEnd: 300, spawnInterval: 1100, monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 8 },
 ];
 
 // ---- 刷怪权重（Phase 2 简单权重，后续改为波次驱动） ----
