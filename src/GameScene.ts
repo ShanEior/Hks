@@ -463,39 +463,68 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = true;
     const elapsed = GAME_DURATION - this.gameTime;
     const m = Math.floor(elapsed / 60), s = Math.floor(elapsed % 60);
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5)
+
+    // 半透明遮罩
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(199);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, victory ? '古建守卫成功！' : '古建被毁...', {
-      fontSize: '42px', color: victory ? '#ffdd44' : '#ff4444',
+
+    const cy = GAME_HEIGHT / 2 - 70;
+    // 标题
+    this.add.text(GAME_WIDTH / 2, cy, victory ? '古建守卫成功！' : '古建被毁...', {
+      fontSize: '38px', color: victory ? '#ffdd44' : '#ff4444',
       fontFamily: 'sans-serif', stroke: '#000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20,
-      `坚持时间 ${m}:${s.toString().padStart(2, '0')}  |  击杀 ${this.killCount}`, {
-      fontSize: '16px', color: '#ccc',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60, '刷新页面重开一局', {
-      fontSize: '13px', color: '#888',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+    // 统计
+    const stats = [
+      `坚持时间 ${m}:${s.toString().padStart(2, '0')}`,
+      `击败怪物 ${this.killCount}`,
+      `最高等级 Lv.${this.player.level}`,
+    ];
+    let sy = cy + 45;
+    for (const line of stats) {
+      this.add.text(GAME_WIDTH / 2, sy, line, {
+        fontSize: '15px', color: '#ddd',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+      sy += 24;
+    }
+
+    // 古建各结构剩余
+    sy += 8;
+    const structLabels: Record<string, string> = { wood: '木质结构', stone: '石质结构', tile: '砖瓦结构', painting: '彩绘壁画' };
+    const structColors = [0xC4884D, 0x999999, 0xA0522D, 0x9966CC];
+    let ci = 0;
+    for (const [type, label] of Object.entries(structLabels)) {
+      const st = this.building.getStructure(type as any);
+      const pct = st ? Math.round((st.currentHp / st.maxHp) * 100) : 0;
+      const color = Phaser.Display.Color.IntegerToColor(structColors[ci]);
+      this.add.text(GAME_WIDTH / 2, sy, `${label}: ${pct}%`, {
+        fontSize: '13px', color: `#${color.red.toString(16).padStart(2, '0')}${color.green.toString(16).padStart(2, '0')}${color.blue.toString(16).padStart(2, '0')}`,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+      sy += 20;
+      ci++;
+    }
+
+    // 重新开始按钮
+    sy += 10;
+    const restartBtn = this.add.text(GAME_WIDTH / 2, sy, '返回菜单', {
+      fontSize: '18px', color: '#ffcc44', fontFamily: 'sans-serif',
+      backgroundColor: '#553322', padding: { x: 24, y: 8 },
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200)
+      .setInteractive({ useHandCursor: true });
+
+    restartBtn.on('pointerover', () => restartBtn.setColor('#ffffff'));
+    restartBtn.on('pointerout', () => restartBtn.setColor('#ffcc44'));
+    restartBtn.on('pointerdown', () => {
+      this.scene.start('MenuScene');
+    });
   }
 
   // ── 调试 ──
   private setupDebugControls(): void {
+    // 游戏已完成可用，调试键保留但缩减
     const kb = this.input.keyboard!;
-    kb.on('keydown-SPACE', () => { for (const m of this.monsters) m.takeDamage(999); });
-    kb.on('keydown-K', () => this.building.damageStructure('wood', 10));
-    kb.on('keydown-H', () => this.building.healStructure('wood', 10));
-    kb.on('keydown-ONE', () => this.building.damageStructure('wood', 200));
-    kb.on('keydown-TWO', () => this.building.damageStructure('stone', 200));
-    kb.on('keydown-THREE', () => this.building.damageStructure('tile', 200));
-    kb.on('keydown-FOUR', () => this.building.damageStructure('painting', 200));
     kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
-    const skillIds: SkillId[] = ['wood_reinforce', 'stone_repair', 'waterproof', 'insect_control', 'painting_restore'];
-    ['Z', 'X', 'C', 'V', 'B'].forEach((key, i) => {
-      kb.on(`keydown-${key}`, () => {
-        this.skillManager.addSkill(skillIds[i]);
-        this.skillManager.upgradeSkill(skillIds[i]);
-        this.skillManager.upgradeSkill(skillIds[i]);
-      });
-    });
   }
 }

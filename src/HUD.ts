@@ -122,6 +122,15 @@ export class HUD {
     // 经验条
     const expRatio = player.level > 0 ? player.exp / player.expToNext : 0;
     this.expFill.setSize(fullW * expRatio, 10);
+    // 快满时脉冲闪烁
+    if (expRatio > 0.8) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now * 0.01);
+      this.expFill.setFillStyle(0x44aaff, 0.6 + 0.4 * pulse);
+      this.expLabel.setColor('#ffff44');
+    } else {
+      this.expFill.setFillStyle(0x44aaff, 1);
+      this.expLabel.setColor('#ffffff');
+    }
     this.expLabel.setText(`Lv.${player.level}  ${player.exp}/${player.expToNext}`);
   }
 
