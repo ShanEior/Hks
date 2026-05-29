@@ -14,6 +14,7 @@ import { Monster } from './Monster';
 import { HUD } from './HUD';
 import { SkillManager } from './SkillManager';
 import { SoundManager } from './SoundManager';
+import { generateAllTextures } from './ArtGen';
 
 // ── 水洼 ──
 interface Puddle {
@@ -25,7 +26,7 @@ interface Puddle {
 
 // ── 自动普攻弹 ──
 interface AutoBolt {
-  graphic: Phaser.GameObjects.Arc;
+  graphic: Phaser.GameObjects.Image;
   target: Monster;
   speed: number;
   damage: number;
@@ -34,7 +35,7 @@ interface AutoBolt {
 
 // ── 经验球 ──
 interface ExpOrb {
-  graphic: Phaser.GameObjects.Arc;
+  graphic: Phaser.GameObjects.Image;
   value: number;
   x: number; y: number;
   lifetime: number;
@@ -88,6 +89,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 生成全部精灵纹理
+    generateAllTextures(this);
+
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.drawBackground();
 
@@ -247,7 +251,7 @@ export class GameScene extends Phaser.Scene {
 
   // ── 经验球 ──
   private spawnExpOrb(x: number, y: number, value: number): void {
-    const orb = this.add.circle(x, y, EXP_ORB_CONFIG.radius, EXP_ORB_CONFIG.color);
+    const orb = this.add.image(x, y, 'exp_orb');
     orb.setDepth(8);
     this.expOrbs.push({
       graphic: orb, value, x, y,
@@ -446,7 +450,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (!nearest) return;
     SoundManager.autoAttack();
-    const bolt = this.add.circle(this.player.x, this.player.y, 3, 0x88ccff);
+    const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
     bolt.setDepth(12);
     this.autoBolts.push({ graphic: bolt, target: nearest, speed: 350, damage: this.autoAttackDamage, lifetime: 2 });
   }

@@ -50,8 +50,14 @@ export class Monster {
     this.targetY = targetY;
     this.attackRange = attackRange;
 
-    // 视觉：按类型区分颜色和大小
-    this.sprite = scene.add.circle(x, y, template.radius, template.color);
+    // 用精灵图替代纯色圆
+    if (scene.textures.exists(template.type)) {
+      const img = scene.add.image(x, y, template.type);
+      img.setDepth(5);
+      (this as any)._image = img;
+    }
+    // 保留圆用于碰撞检测
+    this.sprite = scene.add.circle(x, y, template.radius, template.color, 0);
     this.sprite.setDepth(5);
 
     // 头顶血条
@@ -82,6 +88,10 @@ export class Monster {
         this.onAttack?.(this);
       }
     }
+
+    // 同步精灵图位置
+    const img = (this as any)._image as Phaser.GameObjects.Image | undefined;
+    if (img) { img.x = this.sprite.x; img.y = this.sprite.y; }
 
     this.drawHpBar();
   }
@@ -144,6 +154,8 @@ export class Monster {
       });
     }
 
+    const img = (this as any)._image as Phaser.GameObjects.Image | undefined;
+    if (img) img.destroy();
     this.sprite.destroy();
     this.hpBar.destroy();
   }
