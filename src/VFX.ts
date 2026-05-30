@@ -546,4 +546,137 @@ export class VFX {
       });
     }
   }
+
+  // ═══ pipi3 新增技能特效 ═══
+
+  static skillRepairField(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    VFX.shockwave(scene, x, y, radius * 0.95, 0x88ff66, 760);
+    VFX.burst(scene, x, y, 18 + lv * 5, [0x88ff66, 0xaaff88, 0xddffcc, 0xffffff], 120, 4, 950);
+  }
+
+  static repairFieldPulse(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number, orbCount: number): void {
+    VFX.shockwave(scene, x, y, radius, 0x99ff66, 420);
+    for (let i = 0; i < orbCount; i++) {
+      const a = (Math.PI * 2 * i) / orbCount;
+      const sx = x + Math.cos(a) * radius * 0.45, sy = y + Math.sin(a) * radius * 0.45;
+      const p = scene.add.circle(sx, sy, 3 + (i % 2), 0xaaff88, 0.9);
+      p.setDepth(42);
+      scene.tweens.add({
+        targets: p, x: sx + Math.cos(a) * 22, y: sy + Math.sin(a) * 22 - 10,
+        alpha: 0, scale: 0.3, duration: 700 + lv * 100,
+        onComplete: () => p.destroy(),
+      });
+    }
+  }
+
+  static skillWhirlwind(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    for (let i = 0; i < 2 + lv; i++) {
+      const arc = scene.add.arc(x, y, 32 + i * 12, -55, 55, false, 0x00c8ff, 0);
+      arc.setStrokeStyle(4 - Math.min(i, 2), 0x66ddff, 0.9 - i * 0.12);
+      arc.setDepth(36);
+      arc.rotation = Phaser.Math.DegToRad(-18 + i * 22);
+      scene.tweens.add({
+        targets: arc, x: x + 28 + i * 8, rotation: arc.rotation + Math.PI * 0.9,
+        alpha: 0, duration: 480, ease: 'Sine.easeOut',
+        onComplete: () => arc.destroy(),
+      });
+    }
+    VFX.burst(scene, x + 18, y, 10 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 90, 3, 380);
+  }
+
+  static whirlwindHit(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    const arc = scene.add.arc(x, y, 42 + lv * 10, -70, 70, false, 0x00c8ff, 0);
+    arc.setStrokeStyle(4, 0x99f0ff, 0.9);
+    arc.setDepth(37);
+    arc.rotation = Phaser.Math.DegToRad((scene.time.now / 5) % 360);
+    scene.tweens.add({
+      targets: arc, rotation: arc.rotation + Math.PI * 1.3, alpha: 0, duration: 260,
+      onComplete: () => arc.destroy(),
+    });
+    VFX.burst(scene, x, y, 12 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 130, 3, 360);
+    VFX.shockwave(scene, x, y, 44 + lv * 12, 0x66ddff, 280);
+  }
+
+  static skillFireRain(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    VFX.burst(scene, x, y, 8 + lv * 2, [0xffaa33, 0xff6633, 0xffee88], 100, 3, 420);
+    VFX.shockwave(scene, x, y, radius * 0.45, 0xff8844, 320);
+  }
+
+  static fireRainMarker(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    const mark = scene.add.circle(x, y, 10, 0xffaa33, 0.12);
+    mark.setStrokeStyle(2, 0xff8844, 0.8);
+    mark.setDepth(34);
+    scene.tweens.add({
+      targets: mark, radius: 22 + lv * 3, alpha: 0, duration: 220,
+      onComplete: () => mark.destroy(),
+    });
+  }
+
+  static fireRainImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    const pillar = scene.add.rectangle(x, y - 40, 10, 90, 0xffaa33, 0.9);
+    pillar.setDepth(38);
+    scene.tweens.add({
+      targets: pillar, y: y, alpha: 0, duration: 180,
+      onComplete: () => pillar.destroy(),
+    });
+    VFX.burst(scene, x, y, 12 + lv * 2, [0xffcc44, 0xff8844, 0xff4422, 0xffffff], 170, 4, 420);
+    VFX.shockwave(scene, x, y, Math.max(24, radius), 0xff6633, 260);
+    VFX.shake(scene, 0.003 + lv * 0.001, 70);
+  }
+
+  static skillLightningCast(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    VFX.burst(scene, x, y, 16 + lv * 4, [0x66ccff, 0xffffff, 0x99eeff], 220, 4, 520);
+    VFX.flash(scene, 80);
+  }
+
+  static lightningArc(scene: Phaser.Scene, x1: number, y1: number, x2: number, y2: number, _fromPlayer: boolean, lv: number): void {
+    const g = scene.add.graphics();
+    g.setDepth(39);
+    g.lineStyle(_fromPlayer ? 5 : 4, _fromPlayer ? 0x99eeff : 0x66ccff, 0.98);
+    g.beginPath();
+    g.moveTo(x1, y1);
+    const segments = 6 + lv;
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      const px = Phaser.Math.Linear(x1, x2, t) + Phaser.Math.Between(-10, 10);
+      const py = Phaser.Math.Linear(y1, y2, t) + Phaser.Math.Between(-10, 10);
+      g.lineTo(px, py);
+    }
+    g.lineTo(x2, y2);
+    g.strokePath();
+    const splash = scene.add.circle(x2, y2, 5, 0xaaddff, 0.9);
+    splash.setDepth(40);
+    scene.tweens.add({
+      targets: [g, splash], alpha: 0, duration: 180,
+      onComplete: () => { g.destroy(); splash.destroy(); },
+    });
+  }
+
+  static woodImpact(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    const count = lv >= 3 ? 18 : 12;
+    VFX.burst(scene, x, y, count, [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88], 180, 4, 520);
+    VFX.shockwave(scene, x, y, lv >= 3 ? 48 : 34, 0xc4884d, 340);
+  }
+
+  static waterImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    VFX.burst(scene, x, y, lv >= 3 ? 18 : 12, [0x4488cc, 0x66bbee, 0xaaddff, 0xffffff], 150, 4, 620);
+    VFX.shockwave(scene, x, y, Math.max(24, radius * 1.1), 0x66bbee, 360);
+    const flash = scene.add.circle(x, y, 6, 0xddeeff, 0.8);
+    flash.setDepth(38);
+    scene.tweens.add({
+      targets: flash, scale: 3.5, alpha: 0, duration: 260,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  static insectTick(scene: Phaser.Scene, x: number, y: number, radius: number): void {
+    VFX.shockwave(scene, x, y, Math.max(24, radius * 1.2), 0x66dd66, 260);
+    VFX.burst(scene, x, y, 8, [0x44cc44, 0x88cc44, 0xccee88], 100, 3, 420);
+  }
+
+  static paintImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    const colors = [0xff4488, 0xff8800, 0xffee00, 0x44ff88, 0x4488ff, 0xcc44ff];
+    VFX.burst(scene, x, y, lv >= 3 ? 22 : 16, colors, 210, 5, 650);
+    VFX.shockwave(scene, x, y, Math.max(28, radius * 1.15), 0xff66cc, 380);
+  }
 }

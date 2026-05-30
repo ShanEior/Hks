@@ -569,7 +569,7 @@ export const DAMAGE_NUMBER_CONFIG = {
   normal:  { color: '#FFFFFF', size: '14px', scale: 1.0 },
   heavy:   { color: '#FFAA44', size: '16px', scale: 1.2 },
   crit:    { color: '#FF6600', size: '20px', scale: 1.5, suffix: '!' },
-  kill:    { color: '#FF4444', size: '18px', scale: 1.3, prefix: '击杀 ' },
+  kill:    { color: '#FF4444', size: '18px', scale: 1.3 },
   boss:    { color: '#CC44FF', size: '22px', scale: 1.4 },
   heal:    { color: '#44FF66', size: '14px', scale: 1.0, prefix: '+' },
 } as const;

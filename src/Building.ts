@@ -65,7 +65,6 @@ export class Building {
     SoundManager.buildingHit();
     VFX.buildingHit(this.scene, this.x, this.y, type);
     this.flashDamage(amount);
-    this.shakeSprite();
 
     if (s.currentHp <= 0 && this.onFailure) {
       this.onFailure();
