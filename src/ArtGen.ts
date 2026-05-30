@@ -114,7 +114,6 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genCalamityCore(scene);
   genBuilding(scene);
   genExpOrb(scene);
-  genBolt(scene);
   genRepairCrate(scene);
   genSkillTextures(scene);
   genUIAllTextures(scene);
@@ -1501,30 +1500,43 @@ function genExpOrb(scene: Phaser.Scene) {
 // 普攻弹 8×8 像素格（=16×16 物理px）
 // ═══════════════════════════════════════════════
 
-function genBolt(scene: Phaser.Scene) {
-  const S = 12;
+function genArrow(scene: Phaser.Scene) {
+  const S = 16;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  // 月牙剑气 — 细弯弧刃
-  // 上弧
-  px(ctx, 2, 4, '#6699CC'); px(ctx, 3, 3, '#88CCFF'); px(ctx, 4, 2, '#AAE0FF');
-  px(ctx, 5, 2, '#BBEEFF'); px(ctx, 6, 1, '#CCEEFF'); px(ctx, 7, 1, '#DDEEFF');
-  px(ctx, 8, 2, '#DDF0FF'); px(ctx, 9, 2, '#CCEEFF');
-  // 核心白光
-  px(ctx, 4, 3, '#FFFFFF'); px(ctx, 5, 3, '#FFFFFF');
-  px(ctx, 6, 2, '#FFFFFF'); px(ctx, 7, 2, '#FFFFFF');
-  // 下弧
-  px(ctx, 2, 5, '#6699CC'); px(ctx, 3, 6, '#88CCFF'); px(ctx, 4, 7, '#AAE0FF');
-  px(ctx, 5, 7, '#BBEEFF'); px(ctx, 6, 8, '#CCEEFF'); px(ctx, 7, 8, '#DDEEFF');
-  px(ctx, 8, 7, '#DDF0FF'); px(ctx, 9, 7, '#CCEEFF');
-  // 两端收尖
-  px(ctx, 1, 4, '#4477AA'); px(ctx, 1, 5, '#4477AA');
-  px(ctx, 10, 3, '#88CCFF'); px(ctx, 10, 6, '#88CCFF');
-  // 弧内填充
-  px(ctx, 3, 4, '#AAE0FF'); px(ctx, 3, 5, '#AAE0FF');
-  px(ctx, 8, 3, '#BBEEFF'); px(ctx, 8, 5, '#BBEEFF');
-  px(ctx, 9, 3, '#99DDFF'); px(ctx, 9, 5, '#99DDFF');
 
-  addTex(scene, 'bolt', canvas);
+  // 箭杆 — 深木色（y5~y10, x3~x10）
+  for (let y = 5; y <= 10; y++) {
+    for (let x = 3; x <= 10; x++) {
+      px(ctx, x, y, '#7A5C1E');
+    }
+  }
+  // 箭杆高光（y6~y9, x4~x9）
+  for (let y = 6; y <= 9; y++) {
+    for (let x = 4; x <= 9; x++) {
+      px(ctx, x, y, '#B8922E');
+    }
+  }
+
+  // 箭头 — 铁灰三角
+  px(ctx, 11, 7, '#AAAAAA'); px(ctx, 11, 8, '#AAAAAA');
+  px(ctx, 12, 6, '#CCCCCC'); px(ctx, 12, 7, '#DDDDDD');
+  px(ctx, 12, 8, '#DDDDDD'); px(ctx, 12, 9, '#CCCCCC');
+  px(ctx, 13, 6, '#EEEEEE'); px(ctx, 13, 7, '#FFFFFF');
+  px(ctx, 13, 8, '#FFFFFF'); px(ctx, 13, 9, '#EEEEEE');
+  px(ctx, 14, 7, '#FFFFFF'); px(ctx, 14, 8, '#FFFFFF');
+
+  // 箭羽 — 红色尾羽
+  px(ctx, 2, 5, '#BB3333'); px(ctx, 2, 10, '#BB3333');
+  px(ctx, 1, 5, '#992222'); px(ctx, 1, 6, '#992222');
+  px(ctx, 1, 9, '#992222'); px(ctx, 1, 10, '#992222');
+  px(ctx, 0, 6, '#771111'); px(ctx, 0, 7, '#771111');
+  px(ctx, 0, 8, '#771111'); px(ctx, 0, 9, '#771111');
+
+  // 箭杆和箭羽连接处
+  px(ctx, 2, 6, '#6B4A14'); px(ctx, 2, 9, '#6B4A14');
+  px(ctx, 2, 7, '#7A5C1E'); px(ctx, 2, 8, '#7A5C1E');
+
+  addTex(scene, 'arrow', canvas);
 }
 
 // ═══════════════════════════════════════════════
@@ -1565,22 +1577,23 @@ function genRepairCrate(scene: Phaser.Scene) {
 }
 
 function genSkillTextures(scene: Phaser.Scene) {
-  // ── 木构加固：木梁冲击波 16×6 px格 ──
+  // ── 木构加固：木梁冲击波 24×8 px格 ──
   {
-    const W = 16, H = 6;
+    const W = 24, H = 8;
     const { canvas, ctx } = makeCanvas(W * PX, H * PX);
     pxRect(ctx, 0, 0, W, H, PAL.goldBrown);
-    pxRect(ctx, 0, 1, W, 1, PAL.creamGold);     // 高光中线
-    pxRect(ctx, 0, 5, W, 1, PAL.midBrown);      // 暗底边
+    pxRect(ctx, 0, 1, W, 2, PAL.creamGold);     // 高光带
+    pxRect(ctx, 0, 6, W, 2, PAL.midBrown);      // 暗底带
     // 木纹竖线
-    for (let i = 2; i < W; i += 3) {
-      pxVLine(ctx, i, 1, 4, PAL.warmBrown);
+    for (let i = 3; i < W; i += 4) {
+      pxVLine(ctx, i, 2, 4, PAL.warmBrown);
     }
-    // 头部箭头
-    px(ctx, W - 1, 0, PAL.lightGold);
-    px(ctx, W - 1, H - 1, PAL.lightGold);
-    px(ctx, W, 1, PAL.lightGold);
-    px(ctx, W, H - 2, PAL.lightGold);
+    // 头部尖角（箭头）
+    px(ctx, W - 1, 1, PAL.lightGold); px(ctx, W - 1, H - 2, PAL.lightGold);
+    px(ctx, W, 0, PAL.lightGold); px(ctx, W, H - 1, PAL.lightGold);
+    px(ctx, W + 1, 1, PAL.lightGold); px(ctx, W + 1, H - 2, PAL.lightGold);
+    // 尾部
+    px(ctx, 0, 1, PAL.warmBrown); px(ctx, 0, H - 2, PAL.warmBrown);
     addTex(scene, 'wood_beam', canvas);
   }
 
@@ -1625,26 +1638,35 @@ function genSkillTextures(scene: Phaser.Scene) {
     addTex(scene, 'insect_mist', canvas);
   }
 
-  // ── 彩绘修复：颜料弹 8×8 px格 ──
+  // ── 彩绘修复：颜料弹 14×14 px格 ──
   {
-    const S = 8;
+    const S = 14;
     const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-    const cx2 = 4, cy2 = 4;
-    // 彩球
-    const colorBands = ['#9966CC', '#CC88EE', '#FFCC44', '#88CCEE'];
-    for (let dy = -2; dy <= 2; dy++) {
-      for (let dx = -2; dx <= 2; dx++) {
-        if (Math.abs(dx) + Math.abs(dy) <= 3) {
-          const colorIdx = (dx + dy + 4) % 4;
+    const cx2 = 7, cy2 = 7;
+    // 彩球本体（菱形填充）
+    const colorBands = ['#9966CC', '#CC88EE', '#FFCC44', '#88CCEE', '#FF6699', '#66CCFF'];
+    for (let dy = -4; dy <= 4; dy++) {
+      for (let dx = -4; dx <= 4; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) <= 5) {
+          const colorIdx = (dx + dy + 6) % 6;
           px(ctx, cx2 + dx, cy2 + dy, colorBands[colorIdx]);
         }
       }
     }
-    // 高光
-    px(ctx, cx2, cy2 - 1, PAL.warmWhite);
-    // 拖尾（2px）
-    px(ctx, cx2 - 1, cy2 + 2, PAL.gold);
-    px(ctx, cx2 + 1, cy2 + 2, PAL.lightBlue);
+    // 内核亮点
+    px(ctx, cx2, cy2, '#FFFFFF');
+    px(ctx, cx2 - 1, cy2, '#FFEEFF');
+    px(ctx, cx2 + 1, cy2, '#FFEEFF');
+    px(ctx, cx2, cy2 - 1, '#FFEEFF');
+    // 外层光晕点
+    px(ctx, cx2 - 4, cy2, '#AA77DD');
+    px(ctx, cx2 + 4, cy2, '#AA77DD');
+    px(ctx, cx2, cy2 - 4, '#77AADD');
+    px(ctx, cx2, cy2 + 4, '#77AADD');
+    // 拖尾
+    px(ctx, cx2 - 2, cy2 + 4, PAL.gold);
+    px(ctx, cx2, cy2 + 5, PAL.gold);
+    px(ctx, cx2 + 2, cy2 + 4, PAL.lightBlue);
     addTex(scene, 'paint_ball', canvas);
   }
 }

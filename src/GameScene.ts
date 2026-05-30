@@ -20,7 +20,6 @@ import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 import { CombatFeel } from './CombatFeel';
 import { generateAllTextures } from './ArtGen';
-import { preloadSprites, nthKey } from './SpriteLoader';
 
 // ── 水洼 ──
 interface Puddle {
@@ -37,6 +36,7 @@ interface AutoBolt {
   speed: number;
   damage: number;
   lifetime: number;
+  angle?: number;
 }
 
 // ── 经验球 ──
@@ -75,6 +75,7 @@ export class GameScene extends Phaser.Scene {
   private repairCrates: RepairCrate[] = [];
   private collidables: {x:number,y:number,radius:number}[] = [];
   private collidableRects: {x:number,y:number,w:number,h:number}[] = [];
+  private collidableTriangles: {x1:number,y1:number,x2:number,y2:number,x3:number,y3:number}[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -113,15 +114,28 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image('bg', 'assets/bg.png');
-    this.load.image('png_earth', 'assets/earth.png');
-    for(let i=1;i<=9;i++)this.load.image('grass'+i,'assets/精灵-000'+i+'.png');
     this.load.image('illus_termite','assets/monster_termite.png');
     this.load.image('illus_wind','assets/monster_wind.png');
     this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
     this.load.image('illus_fire','assets/monster_fire.png');
     this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
     this.load.image('gj', 'assets/building.png');
-    preloadSprites(this);
+    this.load.image('arrow', 'assets/arrow.png');
+
+    // ── Terraria 特效精灵纹理 ──
+    this.load.image('fx_glow_64',    'assets/effects/extra_Extra_252.png');
+
+    this.load.image('fx_star_34',    'assets/effects/extra_Extra_283.png');
+    this.load.image('fx_ring_42',    'assets/effects/extra_Extra_76.png');
+    this.load.image('fx_dust_16',    'assets/effects/proj_Projectile_187.png');
+    this.load.image('fx_slash',      'assets/effects/proj_Projectile_340.png');
+    this.load.image('fx_whirlwind',  'assets/effects/proj_Projectile_97.png');
+    this.load.image('fx_bolt_extra', 'assets/effects/proj_Projectile_108.png');
+    this.load.image('fx_bolt_hit',   'assets/effects/proj_Projectile_165.png');
+    this.load.image('fx_impact',     'assets/effects/extra_Extra_33.png');
+    this.load.image('fx_ring_impact','assets/effects/extra_Extra_148.png');
+    this.load.image('fx_heal',       'assets/effects/proj_Projectile_164.png');
+    this.load.image('fx_boss_ring',  'assets/effects/extra_Extra_196.png');
   }
 
   create(): void {
@@ -132,15 +146,18 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
 
     this.building = new Building(
-      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 260,
+      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 130,
       BUILDING_CONFIG.structures as any,
     );
-    this.building.graphics.setScale(0.45);
+    this.building.graphics.setScale(0.68);
     this.building.onFailure = () => this.endGame(false);
-    // 古建碰撞体
-    // 古建碰撞 — 矩形下半部分（890*0.6≈534宽, 1176*0.6≈706高, 下半=353高）
-    const bw = 280, bh = 220;
-    this.collidableRects.push({ x: BUILDING_CONFIG.x - bw/2, y: BUILDING_CONFIG.y - 260 + 40, w: bw, h: bh });
+    // 古建碰撞体 — 三角形（塔形：上尖下宽）
+    const bx = BUILDING_CONFIG.x, by = BUILDING_CONFIG.y - 130;
+    this.collidableTriangles.push({
+      x1: bx, y1: by - 140,
+      x2: bx - 190, y2: by + 180,
+      x3: bx + 190, y3: by + 180,
+    });
 
     this.player = new Player(
       this, BUILDING_CONFIG.x,
@@ -158,8 +175,6 @@ export class GameScene extends Phaser.Scene {
     this.skillManager = new SkillManager(
       this, () => this.monsters, () => this.player, () => this.building, () => this.boss,
     );
-    this.skillManager.addSkill('wood_reinforce');
-
     // Boss 事件监听
     this.events.on('boss-earthquake', (damage: number) => {
       if (!this.boss || this.boss.isDead) return;
@@ -262,6 +277,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.debugDraw) this.drawDebugColliders();
     this.hud.update(this.player, this.building, this.gameTime, this.killCount);
   }
 
@@ -297,6 +313,30 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+    for (const tri of this.collidableTriangles) {
+      // 找到三角形上离 sprite 最近的点
+      let cx = tri.x1, cy = tri.y1, minDist = Infinity;
+      const edges: [number,number,number,number][] = [
+        [tri.x1, tri.y1, tri.x2, tri.y2],
+        [tri.x2, tri.y2, tri.x3, tri.y3],
+        [tri.x3, tri.y3, tri.x1, tri.y1],
+      ];
+      for (const [ex1, ey1, ex2, ey2] of edges) {
+        const edx = ex2 - ex1, edy = ey2 - ey1;
+        const len2 = edx * edx + edy * edy;
+        let t = len2 > 0 ? ((sprite.x - ex1) * edx + (sprite.y - ey1) * edy) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const px = ex1 + t * edx, py = ey1 + t * edy;
+        const d = (sprite.x - px) ** 2 + (sprite.y - py) ** 2;
+        if (d < minDist) { minDist = d; cx = px; cy = py; }
+      }
+      const dx = sprite.x - cx, dy = sprite.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < r && dist > 0.01) {
+        sprite.x += (dx / dist) * (r - dist);
+        sprite.y += (dy / dist) * (r - dist);
+      }
+    }
   }
 
   // ── 背景 ──
@@ -317,6 +357,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── 树 + 石头精灵 ──
   private placeEnvironmentSprites(): void {
+    // 已移除：场景仅用 bg.png，不再放置环境精灵
+    const nthKey = (_cat:string, _n:number) => 'bolt';
     const cx = MAP_WIDTH / 2, cy = MAP_HEIGHT / 2;
     const hash = (x: number, y: number): number =>
       ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
@@ -418,9 +460,10 @@ export class GameScene extends Phaser.Scene {
 
   private spawnSingleMonster(type: MonsterType): void {
     const template = MONSTER_TEMPLATES[type];
-    const angle = Math.random() * Math.PI * 2;
-    const sx = MAP_WIDTH / 2 + Math.cos(angle) * SPAWN_DISTANCE;
-    const sy = MAP_HEIGHT / 2 + Math.sin(angle) * SPAWN_DISTANCE;
+    // 从地图左右两侧外生成
+    const fromLeft = Math.random() < 0.5;
+    const sx = fromLeft ? -60 : MAP_WIDTH + 60;
+    const sy = 80 + Math.random() * (MAP_HEIGHT - 160);
 
     // 时间缩放 — 唯一来源
     const scaling = calcTimeScaling(GAME_DURATION - this.gameTime);
@@ -754,7 +797,7 @@ export class GameScene extends Phaser.Scene {
           for (const type of ['wood', 'stone', 'tile', 'painting'] as const) {
             this.building.healStructure(type, 10);
           }
-          VFX.burst(this, c.x, c.y, 12, [0x44ff88, 0xffdd44, 0xffffff], 80, 3, 400);
+          VFX.burst(this, c.x, c.y, 12, [0x44ff88, 0xffdd44, 0xffffff], 80, 3, 400, 'fx_heal');
           SoundManager.repairCratePickup();
           c.graphic.destroy();
         }
@@ -993,11 +1036,24 @@ export class GameScene extends Phaser.Scene {
     }
 
     for (const bolt of this.autoBolts) {
-      bolt.lifetime -= dt;
-      if (bolt.lifetime <= 0 || bolt.target.isDead) {
+      // 飞出地图外才销毁
+      const margin = 100;
+      if (bolt.graphic.x < -margin || bolt.graphic.x > MAP_WIDTH + margin ||
+          bolt.graphic.y < -margin || bolt.graphic.y > MAP_HEIGHT + margin) {
         bolt.graphic.destroy(); continue;
       }
+      // 目标死亡后，箭头沿原方向继续飞出场景
+      if (bolt.target.isDead) {
+        if (bolt.angle === undefined) {
+          bolt.angle = Math.atan2(bolt.target.y - bolt.graphic.y, bolt.target.x - bolt.graphic.x);
+          bolt.graphic.setRotation(bolt.angle + Math.PI / 2);
+        }
+        bolt.graphic.x += Math.cos(bolt.angle) * bolt.speed * dt;
+        bolt.graphic.y += Math.sin(bolt.angle) * bolt.speed * dt;
+        continue;
+      }
       const a = Math.atan2(bolt.target.y - bolt.graphic.y, bolt.target.x - bolt.graphic.x);
+      bolt.graphic.setRotation(a + Math.PI / 2);
       bolt.graphic.x += Math.cos(a) * bolt.speed * dt;
       bolt.graphic.y += Math.sin(a) * bolt.speed * dt;
       if (Phaser.Math.Distance.Between(bolt.graphic.x, bolt.graphic.y, bolt.target.x, bolt.target.y) < 12) {
@@ -1012,7 +1068,7 @@ export class GameScene extends Phaser.Scene {
   private fireAutoBolt(): void {
     let nearest: Monster | null = null, nearestDist = Infinity;
     for (const m of this.monsters) {
-      if (m.isDead) continue;
+      if (m.isDead || !m.canBeTargeted) continue;
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
       if (d < nearestDist) { nearestDist = d; nearest = m; }
     }
@@ -1026,7 +1082,9 @@ export class GameScene extends Phaser.Scene {
       if (this.boss && !this.boss.isDead) {
         SoundManager.autoAttack(this.player.x, this.player.y);
         this.player.applyAttackRecoil();
-        const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(1.3);
+        const a0 = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
+        const bolt = this.add.image(this.player.x, this.player.y, 'arrow').setScale(1.0);
+        bolt.setRotation(a0 + Math.PI / 2);
         bolt.setDepth(12);
         let bossTargetDead = false;
         const bossTarget = {
@@ -1046,7 +1104,9 @@ export class GameScene extends Phaser.Scene {
     }
     SoundManager.autoAttack(this.player.x, this.player.y);
     this.player.applyAttackRecoil();
-    const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(2.5);
+    const a0 = Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x);
+    const bolt = this.add.image(this.player.x, this.player.y, 'arrow').setScale(1.2);
+    bolt.setRotation(a0 + Math.PI / 2);
     bolt.setDepth(12);
     this.autoBolts.push({ graphic: bolt, target: nearest, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });
   }
@@ -1201,10 +1261,20 @@ export class GameScene extends Phaser.Scene {
 
   // ── 调试 ──
   private debugMonsterIndex = 0;
+  private debugDraw = false;
+  private debugGfx: Phaser.GameObjects.Graphics | null = null;
 
   private setupDebugControls(): void {
     const kb = this.input.keyboard;
     if (!kb) return;
+
+    // T: 切换碰撞箱可视化
+    kb.on('keydown-T', () => {
+      this.debugDraw = !this.debugDraw;
+      if (!this.debugDraw && this.debugGfx) {
+        this.debugGfx.clear();
+      }
+    });
 
     // Q: 快速升级
     kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
@@ -1224,5 +1294,54 @@ export class GameScene extends Phaser.Scene {
       this.isPaused = true;
       this.hud.showMonsterPopup(type, () => { this.isPaused = false; });
     });
+  }
+
+  private drawDebugColliders(): void {
+    if (!this.debugGfx) {
+      this.debugGfx = this.add.graphics();
+      this.debugGfx.setDepth(100);
+    }
+    const g = this.debugGfx;
+    g.clear();
+
+    // 玩家碰撞圆
+    g.lineStyle(2, 0x00ff00, 0.8);
+    g.strokeCircle(this.player.x, this.player.y, 14);
+
+    // 怪物碰撞圆
+    g.lineStyle(2, 0xff4444, 0.6);
+    for (const m of this.monsters) {
+      if (m.isDead) continue;
+      g.strokeCircle(m.x, m.y, m.radius);
+    }
+
+    // Boss 碰撞圆
+    if (this.boss && !this.boss.isDead) {
+      g.lineStyle(2, 0xff00ff, 0.8);
+      g.strokeCircle(this.boss.x, this.boss.y, this.boss.radius);
+    }
+
+    // 圆形碰撞体
+    g.lineStyle(2, 0xffff00, 0.5);
+    for (const c of this.collidables) {
+      g.strokeCircle(c.x, c.y, c.radius);
+    }
+
+    // 矩形碰撞体
+    g.lineStyle(2, 0xff8800, 0.6);
+    for (const r of this.collidableRects) {
+      g.strokeRect(r.x, r.y, r.w, r.h);
+    }
+
+    // 三角形碰撞体（古建）
+    g.lineStyle(2, 0xff8800, 0.8);
+    for (const tri of this.collidableTriangles) {
+      g.beginPath();
+      g.moveTo(tri.x1, tri.y1);
+      g.lineTo(tri.x2, tri.y2);
+      g.lineTo(tri.x3, tri.y3);
+      g.closePath();
+      g.strokePath();
+    }
   }
 }

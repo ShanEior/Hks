@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, HIT_STOP_CONFIG } from './config';
+import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, HIT_STOP_CONFIG, MAP_WIDTH, MAP_HEIGHT } from './config';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
@@ -48,6 +48,7 @@ export class Monster {
   private freezeTimer = 0;  // Hit Stop: 此怪冻结计时(ms)
 
   isDead = false;
+  canBeTargeted = false;
 
   /** 攻击时触发 */
   onAttack: ((monster: Monster) => void) | null = null;
@@ -163,6 +164,14 @@ export class Monster {
       );
       this.sprite.x += Math.cos(angle) * this.speed * dt;
       this.sprite.y += Math.sin(angle) * this.speed * dt;
+      // 进入地图内部后才可被攻击追踪
+      if (!this.canBeTargeted) {
+        const margin = 80;
+        if (this.sprite.x > margin && this.sprite.x < MAP_WIDTH - margin &&
+            this.sprite.y > margin && this.sprite.y < MAP_HEIGHT - margin) {
+          this.canBeTargeted = true;
+        }
+      }
     } else {
       if (time - this.lastAttackTime >= this.attackInterval) {
         this.lastAttackTime = time;

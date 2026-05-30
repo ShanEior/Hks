@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node -e \"const fs=require('fs');let h=fs.readFileSync('dist/index.html','utf8');h=h.replace('type=\\\"module\\\" crossorigin ','');fs.writeFileSync('dist/index.html',h);console.log('✅ 可直接打开 dist/index.html')\"",
     "preview": "vite preview"
   },
   "dependencies": {

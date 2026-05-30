@@ -35,15 +35,19 @@ export class VFX {
   // 粒子工具
   // ═══════════════════════════════════
 
-  /** 发射一组彩色粒子爆散（GPU 批处理，单次 draw call） */
+  /** 发射一组彩色粒子爆散（GPU 批处理，单次 draw call）
+   * @param texture 粒子纹理 key，默认 'px_white'，可传入特效纹理
+   */
   static burst(
     scene: Phaser.Scene, x: number, y: number,
     count: number, colors: number[], speed = 120, size = 3, lifetime = 400,
+    texture = 'px_white',
   ): void {
-    // 确保粒子纹理存在
-    if (!scene.textures.exists('px_white')) return;
+    // 确保粒子纹理存在，退回到白方块
+    const texKey = scene.textures.exists(texture) ? texture : 'px_white';
+    if (!scene.textures.exists(texKey)) return;
 
-    const emitter = scene.add.particles(x, y, 'px_white', {
+    const emitter = scene.add.particles(x, y, texKey, {
       speed: { min: speed * 0.3, max: speed },
       scale: { start: size / 4, end: size / 4 * 0.2 },
       alpha: { start: 1, end: 0 },
@@ -61,6 +65,20 @@ export class VFX {
       if (emitter && emitter.active) emitter.destroy();
     });
   }
+
+  /** 推荐的粒子纹理池（从 Terraria 特效精选） */
+  static readonly PARTICLE_POOL = {
+    glow:        'fx_glow_64',
+    spark:       'fx_bolt_hit',
+    star:        'fx_star_34',
+    dust:        'fx_dust_16',
+    ring:        'fx_ring_42',
+    slash:       'fx_slash',
+    impact:      'fx_impact',
+    heal:        'fx_heal',
+    boss_ring:   'fx_boss_ring',
+    bolt:        'fx_bolt_extra',
+  };
 
   /** 投射物拖尾粒子发射器（Travel 层视觉反馈）
    *  利用 Phaser ParticleEmitter.follow 参数追逐投射物
