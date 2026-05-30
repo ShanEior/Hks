@@ -426,6 +426,195 @@ export class SoundManager {
     }
   }
 
+  // ── 新增技能 Cast 音效 (Batch 3) ──
+
+  static skillRepairField(level = 1, x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.repair_field;
+    const p = SOUND_CONFIG.skillPower.levels[Math.min(level, 3) - 1];
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Warm woody rising harmony — gentle sine waves ascending
+    this.playTone(a.primaryFreq[0], p.durationMs / 1000, 'sine',
+      0.06 * p.volMul, a.primaryFreq[1],
+      SOUND_CONFIG.pitchVar.ui, pan, 'lowpass', a.noiseLowpass, 1, pri);
+    this.playTone(a.bodyFreq[0], p.durationMs / 1000 * 0.7, 'sine',
+      0.04 * p.volMul, a.bodyFreq[1],
+      SOUND_CONFIG.pitchVar.ui, pan, undefined, undefined, undefined, pri);
+    // Quiet crackle — warm texture
+    this.playNoise(0.15, 0.02, a.noiseHighpass, a.noiseLowpass,
+      undefined, undefined, 0.1, pan, pri);
+  }
+
+  static skillWhirlwind(level = 1, x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.whirlwind_slash;
+    const p = SOUND_CONFIG.skillPower.levels[Math.min(level, 3) - 1];
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Wind howl whoosh — triangle wave sweeping high→low
+    this.playTone(a.primaryFreq[0], p.durationMs / 1000, 'triangle',
+      0.10 * p.volMul, a.primaryFreq[1],
+      SOUND_CONFIG.pitchVar.impact, pan, 'lowpass', a.noiseLowpass, 1, pri);
+    // Wind noise core — the whoosh body
+    this.playNoise(0.18 * p.transientBoost, 0.05 * p.volMul,
+      a.noiseHighpass, a.noiseLowpass, a.crackFilter, a.crackQ,
+      SOUND_CONFIG.pitchVar.impact, pan, pri);
+    // Sharp edge layer — cutting through
+    this.playNoise(0.08, 0.03, 3000, undefined,
+      undefined, 3, 0.15, pan, pri);
+  }
+
+  static skillLightning(level = 1, x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.chain_lightning;
+    const p = SOUND_CONFIG.skillPower.levels[Math.min(level, 3) - 1];
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Sharp square burst — electric arc core
+    this.playTone(a.primaryFreq[0], p.durationMs / 1000 * 0.6, 'square',
+      0.08 * p.volMul, a.primaryFreq[1],
+      SOUND_CONFIG.pitchVar.impact, pan, 'highpass', 800, 1, pri);
+    // Secondary metallic resonance
+    this.playTone(a.bodyFreq[0], 0.06, 'square',
+      0.04 * p.volMul, a.bodyFreq[1],
+      SOUND_CONFIG.pitchVar.lightAttack, pan, 'highpass', 1500, 1, pri);
+    // Crackle noise — electrical spark texture
+    this.playNoise(0.06 * p.transientBoost, 0.05 * p.volMul,
+      a.noiseHighpass, undefined, a.crackFilter, a.crackQ,
+      0.15, pan, pri);
+  }
+
+  // ═══════════════════════════════════
+  // 技能命中音效 (Hit) — 每种技能独立签名
+  // ═══════════════════════════════════
+
+  static skillWoodHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_wood')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Wooden beam impact: low thump + wood crack
+    this.playImpact({
+      thumpFreq: 100, thumpVol: 0.4,
+      bodyFreq: 220, bodyVol: 0.2, bodyType: 'triangle',
+      crackHighpass: 800, crackVol: 0.15,
+      duration: 0.10, pan, priority: pri,
+    });
+    if (level >= 3) {
+      // Sub-bass rumble
+      this.playTone(60, 0.15, 'sine', 0.04, 30, 0.02, pan,
+        'lowpass', 100, 1, pri);
+    }
+  }
+
+  static skillStoneHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_stone')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Stone shatter: mid thump + gravel noise
+    this.playImpact({
+      thumpFreq: 80, thumpVol: 0.45,
+      bodyFreq: 150, bodyVol: 0.25, bodyType: 'sawtooth',
+      crackHighpass: 600, crackVol: 0.2,
+      duration: 0.12, pan, priority: pri,
+    });
+    if (level >= 3) {
+      // Gravel scatter
+      this.playNoise(0.1, 0.04, 3000, 600,
+        undefined, undefined, 0.15, pan, pri);
+    }
+  }
+
+  static skillWaterHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_water')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Water splash: high splash + low thud
+    this.playImpact({
+      thumpFreq: 150, thumpVol: 0.3,
+      bodyFreq: 400, bodyVol: 0.15, bodyType: 'sine',
+      crackHighpass: 1200, crackVol: 0.1,
+      duration: 0.08, pan, priority: pri,
+    });
+    if (level >= 3) {
+      // High splash sparkle
+      this.playTone(800, 0.06, 'sine', 0.03, 600,
+        SOUND_CONFIG.pitchVar.pickup, pan, 'highpass', 1000, 1, pri);
+    }
+  }
+
+  static skillInsectHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_insect')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Poison spore hit: hiss + soft thud
+    this.playImpact({
+      thumpFreq: 200, thumpVol: 0.2,
+      bodyFreq: 500, bodyVol: 0.12, bodyType: 'triangle',
+      crackHighpass: 2000, crackVol: 0.08,
+      duration: 0.08, pan, priority: pri,
+    });
+    // Hissing quality — spore burst texture
+    this.playNoise(0.1, 0.03, 2500, 800,
+      undefined, undefined, 0.12, pan, pri);
+  }
+
+  static skillPaintHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_paint')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Paintball burst: bright pop + color shatter
+    this.playImpact({
+      thumpFreq: 300, thumpVol: 0.25,
+      bodyFreq: 600, bodyVol: 0.15, bodyType: 'sine',
+      crackHighpass: 1500, crackVol: 0.12,
+      duration: 0.09, pan, priority: pri,
+    });
+    if (level >= 3) {
+      // Sparkle high resonance
+      this.playTone(1200, 0.07, 'sine', 0.04, 1600,
+        SOUND_CONFIG.pitchVar.pickup, pan, 'highpass', 1200, 1, pri);
+    }
+  }
+
+  static skillWhirlwindHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_whirlwind')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Wind blade slash: sharp cutting whoosh
+    this.playImpact({
+      thumpFreq: 250, thumpVol: 0.35,
+      bodyFreq: 500, bodyVol: 0.2, bodyType: 'triangle',
+      crackHighpass: 1800, crackVol: 0.15,
+      duration: 0.09, pan, priority: pri,
+    });
+  }
+
+  static skillLightningHit(level = 1, x = 0, _y = 0): void {
+    if (!this.dedup('hit_lightning')) return;
+    const pan = this.worldPan(x);
+    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+
+    // Lightning strike impact: electric CRACK
+    this.playImpact({
+      thumpFreq: 300, thumpVol: 0.4,
+      bodyFreq: 800, bodyVol: 0.2, bodyType: 'square',
+      crackHighpass: 2500, crackVol: 0.25,
+      duration: 0.07, pan, priority: pri,
+    });
+    if (level >= 3) {
+      // Metallic ring — resonant after-shock
+      this.playTone(1200, 0.08, 'square', 0.03, 900,
+        SOUND_CONFIG.pitchVar.impact, pan, 'highpass', 2000, 1, pri);
+    }
+  }
+
   // ═══════════════════════════════════
   // 系统音效
   // ═══════════════════════════════════

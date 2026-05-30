@@ -772,6 +772,8 @@ export class GameScene extends Phaser.Scene {
   private checkLevelUp(): void {
     if (this.levelUpPanelActive) return;
     if (this.player.exp >= this.player.expToNext) {
+      // 升级瞬间微 Hit Stop + 金色闪光（切开战斗与奖励氛围）
+      this.cameras.main.flash(40, 255, 220, 80, false);
       SoundManager.levelUp();
       VFX.levelUp(this, this.player.x, this.player.y);
       this.player.exp -= this.player.expToNext;

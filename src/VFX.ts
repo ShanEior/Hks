@@ -227,8 +227,11 @@ export class VFX {
     }
     // 冲击波
     VFX.shockwave(scene, x, y, 80, 0xffdd44, 500);
-    // 闪光
-    VFX.flash(scene, 80);
+    // 双重金色冲击波（替代全屏白闪）
+    VFX.shockwave(scene, x, y, 40, 0xffdd44, 300);
+    scene.time.delayedCall(60, () => {
+      VFX.shockwave(scene, x, y, 100, 0xffdd44, 500);
+    });
     VFX.shake(scene, 0.004, 100);
   }
 
@@ -299,6 +302,16 @@ export class VFX {
         });
       }
     }
+  }
+
+  /** 石材脉冲命中：碎石环 + 灰白粒子爆散 */
+  static stonePulse(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    // 灰白碎石环
+    VFX.shockwave(scene, x, y, 24 + lv * 6, 0x999999, 250);
+    // 碎石子 burst（6-12个）
+    VFX.burst(scene, x, y, 6 + lv * 2, [0x888888, 0xaaaaaa, 0xcccccc, 0xdddddd], 100, 3, 350);
+    // 微震
+    VFX.shake(scene, 0.002, 40);
   }
 
   /** 防水封护：4层水纹+水珠飞溅+护罩穹顶弧线 */
@@ -652,6 +665,38 @@ export class VFX {
     });
   }
 
+  /** 雷击命中爆发：白蓝闪点 + 4方向小电弧 + 金属火花 */
+  static lightningImpact(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    // 中心白蓝闪光
+    const flash = scene.add.circle(x, y, 4, 0xaaddff, 0.95);
+    flash.setDepth(39);
+    const cleanupFlash = () => { if (flash.active) flash.destroy(); };
+    scene.tweens.add({
+      targets: flash, scale: 3.5, alpha: 0, duration: 120,
+      onComplete: cleanupFlash, onStop: cleanupFlash,
+    });
+    // 4 方向短电弧
+    for (let i = 0; i < 4; i++) {
+      const a = (Math.PI / 2) * i + Math.random() * 0.3;
+      const spark = scene.add.rectangle(x, y, 2, 10 + lv * 4, 0xccddff, 0.8);
+      spark.setDepth(38);
+      spark.setRotation(a);
+      const cleanup = () => { if (spark.active) spark.destroy(); };
+      scene.tweens.add({
+        targets: spark,
+        x: x + Math.cos(a) * (18 + lv * 5),
+        y: y + Math.sin(a) * (18 + lv * 5),
+        alpha: 0, scaleX: 0.2,
+        duration: 180,
+        onComplete: cleanup, onStop: cleanup,
+      });
+    }
+    // 金属火花 burst
+    VFX.burst(scene, x, y, 8 + lv * 2, [0xffffff, 0xaaddff, 0xccddff, 0x88bbff], 140, 2, 300);
+    // 微震
+    VFX.shake(scene, 0.004, 50);
+  }
+
   static woodImpact(scene: Phaser.Scene, x: number, y: number, lv: number): void {
     const count = lv >= 3 ? 18 : 12;
     VFX.burst(scene, x, y, count, [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88], 180, 4, 520);
@@ -672,6 +717,13 @@ export class VFX {
   static insectTick(scene: Phaser.Scene, x: number, y: number, radius: number): void {
     VFX.shockwave(scene, x, y, Math.max(24, radius * 1.2), 0x66dd66, 260);
     VFX.burst(scene, x, y, 8, [0x44cc44, 0x88cc44, 0xccee88], 100, 3, 420);
+  }
+
+  /** 药雾孢子命中：绿色菌丝 burst + 微光环 */
+  static insectSpore(scene: Phaser.Scene, x: number, y: number): void {
+    VFX.burst(scene, x, y, 5, [0x44cc44, 0x88cc44, 0xaadd88, 0xccee88], 70, 2, 280);
+    // 微光环
+    VFX.shockwave(scene, x, y, 16, 0x88cc44, 200);
   }
 
   static paintImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
