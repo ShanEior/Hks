@@ -3,6 +3,7 @@
  * 命中反馈、死亡爆破、升级庆祝、碎屑粒子、屏幕震动
  */
 import Phaser from 'phaser';
+import { MAP_WIDTH, MAP_HEIGHT } from './config';
 
 export class VFX {
   // ═══════════════════════════════════
@@ -314,6 +315,105 @@ export class VFX {
     const colors = colorMap[type] ?? [0xcccccc];
     VFX.burst(scene, x, y, 5, colors, 90, 2, 350);
     VFX.shake(scene, 0.005, 100);
+  }
+
+  // ═══════════════════════════════════
+  // Boss 特效
+  // ═══════════════════════════════════
+
+  /** Boss 出场（紫色能量爆发 + 闪电环） */
+  static bossAppear(scene: Phaser.Scene, x: number, y: number): void {
+    // 大型紫色冲击波
+    VFX.shockwave(scene, x, y, 250, 0xAA44FF, 1000);
+    // 多层圆环
+    for (let r = 0; r < 4; r++) {
+      const ring = scene.add.circle(x, y, 5, 0, 0);
+      ring.setStrokeStyle(4 - r, 0xAA44FF, 0.9 - r * 0.18);
+      ring.setDepth(38);
+      scene.tweens.add({
+        targets: ring,
+        radius: 150 + r * 30,
+        alpha: 0,
+        duration: 700 + r * 150,
+        delay: r * 80,
+        ease: 'Power3',
+        onComplete: () => ring.destroy(),
+      });
+    }
+    // 紫色粒子爆散
+    VFX.burst(scene, x, y, 30, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF], 250, 5, 800);
+    // 全屏闪紫
+    scene.cameras.main.flash(400, 100, 50, 150, false);
+    VFX.shake(scene, 0.012, 400);
+  }
+
+  /** Boss 受击：紫色碎屑 + 大伤害数字 */
+  static bossHit(scene: Phaser.Scene, x: number, y: number, damage: number): void {
+    VFX.burst(scene, x, y, 5, [0xAA44FF, 0xCC66FF, 0xFFFFFF], 80, 4, 300);
+    const color = damage >= 30 ? '#FF44FF' : '#CC88FF';
+    const size = damage >= 30 ? '22px' : '18px';
+    VFX.floatText(scene, x, y, `${Math.round(damage)}`, color, size);
+    VFX.shake(scene, 0.004, 80);
+  }
+
+  /** Boss 死亡：巨型紫色爆炸 */
+  static bossDeath(scene: Phaser.Scene, x: number, y: number): void {
+    // 超大爆散
+    VFX.burst(scene, x, y, 50, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF, 0xFFDD88], 350, 6, 1200);
+    // 全屏闪白
+    scene.cameras.main.flash(500, 255, 255, 255, false);
+    VFX.shake(scene, 0.015, 600);
+    // 金色冲击波（胜利象征）
+    const goldRing = scene.add.circle(x, y, 10, 0, 0);
+    goldRing.setStrokeStyle(4, 0xFFD700, 0.9);
+    goldRing.setDepth(38);
+    scene.tweens.add({
+      targets: goldRing,
+      radius: 300,
+      alpha: 0,
+      duration: 1200,
+      ease: 'Power2',
+      onComplete: () => goldRing.destroy(),
+    });
+    // 二次金色粒子
+    VFX.burst(scene, x, y, 30, [0xFFD700, 0xFFCC44, 0xFFFFFF], 200, 4, 800);
+  }
+
+  /** Boss 出场预警：全屏闪红 + 脉冲 */
+  static bossWarning(scene: Phaser.Scene): void {
+    // 多次红闪
+    for (let i = 0; i < 3; i++) {
+      scene.time.delayedCall(i * 400, () => {
+        if (scene.scene.isActive()) {
+          scene.cameras.main.flash(150, 200, 30, 30, false);
+          VFX.shake(scene, 0.003 + i * 0.003, 100);
+        }
+      });
+    }
+    // 红色圆环脉冲
+    VFX.shockwave(scene, MAP_WIDTH / 2, MAP_HEIGHT / 2, 500, 0xFF2222, 1200);
+  }
+
+  /** 地震波：全屏震动 + 地面裂纹 */
+  static bossEarthquake(scene: Phaser.Scene): void {
+    VFX.shake(scene, 0.020, 500);
+    scene.cameras.main.flash(200, 80, 30, 50, false);
+    // 镜头轻微偏移模拟地震
+    const origX = scene.cameras.main.scrollX;
+    const origY = scene.cameras.main.scrollY;
+    scene.tweens.add({
+      targets: scene.cameras.main,
+      scrollX: origX + (Math.random() - 0.5) * 20,
+      scrollY: origY + (Math.random() - 0.5) * 20,
+      yoyo: true,
+      duration: 50,
+      repeat: 5,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        scene.cameras.main.scrollX = origX;
+        scene.cameras.main.scrollY = origY;
+      },
+    });
   }
 
   /** 古建回血粒子 */

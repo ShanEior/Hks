@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // 山西古建保卫战 — 全局常量配置
 // ============================================================
 
@@ -56,49 +56,51 @@ export interface MonsterTemplate {
 export const MONSTER_TEMPLATES: Record<MonsterType, MonsterTemplate> = {
   termite: {
     type: 'termite', name: '白蚁怪',
-    hp: 20, speed: 2.8, damage: 3,
+    hp: 8, speed: 0.5, damage: 2,
     attackInterval: 1000,
     attackStructures: ['wood'],
-    color: 0xDDDDDD, radius: 8, expDrop: 1,
+    color: 0xDDDDDD, radius: 8, expDrop: 6,
   },
   wind: {
     type: 'wind', name: '风蚀怪',
-    hp: 35, speed: 3.2, damage: 5,
+    hp: 12, speed: 0.6, damage: 3,
     attackInterval: 1200,
     attackStructures: ['stone', 'painting'],
-    color: 0xDDCC88, radius: 10, expDrop: 2,
+    color: 0xDDCC88, radius: 10, expDrop: 10,
   },
   acid_rain: {
     type: 'acid_rain', name: '酸雨怪',
-    hp: 45, speed: 1.8, damage: 6,
+    hp: 15, speed: 0.4, damage: 3,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
-    color: 0x44CC44, radius: 11, expDrop: 3,
+    color: 0x44CC44, radius: 11, expDrop: 12,
   },
   fire: {
     type: 'fire', name: '火焰怪',
-    hp: 50, speed: 2.4, damage: 8,
+    hp: 18, speed: 0.7, damage: 4,
     attackInterval: 1500,
     attackStructures: ['wood', 'painting'],
-    color: 0xFF6633, radius: 12, expDrop: 4,
+    color: 0xFF6633, radius: 12, expDrop: 15,
   },
   freeze_thaw: {
     type: 'freeze_thaw', name: '冻融怪',
-    hp: 80, speed: 1.4, damage: 10,
+    hp: 25, speed: 0.3, damage: 5,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
-    color: 0x6699FF, radius: 14, expDrop: 5,
+    color: 0x6699FF, radius: 14, expDrop: 20,
   },
 };
 
 // ---- 怪物生成 ----
 export const SPAWN_DISTANCE = 700; // 从地图中心算起的生成距离
-export const INITIAL_SPAWN_INTERVAL = 2000; // ms
+export const INITIAL_SPAWN_INTERVAL = 2000;
+export const MAX_MONSTERS = 80; // ms
 
 // ---- 经验 ----
 export const BASE_EXP_TO_LEVEL = 10;
 export const EXP_PER_LEVEL = 5; // ExpToNext = BASE + Level * EXP_PER_LEVEL
-export const PICKUP_RANGE = 90; // 经验球自动吸附范围 (spec 1.5 * 60)
+export const PICKUP_RANGE = 120;
+export const INVINCIBILITY_DURATION = 300; // ms (0.3s) // 经验球自动吸附范围 (spec 1.5 * 60)
 
 // ---- 技能 ----
 export type SkillId =
@@ -185,6 +187,70 @@ export const ALL_SKILL_IDS: SkillId[] = [
   'wood_reinforce', 'stone_repair', 'waterproof', 'insect_control', 'painting_restore',
 ];
 
+// ---- 敌怪时间缩放 ----
+// 让敌怪随时间变强：基础值 × (1 + growthRate × 经过分钟数)
+// 例如经过 3 分钟时，termite 的 HP = 8 × (1 + 0.35 × 3) ≈ 16.4
+export interface TimeScaling {
+  hpGrowthPerMin: number;     // HP 每分钟增长系数
+  damageGrowthPerMin: number; // 伤害每分钟增长系数
+  speedGrowthPerMin: number;  // 速度每分钟增长系数
+  expGrowthPerMin: number;    // 经验每分钟增长系数
+}
+
+export const TIME_SCALING: TimeScaling = {
+  hpGrowthPerMin: 0.6,      // 5分钟时 ≈ 4x
+  damageGrowthPerMin: 0.4,  // 5分钟时 ≈ 3x
+  speedGrowthPerMin: 0.15,   // 5分钟时 ≈ 1.75x
+  expGrowthPerMin: 0.5,     // 经验同步增长，5分钟时 ≈ 3.5x
+};
+
+/** 根据已过秒数计算当前缩放倍率 */
+export function calcTimeScaling(elapsedSec: number): {
+  hpMult: number;
+  damageMult: number;
+  speedMult: number;
+  expMult: number;
+} {
+  const t = elapsedSec / 60; // 转换为分钟
+  return {
+    hpMult:     1 + TIME_SCALING.hpGrowthPerMin      * t,
+    damageMult: 1 + TIME_SCALING.damageGrowthPerMin  * t,
+    speedMult:  1 + TIME_SCALING.speedGrowthPerMin   * t,
+    expMult:    1 + TIME_SCALING.expGrowthPerMin     * t,
+  };
+}
+
+// ============================================================
+// Boss 配置（灾蚀核心）
+// ============================================================
+
+export const BOSS_CONFIG = {
+  type: 'calamity_core' as const,
+  name: '灾蚀核心',
+  hp: 500,
+  speed: 0.25,             // spec 值，* 60 = 15 px/s
+  damage: 8,                // 每次攻击对每个结构伤害
+  attackInterval: 1500,     // ms
+  radius: 48,               // 像素格
+  color: 0x6611AA,
+  expDrop: 200,
+
+  // 技能
+  earthquakeCooldown: 5000,   // 地震波冷却 ms
+  earthquakeDamage: 6,        // 每个结构地震伤害
+  summonCooldown: 8000,       // 召唤冷却 ms
+  summonCount: 4,             // 每次召唤数量
+  summonType: 'termite' as MonsterType,  // 召唤小怪类型
+  summonHpMult: 0.5,          // 小怪 HP 倍率
+
+  // 出场
+  appearTime: 30,             // 剩余秒数时出场
+  warnDuration: 3,            // 预警秒数
+
+  // 奖励
+  guaranteedCrateCount: 1,    // 必定掉修补箱数量
+} as const;
+
 // ---- 波次阶段（spec 13.4） ----
 export interface WaveStage {
   timeStart: number;
@@ -195,18 +261,12 @@ export interface WaveStage {
 }
 
 export const WAVE_STAGES: WaveStage[] = [
-  // 0-30s 教学期：仅白蚁，极慢
-  { timeStart: 0,  timeEnd: 45,  spawnInterval: 4000, monsters: [{type:'termite',weight:100}], countPerWave: 1 },
-  // 45-90s 加入风蚀
-  { timeStart: 45, timeEnd: 90,  spawnInterval: 2500, monsters: [{type:'termite',weight:85},{type:'wind',weight:15}], countPerWave: 3 },
-  // 90-150s 加入酸雨
-  { timeStart: 90, timeEnd: 150, spawnInterval: 2000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 4 },
-  // 150-210s 加入火焰
-  { timeStart: 150,timeEnd: 210, spawnInterval: 1700, monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 5 },
-  // 210-270s 加入冻融，压力明显
-  { timeStart: 210,timeEnd: 270, spawnInterval: 1400, monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 6 },
-  // 270-300s 全力输出
-  { timeStart: 270,timeEnd: 300, spawnInterval: 1100, monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 8 },
+  { timeStart: 0,  timeEnd: 30,  spawnInterval: 1500, monsters: [{type:'termite',weight:100}], countPerWave: 6 },
+  { timeStart: 30, timeEnd: 60,  spawnInterval: 1200, monsters: [{type:'termite',weight:80},{type:'wind',weight:20}], countPerWave: 10 },
+  { timeStart: 60, timeEnd: 120, spawnInterval: 1000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 15 },
+  { timeStart: 120,timeEnd: 180, spawnInterval: 800,  monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 20 },
+  { timeStart: 180,timeEnd: 240, spawnInterval: 600,  monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 25 },
+  { timeStart: 240,timeEnd: 300, spawnInterval: 500,  monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 30 },
 ];
 
 // ---- 刷怪权重（Phase 2 简单权重，后续改为波次驱动） ----

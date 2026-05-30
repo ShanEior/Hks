@@ -110,6 +110,7 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genAcidRain(scene);
   genFire(scene);
   genFreezeThaw(scene);
+  genCalamityCore(scene);
   genBuilding(scene);
   genExpOrb(scene);
   genBolt(scene);
@@ -889,6 +890,137 @@ function genFreezeThaw(scene: Phaser.Scene) {
   px(ctx, cx + 3, cy - 2, '#0044AA');
 
   addTex(scene, 'freeze_thaw', canvas);
+}
+
+// ═══════════════════════════════════════════════
+// 灾蚀核心 Boss 48×48 像素格（=96×96 物理px）
+// 暗紫能量核心 + 裂缝 + 腐蚀光环
+// ═══════════════════════════════════════════════
+
+function genCalamityCore(scene: Phaser.Scene) {
+  const S = 48;
+  const { canvas, ctx } = makeCanvas(S * PX, S * PX);
+  const cx = 24, cy = 24;
+
+  // ── 外围腐蚀光环（暗紫半透明） ──
+  for (let dy = -22; dy <= 22; dy++) {
+    for (let dx = -22; dx <= 22; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 22 && d > 16) {
+        const shade = (dx + dy) % 3 === 0 ? '#442266' : '#553377';
+        px(ctx, cx + dx, cy + dy, shade);
+      }
+    }
+  }
+
+  // ── 外层裂缝纹理（深紫色不规则裂纹） ──
+  const crackPts: [number, number][] = [];
+  for (let a = 0; a < 16; a++) {
+    const ang = (a / 16) * Math.PI * 2;
+    const r = 14 + Math.sin(a * 1.7) * 5;
+    crackPts.push([
+      cx + Math.floor(Math.cos(ang) * r),
+      cy + Math.floor(Math.sin(ang) * r),
+    ]);
+  }
+  for (let i = 0; i < crackPts.length; i++) {
+    const [x1, y1] = crackPts[i];
+    const [x2, y2] = crackPts[(i + 1) % crackPts.length];
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const px2 = Math.floor(x1 + (x2 - x1) * t);
+      const py2 = Math.floor(y1 + (y2 - y1) * t);
+      if (px2 >= 0 && px2 < S && py2 >= 0 && py2 < S) {
+        px(ctx, px2, py2, '#331155');
+        if (s % 3 === 0) px(ctx, px2 + 1, py2, '#442266');
+      }
+    }
+  }
+
+  // ── 核心主体（暗紫渐变球体） ──
+  for (let dy = -16; dy <= 16; dy++) {
+    for (let dx = -16; dx <= 16; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 16) {
+        const intensity = 1 - d / 16;
+        const r = Math.floor(0x44 + intensity * (0x88 - 0x44));
+        const g = Math.floor(0x11 + intensity * 0x22);
+        const b = Math.floor(0x66 + intensity * (0xCC - 0x66));
+        px(ctx, cx + dx, cy + dy, `rgb(${r},${g},${b})`);
+      }
+    }
+  }
+
+  // ── 核心亮面（左上高光） ──
+  for (let dy = -8; dy <= 8; dy++) {
+    for (let dx = -8; dx <= 8; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 8 && (dx + dy) < -2) {
+        const intensity = 1 - d / 8;
+        const r = Math.floor(0x88 + intensity * 0x55);
+        const g = Math.floor(0x44 + intensity * 0x33);
+        const b = Math.floor(0xCC + intensity * 0x33);
+        px(ctx, cx + dx, cy + dy, `rgb(${r},${g},${b})`);
+      }
+    }
+  }
+
+  // ── 内圈能量纹（从核心向外辐射） ──
+  for (let ring = 0; ring < 3; ring++) {
+    const r = 6 + ring * 3;
+    const color = ring === 0 ? '#AA66DD' : ring === 1 ? '#8844BB' : '#663399';
+    for (let a = 0; a < 12; a++) {
+      const ang = (a / 12) * Math.PI * 2 + ring * 0.5;
+      const px2 = cx + Math.floor(Math.cos(ang) * r);
+      const py2 = cy + Math.floor(Math.sin(ang) * r);
+      px(ctx, px2, py2, color);
+      if (a % 3 === 0) px(ctx, px2 + 1, py2, '#CC88FF');
+    }
+  }
+
+  // ── 核心中央（炽白亮点） ──
+  pxRect(ctx, cx - 3, cy - 3, 7, 7, '#FFEEDD');
+  pxRect(ctx, cx - 2, cy - 2, 5, 5, '#FFFFFF');
+  px(ctx, cx, cy, '#FFFFFF');
+  px(ctx, cx - 1, cy, '#FFEEFF');
+  px(ctx, cx, cy - 1, '#FFEEFF');
+
+  // ── 眼睛（双红色凶眼，在核心斜上方） ──
+  pxRect(ctx, cx - 8, cy - 8, 6, 4, '#FF0000');
+  pxRect(ctx, cx + 2, cy - 8, 6, 4, '#FF0000');
+  px(ctx, cx - 7, cy - 7, '#FF6644');
+  px(ctx, cx + 3, cy - 7, '#FF6644');
+  px(ctx, cx - 6, cy - 7, '#000000');
+  px(ctx, cx + 4, cy - 7, '#000000');
+
+  // ── 能量触手（从底部和两侧伸出） ──
+  const tentaclePts: [number, number, string][] = [
+    [cx - 16, cy + 12, '#6622AA'], [cx - 14, cy + 16, '#552299'],
+    [cx - 10, cy + 18, '#9933CC'], [cx - 6, cy + 20, '#BB55DD'],
+    [cx + 16, cy + 10, '#6622AA'], [cx + 14, cy + 16, '#552299'],
+    [cx + 10, cy + 18, '#9933CC'], [cx + 6, cy + 20, '#BB55DD'],
+    [cx - 18, cy - 4, '#552299'], [cx - 20, cy - 2, '#442288'],
+    [cx + 18, cy - 4, '#552299'], [cx + 20, cy - 2, '#442288'],
+  ];
+  for (const [tx, ty, color] of tentaclePts) {
+    if (tx >= 0 && tx < S && ty >= 0 && ty < S) {
+      px(ctx, tx, ty, color);
+      px(ctx, tx + (ty % 2 === 0 ? 1 : -1), ty + 1, color);
+    }
+  }
+
+  // ── 粒子光点（随机散布） ──
+  const sparkColors = ['#FF66FF', '#CC88FF', '#AA44FF', '#FF88CC'];
+  for (let i = 0; i < 20; i++) {
+    const sx = cx + Math.floor(Math.cos(i * 1.3) * (8 + (i % 5)));
+    const sy = cy + Math.floor(Math.sin(i * 0.9) * (8 + (i % 5)));
+    if (sx >= 0 && sx < S && sy >= 0 && sy < S) {
+      px(ctx, sx, sy, sparkColors[i % 4]);
+    }
+  }
+
+  addTex(scene, 'calamity_core', canvas);
 }
 
 // ═══════════════════════════════════════════════

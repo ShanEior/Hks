@@ -1,17 +1,19 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import {
   MAP_WIDTH, MAP_HEIGHT, GAME_WIDTH, GAME_HEIGHT, GAME_DURATION,
   PLAYER_CONFIG, BUILDING_CONFIG, MONSTER_TEMPLATES,
-  SPAWN_DISTANCE, INITIAL_SPAWN_INTERVAL,
+  SPAWN_DISTANCE, INITIAL_SPAWN_INTERVAL, MAX_MONSTERS,
   EXP_ORB_CONFIG, PICKUP_RANGE,
   BASE_EXP_TO_LEVEL, EXP_PER_LEVEL, ALL_SKILL_IDS,
   SKILL_CONFIGS, WAVE_STAGES,
-  AUTO_ATTACK_CONFIG,
-  MonsterType, SkillId, WaveStage,
+  AUTO_ATTACK_CONFIG, BOSS_CONFIG,
+  calcTimeScaling,
+  MonsterType, SkillId, WaveStage, StructureType,
 } from './config';
 import { Player } from './Player';
 import { Building } from './Building';
 import { Monster } from './Monster';
+import { Boss } from './Boss';
 import { HUD } from './HUD';
 import { SkillManager } from './SkillManager';
 import { SoundManager } from './SoundManager';
@@ -74,11 +76,18 @@ export class GameScene extends Phaser.Scene {
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
+  private killCount = 0;
+  private invincibleTimer = 0;
   private spawnInterval = INITIAL_SPAWN_INTERVAL;
   private isGameOver = false;
   private isPaused = false;
-  private killCount = 0;
   private seenMonsterTypes = new Set<MonsterType>();
+
+  // Boss 状态
+  private boss: Boss | null = null;
+  private bossWarningDone = false;
+  private bossSpawned = false;
+  private bossKilled = false;
 
   // 自动普攻
   private autoAttackTimer = 0;
@@ -143,6 +152,16 @@ export class GameScene extends Phaser.Scene {
     );
     this.skillManager.addSkill('wood_reinforce');
 
+    // Boss 事件监听
+    this.events.on('boss-earthquake', (damage: number) => {
+      if (!this.boss || this.boss.isDead) return;
+      // 地震波：所有结构扣血
+      const structTypes: StructureType[] = ['wood', 'stone', 'tile', 'painting'];
+      for (const type of structTypes) {
+        this.building.damageStructure(type, damage);
+      }
+    });
+
     this.setupDebugControls();
     this.setupTouchJoystick();
   }
@@ -151,7 +170,8 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     if (this.isPaused) {
-      this.hud.update(this.player, this.building, this.gameTime);
+      // 暂停期间仅更新 HUD（血量条）
+      this.hud.update(this.player, this.building, this.gameTime, this.killCount);
       return;
     }
 
@@ -164,6 +184,7 @@ export class GameScene extends Phaser.Scene {
     const stage = this.getCurrentStage();
     if (stage) {
       this.spawnTimer += effectiveDelta;
+      this.invincibleTimer = Math.max(0, this.invincibleTimer - delta);
       if (this.spawnTimer >= stage.spawnInterval) {
         this.spawnTimer -= stage.spawnInterval;
         this.spawnWave(stage);
@@ -188,7 +209,27 @@ export class GameScene extends Phaser.Scene {
     this.updateAutoAttack(effectiveDelta);
     this.skillManager.update(effectiveDelta, time);
 
-    // 水洼/灼烧（全速，不影响玩家移动体验）
+    // ═══ Boss 预警 & 出场逻辑 ═══
+    if (!this.bossWarningDone && this.gameTime <= BOSS_CONFIG.appearTime + BOSS_CONFIG.warnDuration) {
+      this.startBossWarning();
+    }
+    if (!this.bossSpawned && this.gameTime <= BOSS_CONFIG.appearTime) {
+      this.spawnBoss();
+    }
+
+    // Boss 更新
+    if (this.boss && this.boss.isActive && !this.boss.isDead) {
+      this.boss.update(time, delta);
+      const distToBuilding = Phaser.Math.Distance.Between(
+        this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      );
+      if (distToBuilding < BUILDING_CONFIG.attackRange + 60) {
+        // Boss 接近建筑持续侵蚀
+      }
+      this.hud.updateBossHpBar(this.boss.hp, this.boss.maxHp);
+    }
+
+    // 水洼/灼烧
     this.updatePuddles(delta);
     this.building.updateBurn(delta);
 
@@ -203,11 +244,12 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.gameTime <= 0) {
       this.gameTime = 0;
+      // 如果 Boss 还活着，超时也算胜利（没有杀死也行）
       this.endGame(true);
       return;
     }
 
-    this.hud.update(this.player, this.building, this.gameTime);
+    this.hud.update(this.player, this.building, this.gameTime, this.killCount);
   }
 
   // ── 背景 ──
@@ -311,6 +353,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnWave(stage: WaveStage): void {
+    if (this.monsters.length >= MAX_MONSTERS) return;
     const totalW = stage.monsters.reduce((s, m) => s + m.weight, 0);
     for (let i = 0; i < stage.countPerWave; i++) {
       let r = Math.random() * totalW;
@@ -325,14 +368,26 @@ export class GameScene extends Phaser.Scene {
 
   private spawnSingleMonster(type: MonsterType): void {
     const template = MONSTER_TEMPLATES[type];
+    const elapsed = GAME_DURATION - this.gameTime;
+    // 随时间增强: 每30秒HP+15%,伤害+10%,速度+5%,最高3倍
+    const factor = 1 + Math.min(2, elapsed / 30 * 0.15);
+    const scaledTemplate = { ...template,
+      hp: Math.round(template.hp * factor),
+      damage: Math.round(template.damage * (1 + (factor - 1) * 0.7)),
+      speed: template.speed * (1 + (factor - 1) * 0.3),
+    };
     const angle = Math.random() * Math.PI * 2;
     const sx = MAP_WIDTH / 2 + Math.cos(angle) * SPAWN_DISTANCE;
     const sy = MAP_HEIGHT / 2 + Math.sin(angle) * SPAWN_DISTANCE;
 
+    // 根据已过时间计算敌怪强化倍率
+    const scaling = calcTimeScaling(GAME_DURATION - this.gameTime);
+
     const monster = new Monster(
-      this, sx, sy, template,
+      this, sx, sy, scaledTemplate,
       BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       BUILDING_CONFIG.attackRange,
+      scaling,
     );
 
     monster.onAttack = (m) => {
@@ -366,7 +421,6 @@ export class GameScene extends Phaser.Scene {
 
     monster.onDeath = (m) => {
       this.killCount++;
-      this.player.exp += m.expDrop;
       this.spawnExpOrb(m.x, m.y, m.expDrop);
       // 15% 概率掉落修补箱
       if (Math.random() < 0.15) {
@@ -389,6 +443,194 @@ export class GameScene extends Phaser.Scene {
         }
       });
     }
+  }
+
+  // ═══ Boss 系统 ═══
+
+  /** Boss 出场预警：屏幕闪红 + 文字警告 */
+  private startBossWarning(): void {
+    if (this.bossWarningDone) return;
+    this.bossWarningDone = true;
+
+    SoundManager.bossAlert();
+    VFX.bossWarning(this);
+
+    // 全屏红色警告文字
+    const warnY = GAME_HEIGHT / 2 - 100;
+    const warnText = this.add.text(GAME_WIDTH / 2, warnY, '⚠ 警告：灾蚀核心即将降临 ⚠', {
+      fontSize: '28px',
+      color: '#FF2222',
+      fontFamily: 'sans-serif',
+      stroke: '#000000',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(250);
+
+    // 第二次文字（更靠近中心）
+    const warnText2 = this.add.text(GAME_WIDTH / 2, warnY + 40, '守住古建！', {
+      fontSize: '18px',
+      color: '#FF6644',
+      fontFamily: 'sans-serif',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(250);
+
+    // 闪动动画
+    this.tweens.add({
+      targets: [warnText, warnText2],
+      alpha: { from: 1, to: 0.3 },
+      duration: 300,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        // 3 秒后淡出
+        this.tweens.add({
+          targets: [warnText, warnText2],
+          alpha: 0,
+          duration: 500,
+          onComplete: () => {
+            warnText.destroy();
+            warnText2.destroy();
+          },
+        });
+      },
+    });
+  }
+
+  /** 生成 Boss */
+  private spawnBoss(): void {
+    if (this.bossSpawned) return;
+    this.bossSpawned = true;
+
+    // Boss 从屏幕外边缘出现
+    const angle = Math.random() * Math.PI * 2;
+    const spawnDist = SPAWN_DISTANCE + 100;
+    const bx = MAP_WIDTH / 2 + Math.cos(angle) * spawnDist;
+    const by = MAP_HEIGHT / 2 + Math.sin(angle) * spawnDist;
+
+    this.boss = new Boss(
+      this, bx, by,
+      BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      BUILDING_CONFIG.attackRange,
+    );
+
+    // Boss 出场特效
+    SoundManager.bossAppear();
+    VFX.bossAppear(this, bx, by);
+
+    // 显示 Boss 血条
+    this.hud.showBossHpBar(this.boss.maxHp);
+
+    // Boss 召唤回调
+    this.boss.onSummon = (count: number, type: string) => {
+      this.bossSummonMinions(count, type as MonsterType);
+    };
+
+    // Boss 死亡回调
+    this.boss.onDeath = (b) => {
+      this.bossKilled = true;
+      this.hud.hideBossHpBar();
+
+      // 掉落大量经验
+      const expValue = b.expDrop;
+      // 在 Boss 周围散布 5 个经验球
+      for (let i = 0; i < 5; i++) {
+        const ex = b.x + (Math.random() - 0.5) * 80;
+        const ey = b.y + (Math.random() - 0.5) * 80;
+        this.spawnExpOrb(ex, ey, Math.floor(expValue / 5));
+      }
+      // 第 6 个经验球来自中心（更吸引眼球）
+      this.spawnExpOrb(b.x, b.y, Math.floor(expValue / 5));
+
+      // 必定掉修补箱
+      for (let i = 0; i < BOSS_CONFIG.guaranteedCrateCount; i++) {
+        this.spawnRepairCrate(b.x + (Math.random() - 0.5) * 40, b.y + (Math.random() - 0.5) * 40);
+      }
+
+      // 全屏胜利提示
+      const bossDefeatText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, '灾蚀核心 已被击败！', {
+        fontSize: '32px',
+        color: '#FFD700',
+        fontFamily: 'sans-serif',
+        stroke: '#000000',
+        strokeThickness: 6,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(250);
+
+      this.tweens.add({
+        targets: bossDefeatText,
+        alpha: { from: 1, to: 0.6 },
+        y: bossDefeatText.y - 20,
+        duration: 2000,
+        yoyo: true,
+        onComplete: () => {
+          this.tweens.add({
+            targets: bossDefeatText,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => bossDefeatText.destroy(),
+          });
+        },
+      });
+    };
+  }
+
+  /** Boss 召唤小怪 */
+  private bossSummonMinions(count: number, type: MonsterType): void {
+    const template = MONSTER_TEMPLATES[type];
+    // 小怪削弱版
+    const minionTemplate = { ...template,
+      hp: Math.round(template.hp * BOSS_CONFIG.summonHpMult),
+      expDrop: Math.round(template.expDrop * 0.3),
+    };
+
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = 80 + Math.random() * 40;
+      const sx = (this.boss?.x ?? MAP_WIDTH / 2) + Math.cos(angle) * dist;
+      const sy = (this.boss?.y ?? MAP_HEIGHT / 2) + Math.sin(angle) * dist;
+
+      // 小怪以古建为目标
+      const monster = new Monster(
+        this, sx, sy, minionTemplate,
+        BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+        BUILDING_CONFIG.attackRange,
+      );
+
+      monster.onAttack = (m) => {
+        for (const structType of m.attackStructures) {
+          this.building.damageStructure(structType, m.damage);
+        }
+      };
+
+      monster.onDeath = (m) => {
+        this.killCount++;
+        this.spawnExpOrb(m.x, m.y, m.expDrop);
+      };
+
+      this.monsters.push(monster);
+    }
+
+    // Boss 召唤文字提示
+    const summonText = this.add.text(
+      this.boss?.x ?? MAP_WIDTH / 2,
+      (this.boss?.y ?? MAP_HEIGHT / 2) - 60,
+      `召唤 ${template.name} ×${count}`,
+      {
+        fontSize: '16px',
+        color: '#CC88FF',
+        fontFamily: 'sans-serif',
+        stroke: '#000000',
+        strokeThickness: 4,
+      },
+    ).setOrigin(0.5).setDepth(30);
+
+    this.tweens.add({
+      targets: summonText,
+      y: summonText.y - 30,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => summonText.destroy(),
+    });
   }
 
   // ── 经验球 ──
@@ -485,7 +727,12 @@ export class GameScene extends Phaser.Scene {
       this.player.exp -= this.player.expToNext;
       this.player.level++;
       this.player.expToNext = BASE_EXP_TO_LEVEL + this.player.level * EXP_PER_LEVEL;
-      this.pauseForLevelUp();
+
+      if (this.player.level === 1 || this.player.level % 5 === 0) {
+        this.pauseForLevelUp();
+      } else {
+        this.hud.showLevelNotify(this.player.level);
+      }
     }
   }
 
@@ -683,7 +930,34 @@ export class GameScene extends Phaser.Scene {
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
       if (d < nearestDist) { nearestDist = d; nearest = m; }
     }
-    if (!nearest) return;
+    // 检查 Boss 是否比最近怪物更近
+    if (this.boss && !this.boss.isDead) {
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
+      if (d < nearestDist) { nearestDist = d; }
+    }
+    if (!nearest) {
+      // 没有普通怪物，尝试打 Boss
+      if (this.boss && !this.boss.isDead) {
+        SoundManager.autoAttack(this.player.x, this.player.y);
+        this.player.applyAttackRecoil();
+        const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
+        bolt.setDepth(12);
+        let bossTargetDead = false;
+        const bossTarget = {
+          x: this.boss.x, y: this.boss.y,
+          get isDead() { return bossTargetDead; },
+          takeDamage: (dmg: number) => {
+            if (this.boss && !this.boss.isDead) {
+              this.boss.takeDamage(dmg);
+              VFX.boltHit(this, this.boss.x, this.boss.y);
+            }
+            bossTargetDead = true;
+          },
+        };
+        this.autoBolts.push({ graphic: bolt, target: bossTarget as any, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });
+      }
+      return;
+    }
     SoundManager.autoAttack(this.player.x, this.player.y);
     this.player.applyAttackRecoil();
     const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
@@ -730,12 +1004,23 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'sans-serif', stroke: '#000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
 
+    // Boss 战况
+    let bossStat = '';
+    if (this.bossKilled) {
+      bossStat = '击败 Boss ✓';
+    } else if (this.bossSpawned && this.boss && !this.boss.isDead) {
+      bossStat = 'Boss 未击败 ✗';
+    }
+
     // 统计
     const stats = [
       `坚持时间 ${m}:${s.toString().padStart(2, '0')}`,
       `击败怪物 ${this.killCount}`,
       `最高等级 Lv.${this.player.level}`,
     ];
+    if (bossStat) {
+      stats.push(bossStat);
+    }
     let sy = cy + 45;
     for (const line of stats) {
       this.add.text(GAME_WIDTH / 2, sy, line, {
