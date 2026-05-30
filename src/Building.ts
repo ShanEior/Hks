@@ -29,6 +29,8 @@ export class Building {
   structures: Map<StructureType, StructureState>;
   private burns: Map<StructureType, BurnState> = new Map();
 
+  private lastCriticalWarningTime = 0;
+
   onFailure: (() => void) | null = null;
 
   constructor(
@@ -62,6 +64,17 @@ export class Building {
     const s = this.structures.get(type);
     if (!s) return;
     s.currentHp = Math.max(0, s.currentHp - amount);
+
+    // 濒危警告：任一项血量<25% 时播放
+    const ratio = s.currentHp / s.maxHp;
+    if (ratio < 0.25 && ratio > 0) {
+      const now = performance.now();
+      if (now - this.lastCriticalWarningTime > 4000) {
+        this.lastCriticalWarningTime = now;
+        SoundManager.buildingCriticalWarning();
+      }
+    }
+
     SoundManager.buildingHit();
     VFX.buildingHit(this.scene, this.x, this.y, type);
     this.flashDamage(amount);

@@ -220,6 +220,90 @@ export class VFX {
     // 微震
     VFX.shake(scene, 0.003, 60);
   }
+  // ═══════════════════════════════════
+  // 怪物类型专属死亡特效
+  // ═══════════════════════════════════
+
+  /** 白蚁死亡：向下碎裂塌缩 */
+  static termiteDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
+    // scaleY 压缩（向下塌），scaleX 微展
+    sprite.setScale(sprite.scaleX * 1.2, sprite.scaleY * 0.3);
+    scene.tweens.add({
+      targets: sprite, alpha: 0, duration: 350, delay: 40, ease: 'Power2',
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+      onStop: () => { if (sprite.active) sprite.destroy(); },
+    });
+  }
+
+  /** 风蚀死亡：旋转飘散 */
+  static windDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
+    scene.tweens.add({
+      targets: sprite,
+      angle: sprite.angle + 45 + Math.random() * 30,
+      scaleX: 0.5, scaleY: 0.5,
+      alpha: 0, y: y - 20,
+      duration: 400, delay: 40, ease: 'Power2',
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+      onStop: () => { if (sprite.active) sprite.destroy(); },
+    });
+    // 额外风粒子
+    VFX.burst(scene, x, y, 6, [0xDDCC88, 0xEEEEAA, 0xFFFFFF], 60, 2, 350);
+  }
+
+  /** 酸雨死亡：溶解水泡 */
+  static acidrainDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
+    // 水泡升起 → 破裂
+    scene.tweens.add({
+      targets: sprite, scaleX: 1.3, scaleY: 1.3, y: y - 12, alpha: 0,
+      duration: 380, delay: 40, ease: 'Sine.easeOut',
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+      onStop: () => { if (sprite.active) sprite.destroy(); },
+    });
+    VFX.burst(scene, x, y, 8, [0x44CC44, 0x66EE66, 0xAAFFAA, 0xDDEEFF], 70, 2, 380);
+  }
+
+  /** 火焰死亡：向外爆裂 */
+  static fireDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
+    // 快速膨胀爆开
+    scene.cameras.main.flash(40, 255, 100, 20, false); // 短暂暖闪
+    scene.tweens.add({
+      targets: sprite, scaleX: 2.5, scaleY: 2.5, alpha: 0,
+      duration: 200, delay: 40, ease: 'Power3',
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+      onStop: () => { if (sprite.active) sprite.destroy(); },
+    });
+    VFX.burst(scene, x, y, 12, [0xFF6633, 0xFF8844, 0xFFCC44, 0xFF4444, 0xFFFFFF], 160, 3, 400);
+  }
+
+  /** 冻融死亡：碎成多块飞散 */
+  static freezethawDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
+    // 3-5 个小碎块飞散（用 rectangle 模拟）
+    const count = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 50;
+      const frag = scene.add.rectangle(x, y, 8, 8, 0x6699FF, 0.9);
+      frag.setDepth(39);
+      frag.setRotation(Math.random() * Math.PI);
+      const cleanup = () => { if (frag.active) frag.destroy(); };
+      scene.tweens.add({
+        targets: frag,
+        x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist,
+        alpha: 0, rotation: frag.rotation + Math.PI * 2,
+        duration: 400,
+        onComplete: cleanup, onStop: cleanup,
+      });
+    }
+    // 主体消失
+    scene.tweens.add({
+      targets: sprite, scaleX: 0.3, scaleY: 0.3, alpha: 0,
+      duration: 250, delay: 30, ease: 'Power2',
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+      onStop: () => { if (sprite.active) sprite.destroy(); },
+    });
+    VFX.burst(scene, x, y, 8, [0x6699FF, 0x88BBFF, 0xCCEEFF, 0xFFFFFF], 100, 2, 350);
+  }
+
 
   /** 升级庆祝 — 角色头顶金光柱 + "Level X" 漂浮文字 + 金色粒子 */
   static levelUp(scene: Phaser.Scene, x: number, y: number, level: number): void {

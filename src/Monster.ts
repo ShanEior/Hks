@@ -273,20 +273,28 @@ export class Monster {
     // 阶段 1 (0-60ms)：闪白定格
     this.sprite.setTint(0xffffff);
 
-    // 阶段 2 (60-360ms)：膨胀 + 渐隐
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scaleX: this.sprite.scaleX * 1.3,
-      scaleY: this.sprite.scaleY * 1.3,
-      alpha: 0,
-      duration: 300,
-      delay: 60,
-      ease: 'Power2',
-      // 阶段 3 (360ms)：销毁
-      onComplete: () => {
-        if (this.sprite.active) this.sprite.destroy();
-        if (this.hpBar.active) this.hpBar.destroy();
-      },
+    // ── 阶段 2：类型专属死亡特效 ──
+    switch (this.type) {
+      case 'termite':     VFX.termiteDeath(this.scene, this.sprite.x, this.sprite.y, this.sprite); break;
+      case 'wind':        VFX.windDeath(this.scene, this.sprite.x, this.sprite.y, this.sprite); break;
+      case 'acid_rain':   VFX.acidrainDeath(this.scene, this.sprite.x, this.sprite.y, this.sprite); break;
+      case 'fire':        VFX.fireDeath(this.scene, this.sprite.x, this.sprite.y, this.sprite); break;
+      case 'freeze_thaw': VFX.freezethawDeath(this.scene, this.sprite.x, this.sprite.y, this.sprite); break;
+      default:
+        // fallback: 通用膨胀淡出
+        this.scene.tweens.add({
+          targets: this.sprite, scaleX: this.sprite.scaleX * 1.3, scaleY: this.sprite.scaleY * 1.3,
+          alpha: 0, duration: 300, delay: 60, ease: 'Power2',
+          onComplete: () => {
+            if (this.sprite.active) this.sprite.destroy();
+            if (this.hpBar.active) this.hpBar.destroy();
+          },
+        });
+    }
+
+    // ── 阶段 3 (60ms后)：销毁血条 ──
+    this.scene.time.delayedCall(60, () => {
+      if (this.hpBar.active) this.hpBar.destroy();
     });
   }
 

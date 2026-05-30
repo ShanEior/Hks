@@ -25,6 +25,9 @@ export class SoundManager {
   private static lastPlayed: Map<string, number> = new Map();
   private static readonly DEDUP_MS = 50;
 
+  /** 古建濒危警告冷却 — 每 3.5 秒最多触发一次 */
+  private static lastBuildingWarning = 0;
+
   // ═══════════════════════════════════
   // 基础设施
   // ═══════════════════════════════════
@@ -843,5 +846,20 @@ export class SoundManager {
     this.playTone(80, 0.4, 'sawtooth', 0.18, 30, undefined, undefined, undefined, undefined, undefined, pri);
     setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.12, 60, undefined, undefined, undefined, undefined, undefined, pri), 300);
     setTimeout(() => this.playTone(500, 0.5, 'triangle', 0.15, 800, undefined, undefined, undefined, undefined, undefined, pri), 600);
+  }
+
+  /** 古建结构濒危警告（任一项血量<25%时触发） */
+  static buildingCriticalWarning(): void {
+    const now = performance.now();
+    if (now - this.lastBuildingWarning < 3500) return; // 每 3.5 秒最多一次
+    this.lastBuildingWarning = now;
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    // 低沉木裂声：低频扫频 + 碎石 noise
+    this.playTone(50, 0.35, 'sawtooth', 0.12, 25, SOUND_CONFIG.pitchVar.subBass, 0, 'lowpass', 150, 1, pri, 0.2);
+    this.playNoise(0.25, 0.06, 100, 400, undefined, undefined, 0.03, 0, pri);
+    // 延迟100ms第二声（更轻的回响）
+    setTimeout(() => {
+      this.playTone(40, 0.25, 'sine', 0.06, 20, 0.02, 0, 'lowpass', 100, 1, pri);
+    }, 100);
   }
 }
