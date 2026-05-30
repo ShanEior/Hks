@@ -170,6 +170,21 @@ export class SkillManager {
 
   // ── 技能释放调度 ──
   private castSkill(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
+    // ── 统一释放反馈（Cast Burst）：角色微缩 + 微闪 + 轻震 ──
+    player.sprite.setScale(1.04, 1.04);
+    this.scene.tweens.add({
+      targets: player.sprite, scaleX: 1, scaleY: 1,
+      duration: 50, ease: 'Back.easeOut',
+    });
+    const flashRing = this.scene.add.circle(player.x, player.y, 3, 0xffffff, 0.35);
+    flashRing.setDepth(25);
+    const flashCleanup = () => { if (flashRing.active) flashRing.destroy(); };
+    this.scene.tweens.add({
+      targets: flashRing, radius: 8, alpha: 0, duration: 80,
+      onComplete: flashCleanup, onStop: flashCleanup,
+    });
+    VFX.shake(this.scene, 0.001, 30);
+
     switch (skill.id) {
       case 'wood_reinforce':
         SoundManager.skillWood(skill.level, player.x, player.y);
@@ -197,17 +212,17 @@ export class SkillManager {
         this.castPaintingRestore(skill, player, monsters);
         break;
       case 'repair_field':
-        SoundManager.skillWater(skill.level, player.x, player.y);
+        SoundManager.skillRepairField(skill.level, player.x, player.y);
         VFX.skillRepairField(this.scene, player.x, player.y, skill.range, skill.level);
         this.castRepairField(skill, player);
         break;
       case 'whirlwind_slash':
-        SoundManager.skillStone(skill.level, player.x, player.y);
+        SoundManager.skillWhirlwind(skill.level, player.x, player.y);
         VFX.skillWhirlwind(this.scene, player.x, player.y, skill.level);
         this.castWhirlwindSlash(skill, player, monsters);
         break;
       case 'chain_lightning':
-        SoundManager.skillWater(skill.level, player.x, player.y);
+        SoundManager.skillLightning(skill.level, player.x, player.y);
         VFX.skillLightningCast(this.scene, player.x, player.y, skill.level);
         this.castChainLightning(skill, player, monsters);
         break;
@@ -275,6 +290,8 @@ export class SkillManager {
         }
         this.playAoeEffect(player.x, player.y, radius, 0x999999);
         VFX.burst(this.scene, player.x, player.y, 4 + i * 2, [0x777777, 0x999999, 0xcccccc], 80, 3, 260);
+        VFX.stonePulse(this.scene, player.x, player.y, skill.level);
+        SoundManager.skillStoneHit(skill.level, player.x, player.y);
       });
     }
   }
@@ -297,7 +314,8 @@ export class SkillManager {
         if (skill.bonusDamageVs && target instanceof Monster && target.type === skill.bonusDamageVs) {
           damage *= skill.bonusDamageMultiplier ?? 2;
         }
-        target.takeDamage(damage);
+        target.takeDamage(damage, undefined, undefined, true);
+        SoundManager.skillWaterHit(skill.level, hitX, hitY);
         this.applyRepair(skill.repairType, skill.repairAmount);
         this.damageSplash(
           hitX, hitY, target, skill.splashRadius ?? 0, damage * 0.45,
@@ -413,7 +431,9 @@ export class SkillManager {
         let hops = 0;
         while (current && hops <= (skill.chainCount ?? 3)) {
           VFX.lightningArc(this.scene, fromX, fromY, current.x, current.y, hops === 0, skill.level);
-          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08));
+          VFX.lightningImpact(this.scene, current.x, current.y, skill.level);
+          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08), undefined, undefined, true);
+          SoundManager.skillLightningHit(skill.level, current.x, current.y);
           hitSet.add(current);
           fromX = current.x;
           fromY = current.y;
@@ -580,7 +600,8 @@ export class SkillManager {
               if (z.bonusDamageVs && m.type === z.bonusDamageVs) {
                 dmg *= (z.bonusDamageMultiplier ?? 2);
               }
-              m.takeDamage(dmg);
+              m.takeDamage(dmg, undefined, undefined, true);
+              SoundManager.skillInsectHit(z.level, m.x, m.y);
               this.applyRepair(z.repairType, z.repairAmount);
             }
           }
@@ -594,11 +615,13 @@ export class SkillManager {
               if (z.bonusDamageVs && target instanceof Monster && target.type === z.bonusDamageVs) {
                 sporeDamage *= z.bonusDamageMultiplier ?? 2;
               }
-              target.takeDamage(sporeDamage);
-              VFX.burst(this.scene, target.x, target.y, 4, [0x44cc44, 0x88cc44, 0xccee88], 70, 2, 220);
+              target.takeDamage(sporeDamage, undefined, undefined, true);
+              SoundManager.skillInsectHit(z.level, target.x, target.y);
+              VFX.insectSpore(this.scene, target.x, target.y);
             }
           }
         } else {
+          // 修复法阵纯回复，不产生命中音效
           this.applyRepair(z.repairType, z.repairAmount);
           VFX.repairFieldPulse(this.scene, z.x, z.y, z.radius, z.level, z.extraShots ?? 6);
         }
@@ -616,7 +639,7 @@ export class SkillManager {
       if (m.isDead) continue;
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
-        m.takeDamage(damage);
+        m.takeDamage(damage, undefined, undefined, true);
         this.applyRepair(repairType, repairAmount);
       }
     }
@@ -640,7 +663,7 @@ export class SkillManager {
       if (m.isDead || m === primary) continue;
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
-        m.takeDamage(damage);
+        m.takeDamage(damage, undefined, undefined, true);
         this.applyRepair(repairType, repairAmount);
       }
     }
@@ -696,7 +719,7 @@ export class SkillManager {
     const hitX = target.x;
     const hitY = target.y;
     p.hitTargets?.add(target);
-    target.takeDamage(p.damage);
+    target.takeDamage(p.damage, undefined, undefined, true);
     this.applyRepair(p.repairType, p.repairAmount);
 
     if (p.splashRadius) {
@@ -704,10 +727,13 @@ export class SkillManager {
     }
 
     if (p.effectType === 'wood') {
+      SoundManager.skillWoodHit(p.level, hitX, hitY);
       VFX.woodImpact(this.scene, hitX, hitY, p.level);
     } else if (p.effectType === 'paint') {
+      SoundManager.skillPaintHit(p.level, hitX, hitY);
       VFX.paintImpact(this.scene, hitX, hitY, p.splashRadius ?? 24, p.level);
     } else if (p.effectType === 'whirlwind') {
+      SoundManager.skillWhirlwindHit(p.level, hitX, hitY);
       VFX.whirlwindHit(this.scene, hitX, hitY, p.level);
       if (p.knockbackForce) {
         this.applyKnockbackInRadius(hitX, hitY, 70, p.knockbackForce, monsters);
