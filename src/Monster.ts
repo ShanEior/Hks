@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG } from './config';
+import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, MAP_WIDTH, MAP_HEIGHT } from './config';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
@@ -47,6 +47,7 @@ export class Monster {
   private hitStunTimer = 0;
 
   isDead = false;
+  canBeTargeted = false;
 
   /** 攻击时触发 */
   onAttack: ((monster: Monster) => void) | null = null;
@@ -155,6 +156,14 @@ export class Monster {
       );
       this.sprite.x += Math.cos(angle) * this.speed * dt;
       this.sprite.y += Math.sin(angle) * this.speed * dt;
+      // 进入地图内部后才可被攻击追踪
+      if (!this.canBeTargeted) {
+        const margin = 80;
+        if (this.sprite.x > margin && this.sprite.x < MAP_WIDTH - margin &&
+            this.sprite.y > margin && this.sprite.y < MAP_HEIGHT - margin) {
+          this.canBeTargeted = true;
+        }
+      }
     } else {
       if (time - this.lastAttackTime >= this.attackInterval) {
         this.lastAttackTime = time;
@@ -240,13 +249,13 @@ export class Monster {
     if (this.hp <= 0) {
       this.hp = 0;
       SoundManager.killMonster(this.type, this.sprite.x);
-      this.die(true);
+      this.die();
       return true;
     }
     return false;
   }
 
-  private die(isFatalBlow = false): void {
+  private die(): void {
     this.isDead = true;
     this.onDeath?.(this);
 
@@ -256,26 +265,9 @@ export class Monster {
     const color = MONSTER_COLORS[this.type] ?? 0xDDDDDD;
     VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color, this.type);
 
-    // ── 3 阶段死亡动画 ──
-    // 阶段 1 (0-60ms)：闪白定格
-    this.sprite.setTint(0xffffff);
-
-    // 阶段 2 (60-360ms)：膨胀 + 渐隐（致命一击放大到 5x，强化爆破感）
-    const deathScale = isFatalBlow ? 5 : 1.3;
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scaleX: this.sprite.scaleX * deathScale,
-      scaleY: this.sprite.scaleY * deathScale,
-      alpha: 0,
-      duration: 300,
-      delay: 60,
-      ease: 'Power2',
-      // 阶段 3 (360ms)：销毁
-      onComplete: () => {
-        if (this.sprite.active) this.sprite.destroy();
-        if (this.hpBar.active) this.hpBar.destroy();
-      },
-    });
+    // 直接销毁（无死亡动画）
+    if (this.sprite.active) this.sprite.destroy();
+    if (this.hpBar.active) this.hpBar.destroy();
   }
 
   /** 启动待机动画（Tween 驱动，无额外纹理开销） */

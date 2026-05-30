@@ -93,7 +93,7 @@ export const MONSTER_TEMPLATES: Record<MonsterType, MonsterTemplate> = {
 
 // ---- 怪物生成 ----
 export const SPAWN_DISTANCE = 700; // 从地图中心算起的生成距离
-export const INITIAL_SPAWN_INTERVAL = 2000;
+export const INITIAL_SPAWN_INTERVAL = 2500;
 export const MAX_MONSTERS = 80; // ms
 
 // ---- 经验 ----
@@ -171,9 +171,9 @@ export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
     { level: 3, name: '榫卯强化', cooldown: 3.0, damage: 82, range: 180, repairType: ['wood'], repairAmount: 4, shots: 3, pierceCount: 8, widthMultiplier: 2.1, splashRadius: 28 },
   ],
   stone_repair: [
-    { level: 1, name: '石材修补', cooldown: 5.2, damage: 24, range: 180, repairType: [], repairAmount: 0, pulseCount: 2, pulseInterval: 0.14 },
-    { level: 2, name: '石粉填补', cooldown: 4.8, damage: 32, range: 220, repairType: [], repairAmount: 0, pulseCount: 3, pulseInterval: 0.13 },
-    { level: 3, name: '表层加固', cooldown: 4.4, damage: 42, range: 260, repairType: ['stone'], repairAmount: 2, pulseCount: 4, pulseInterval: 0.12, knockbackForce: 280 },
+    { level: 1, name: '石材修补', cooldown: 5.2, damage: 24, range: 240, repairType: [], repairAmount: 0, pulseCount: 3, pulseInterval: 0.12 },
+    { level: 2, name: '石粉填补', cooldown: 4.8, damage: 32, range: 280, repairType: [], repairAmount: 0, pulseCount: 4, pulseInterval: 0.11 },
+    { level: 3, name: '表层加固', cooldown: 4.4, damage: 42, range: 320, repairType: ['stone'], repairAmount: 2, pulseCount: 5, pulseInterval: 0.10, knockbackForce: 320 },
   ],
   waterproof: [
     { level: 1, name: '防水封护', cooldown: 5.2, damage: 26, range: 220, repairType: [], repairAmount: 0, shots: 4, splashRadius: 40 },
@@ -186,9 +186,9 @@ export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
     { level: 3, name: '木构驱虫', cooldown: 4.3, damage: 15, range: 210, repairType: ['wood'], repairAmount: 1, zoneDuration: 7, tickInterval: 0.28, followPlayer: true, shots: 2, bonusDamageVs: 'termite', bonusDamageMultiplier: 3.4 },
   ],
   painting_restore: [
-    { level: 1, name: '彩绘修复', cooldown: 3.2, damage: 24, range: 0, repairType: [], repairAmount: 0, shots: 2 },
-    { level: 2, name: '颜料补绘', cooldown: 2.8, damage: 34, range: 60, repairType: [], repairAmount: 0, shots: 3, splashRadius: 60 },
-    { level: 3, name: '壁画护色', cooldown: 2.4, damage: 46, range: 78, repairType: ['painting'], repairAmount: 2, shots: 4, splashRadius: 78, projectileBounce: true, chainCount: 2 },
+    { level: 1, name: '彩绘修复', cooldown: 3.2, damage: 24, range: 0, repairType: [], repairAmount: 0, shots: 2, projectileBounce: true, chainCount: 1 },
+    { level: 2, name: '颜料补绘', cooldown: 2.8, damage: 34, range: 60, repairType: [], repairAmount: 0, shots: 3, splashRadius: 60, projectileBounce: true, chainCount: 2 },
+    { level: 3, name: '壁画护色', cooldown: 2.4, damage: 46, range: 78, repairType: ['painting'], repairAmount: 2, shots: 4, splashRadius: 78, projectileBounce: true, chainCount: 3 },
   ],
   repair_field: [
     { level: 1, name: '修复法阵', cooldown: 7, damage: 0, range: 145, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 3, zoneDuration: 4, tickInterval: 0.65, followPlayer: true, shots: 6 },
@@ -196,9 +196,9 @@ export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
     { level: 3, name: '结构复苏', cooldown: 5.4, damage: 0, range: 190, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 7, zoneDuration: 6, tickInterval: 0.42, followPlayer: true, shots: 10 },
   ],
   whirlwind_slash: [
-    { level: 1, name: '旋风斩', cooldown: 4.2, damage: 28, range: 250, repairType: [], repairAmount: 0, shots: 1, pierceCount: 4, widthMultiplier: 1.1 },
-    { level: 2, name: '烈风轮斩', cooldown: 3.8, damage: 40, range: 290, repairType: [], repairAmount: 0, shots: 2, pierceCount: 5, widthMultiplier: 1.2 },
-    { level: 3, name: '青岚风暴', cooldown: 3.3, damage: 54, range: 330, repairType: [], repairAmount: 0, shots: 3, pierceCount: 6, widthMultiplier: 1.3, knockbackForce: 220 },
+    { level: 1, name: '旋风斩', cooldown: 10, damage: 28, range: 0, repairType: [], repairAmount: 0, shots: 1, pierceCount: 99, widthMultiplier: 1.1, zoneDuration: 6 },
+    { level: 2, name: '烈风轮斩', cooldown: 8.5, damage: 40, range: 0, repairType: [], repairAmount: 0, shots: 2, pierceCount: 99, widthMultiplier: 1.2, zoneDuration: 7, knockbackForce: 160 },
+    { level: 3, name: '青岚风暴', cooldown: 7, damage: 54, range: 0, repairType: [], repairAmount: 0, shots: 3, pierceCount: 99, widthMultiplier: 1.3, zoneDuration: 8, knockbackForce: 220 },
   ],
   chain_lightning: [
     { level: 1, name: '雷电链', cooldown: 4.1, damage: 34, range: 290, repairType: [], repairAmount: 0, chainCount: 3, shots: 1 },
@@ -296,12 +296,12 @@ export interface WaveStage {
 }
 
 export const WAVE_STAGES: WaveStage[] = [
-  { timeStart: 0,  timeEnd: 30,  spawnInterval: 1500, monsters: [{type:'termite',weight:100}], countPerWave: 6 },
-  { timeStart: 30, timeEnd: 60,  spawnInterval: 1200, monsters: [{type:'termite',weight:80},{type:'wind',weight:20}], countPerWave: 10 },
-  { timeStart: 60, timeEnd: 120, spawnInterval: 1000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 15 },
-  { timeStart: 120,timeEnd: 180, spawnInterval: 800,  monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 20 },
-  { timeStart: 180,timeEnd: 240, spawnInterval: 600,  monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 25 },
-  { timeStart: 240,timeEnd: 300, spawnInterval: 500,  monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 30 },
+  { timeStart: 0,  timeEnd: 30,  spawnInterval: 2500, monsters: [{type:'termite',weight:100}], countPerWave: 3 },
+  { timeStart: 30, timeEnd: 60,  spawnInterval: 1800, monsters: [{type:'termite',weight:80},{type:'wind',weight:20}], countPerWave: 5 },
+  { timeStart: 60, timeEnd: 120, spawnInterval: 1300, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 10 },
+  { timeStart: 120,timeEnd: 180, spawnInterval: 900,  monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 15 },
+  { timeStart: 180,timeEnd: 240, spawnInterval: 700,  monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 20 },
+  { timeStart: 240,timeEnd: 300, spawnInterval: 550,  monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 25 },
 ];
 
 // ---- 刷怪权重（Phase 2 简单权重，后续改为波次驱动） ----
@@ -402,9 +402,9 @@ export type KnockbackTier = keyof typeof KNOCKBACK_CONFIG & ('light' | 'medium' 
 export const AUTO_ATTACK_CONFIG = {
   damage: 22,
   cooldown: 0.7,
-  boltSpeed: 350,
-  boltLifetime: 2,
-  boltRadius: 12,
+  boltSpeed: 420,
+  boltLifetime: 99,
+  boltRadius: 16,
 } as const;
 
 // ============================================================

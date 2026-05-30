@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   ActiveSkill, SkillId, SkillLevelConfig, SKILL_CONFIGS,
   MonsterType, StructureType, PLAYER_CONFIG,
+  MAP_WIDTH, MAP_HEIGHT,
 } from './config';
 import { Player } from './Player';
 import { Monster } from './Monster';
@@ -231,8 +232,8 @@ export class SkillManager {
 
   // ── 木构加固：向最近敌人发射木梁冲击波 ──
   private castWoodReinforce(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const speed = 520;
-    const lifetime = 0.75;
+    const speed = 320;
+    const lifetime = 99;
     const shots = skill.shots ?? 1;
     const spread = Phaser.Math.DegToRad(16);
     const nearest = this.findNearestTarget(player.x, player.y, monsters);
@@ -246,11 +247,12 @@ export class SkillManager {
       const texKey = 'wood_beam';
       const beam = this.scene.textures.exists(texKey)
         ? this.scene.add.image(player.x, player.y, texKey)
-        : this.scene.add.rectangle(player.x, player.y, 30, 80, 0xC4884D, 0.9) as any;
+        : this.scene.add.rectangle(player.x, player.y, 80, 22, 0xC4884D, 0.9) as any;
 
       beam.setDepth(15);
-      beam.setRotation(angle);
-      beam.setScale(skill.widthMultiplier ?? 1.1, 1.05 + skill.level * 0.12);
+      beam.setRotation(angle + Math.PI / 2); // 木梁横过来：长边垂直于飞行方向
+      const s = skill.widthMultiplier ?? 1.15;
+      beam.setScale(s * 2.2, 1.3 + skill.level * 0.2);
 
       this.projectiles.push({
         graphic: beam as Phaser.GameObjects.Image,
@@ -264,7 +266,7 @@ export class SkillManager {
         hitTargets: new Set(),
         remainingHits: skill.pierceCount ?? 3,
         splashRadius: skill.splashRadius,
-        hitRadius: 24 * (skill.widthMultiplier ?? 1),
+        hitRadius: 120 * (skill.widthMultiplier ?? 1),
         trailColor: 0xc4884d,
         effectType: 'wood',
       });
@@ -376,27 +378,25 @@ export class SkillManager {
     });
   }
 
-  // ── 旋风斩：朝目标方向发射旋风刃 ──
+  // ── 旋风斩：地图内反弹飞行，持续时间结束后消失 ──
   private castWhirlwindSlash(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const speed = 460 + skill.level * 45;
-    const lifetime = skill.range / speed;
+    const speed = 380 + skill.level * 40;
+    const lifetime = skill.zoneDuration ?? 6;
     const shots = skill.shots ?? 1;
-    const spread = Phaser.Math.DegToRad(12);
-    const nearest = this.findNearestTarget(player.x, player.y, monsters);
-    const baseAngle = nearest
-      ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
-      : -Math.PI / 2;
+    const spread = Phaser.Math.DegToRad(shots > 1 ? 360 / shots : 0);
 
     for (let i = 0; i < shots; i++) {
-      const offset = shots === 1 ? 0 : (i - (shots - 1) / 2) * spread;
-      const angle = baseAngle + offset;
-      const blade = this.scene.add.rectangle(player.x, player.y, 58, 22, 0x66ddff, 0.95);
+      const angle = shots === 1
+        ? Math.random() * Math.PI * 2
+        : (i / shots) * Math.PI * 2 + Math.random() * 0.3;
+      const blade = this.scene.add.image(player.x, player.y, 'fx_whirlwind');
       blade.setDepth(15);
       blade.setRotation(angle);
-      blade.setScale(skill.widthMultiplier ?? 1.15, 1.0 + skill.level * 0.06);
+      const s = skill.widthMultiplier ?? 1.15;
+      blade.setScale(s * 1.2, 1.0 + skill.level * 0.08);
 
       this.projectiles.push({
-        graphic: blade as Phaser.GameObjects.Rectangle,
+        graphic: blade,
         startX: player.x, startY: player.y,
         angle, speed, lifetime, elapsed: 0,
         damage: skill.damage,
@@ -405,10 +405,10 @@ export class SkillManager {
         level: skill.level,
         widthMultiplier: skill.widthMultiplier,
         hitTargets: new Set(),
-        remainingHits: skill.pierceCount ?? 4,
-        hitRadius: 24 * (skill.widthMultiplier ?? 1.1),
+        remainingHits: skill.pierceCount ?? 99,
+        hitRadius: 30 * (skill.widthMultiplier ?? 1.1),
         trailColor: 0x66ddff,
-        spinSpeed: 14,
+        spinSpeed: 18,
         knockbackForce: skill.knockbackForce,
         effectType: 'whirlwind',
       });
@@ -455,7 +455,7 @@ export class SkillManager {
       const offset = shots === 1 ? 0 : (i - (shots - 1) / 2) * 10;
       const ball = this.scene.add.image(player.x + offset, player.y - 6, 'paint_ball');
       ball.setDepth(15);
-      ball.setScale(skill.level >= 2 ? 1.25 : 1.05);
+      ball.setScale(skill.level >= 2 ? 2.0 : 1.6);
 
       const glowTexKey = 'exp_orb';
       const glow = this.scene.textures.exists(glowTexKey)
@@ -463,8 +463,8 @@ export class SkillManager {
         : null;
       if (glow) {
         glow.setDepth(14);
-        glow.setAlpha(0.28);
-        glow.setScale(1.15);
+        glow.setAlpha(0.5);
+        glow.setScale(1.8);
         glow.setTint([0xff4488, 0xff8800, 0x4488ff, 0xcc44ff][i % 4]);
       }
 
@@ -542,7 +542,7 @@ export class SkillManager {
         }
 
         for (const m of monsters) {
-          if (m.isDead || p.hitTargets?.has(m)) continue;
+          if (m.isDead || !m.canBeTargeted || p.hitTargets?.has(m)) continue;
           const dist = Phaser.Math.Distance.Between(p.graphic.x, p.graphic.y, m.x, m.y);
           const hitRadius = (p.hitRadius ?? 18) + m.radius * 0.6;
           if (dist < hitRadius) {
@@ -558,6 +558,23 @@ export class SkillManager {
           if (dist < hitRadius) {
             this.handleProjectileHit(p, boss, monsters);
           }
+        }
+      }
+
+      // 旋风刃碰到地图边缘反弹
+      if (p.effectType === 'whirlwind' && p.graphic.active) {
+        if (p.graphic.x < 20) { p.graphic.x = 20; p.angle = Math.PI - p.angle; }
+        else if (p.graphic.x > MAP_WIDTH - 20) { p.graphic.x = MAP_WIDTH - 20; p.angle = Math.PI - p.angle; }
+        if (p.graphic.y < 20) { p.graphic.y = 20; p.angle = -p.angle; }
+        else if (p.graphic.y > MAP_HEIGHT - 20) { p.graphic.y = MAP_HEIGHT - 20; p.angle = -p.angle; }
+        p.graphic.setRotation(p.angle);
+      }
+      // 木梁飞出地图后销毁
+      if (p.effectType === 'wood' && p.graphic.active) {
+        const margin = 100;
+        if (p.graphic.x < -margin || p.graphic.x > MAP_WIDTH + margin ||
+            p.graphic.y < -margin || p.graphic.y > MAP_HEIGHT + margin) {
+          this.destroyProjectile(p);
         }
       }
     }
@@ -764,10 +781,13 @@ export class SkillManager {
       return;
     }
 
-    p.remainingHits = (p.remainingHits ?? 1) - 1;
-    if ((p.remainingHits ?? 0) <= 0) {
-      p.elapsed = p.lifetime;
-      this.destroyProjectile(p);
+    // 木梁和旋风刃不因碰撞次数销毁，只飞出地图才消失
+    if (p.effectType !== 'wood' && p.effectType !== 'whirlwind') {
+      p.remainingHits = (p.remainingHits ?? 1) - 1;
+      if ((p.remainingHits ?? 0) <= 0) {
+        p.elapsed = p.lifetime;
+        this.destroyProjectile(p);
+      }
     }
   }
 
@@ -779,7 +799,7 @@ export class SkillManager {
     let nearest: SkillTarget | null = null;
     let nearestDist = Infinity;
     for (const m of monsters) {
-      if (m.isDead || excluded.has(m)) continue;
+      if (m.isDead || !m.canBeTargeted || excluded.has(m)) continue;
       const d = Phaser.Math.Distance.Between(x, y, m.x, m.y);
       if (d < nearestDist && d <= maxDistance) {
         nearestDist = d;
@@ -801,7 +821,7 @@ export class SkillManager {
     count: number, maxDistance: number,
   ): SkillTarget[] {
     const result: SkillTarget[] = monsters
-      .filter(m => !m.isDead && Phaser.Math.Distance.Between(x, y, m.x, m.y) <= maxDistance)
+      .filter(m => !m.isDead && m.canBeTargeted && Phaser.Math.Distance.Between(x, y, m.x, m.y) <= maxDistance)
       .sort((a, b) => {
         const da = Phaser.Math.Distance.Between(x, y, a.x, a.y);
         const db = Phaser.Math.Distance.Between(x, y, b.x, b.y);

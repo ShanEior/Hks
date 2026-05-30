@@ -35,15 +35,19 @@ export class VFX {
   // 粒子工具
   // ═══════════════════════════════════
 
-  /** 发射一组彩色粒子爆散（GPU 批处理，单次 draw call） */
+  /** 发射一组彩色粒子爆散（GPU 批处理，单次 draw call）
+   * @param texture  粒子纹理 key，默认 'px_white'，可传入 Terraria 特效纹理
+   */
   static burst(
     scene: Phaser.Scene, x: number, y: number,
     count: number, colors: number[], speed = 120, size = 3, lifetime = 400,
+    texture = 'px_white',
   ): void {
-    // 确保粒子纹理存在
-    if (!scene.textures.exists('px_white')) return;
+    // 确保粒子纹理存在，退回到白方块
+    const texKey = scene.textures.exists(texture) ? texture : 'px_white';
+    if (!scene.textures.exists(texKey)) return;
 
-    const emitter = scene.add.particles(x, y, 'px_white', {
+    const emitter = scene.add.particles(x, y, texKey, {
       speed: { min: speed * 0.3, max: speed },
       scale: { start: size / 4, end: size / 4 * 0.2 },
       alpha: { start: 1, end: 0 },
@@ -59,6 +63,29 @@ export class VFX {
     scene.time.delayedCall(lifetime + 200, () => {
       if (emitter && emitter.active) emitter.destroy();
     });
+  }
+
+  /** 推荐的粒子纹理池（从 Terraria 特效精选） */
+  static readonly PARTICLE_POOL = {
+    glow:        'fx_glow_64',
+    spark:       'fx_bolt_hit',
+    star:        'fx_star_34',
+    dust:        'fx_dust_16',
+    ring:        'fx_ring_42',
+    slash:       'fx_slash',
+    impact:      'fx_impact',
+    heal:        'fx_heal',
+    boss_ring:   'fx_boss_ring',
+    bolt:        'fx_bolt_extra',
+  };
+
+  /** 随机选一个粒子纹理 key */
+  static randomParticleTexture(): string {
+    const pool = Object.values(VFX.PARTICLE_POOL).filter(k => {
+      // 延迟检查：运行时由 scene 判断
+      return true;
+    });
+    return pool[Math.floor(Math.random() * pool.length)] || 'px_white';
   }
 
   /** 冲击波扩散圈：可选 damage 参数，伤害越高环越大 */
@@ -161,7 +188,7 @@ export class VFX {
     const baseColor = elem ? elem.damageColor : '#ffffff';
 
     // 元素色碎屑
-    VFX.burst(scene, x, y, 3, particleColors, 60, 2, 200);
+    VFX.burst(scene, x, y, 3, particleColors, 60, 2, 200, 'fx_dust_16');
 
     // 方向性冲击粒子（沿攻击方向的受力视觉）
     if (_attackerX !== undefined && _attackerY !== undefined) {
@@ -203,7 +230,7 @@ export class VFX {
     const ringColor = elem ? elem.flash : color;
 
     // 主爆散
-    VFX.burst(scene, x, y, 10, burstColors, 150, 3, 500);
+    VFX.burst(scene, x, y, 10, burstColors, 150, 3, 500, 'fx_bolt_hit');
     // 冲击波
     VFX.shockwave(scene, x, y, 40, ringColor, 350);
     // 微震
@@ -217,10 +244,6 @@ export class VFX {
       onComplete: cleanup,
       onStop: cleanup,
     });
-    // 击杀确认文字
-    if (monsterType) {
-      VFX.floatSpecial(scene, x, y, 'kill');
-    }
   }
 
   /** 升级庆祝 — 仅金色粒子螺旋上升 + 轻震，摒弃全屏闪 */
@@ -259,7 +282,7 @@ export class VFX {
   static skillWood(scene: Phaser.Scene, x: number, y: number, angle: number, lv: number): void {
     // 发射点木屑爆发
     const woodColors = [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88];
-    VFX.burst(scene, x, y, lv >= 3 ? 15 : 8, woodColors, 100, 3, 400);
+    VFX.burst(scene, x, y, lv >= 3 ? 15 : 8, woodColors, 100, 3, 400, 'fx_dust_16');
     // 发射闪光
     const flash = scene.add.circle(x, y, 6, 0xffffff, 0.9);
     flash.setDepth(21);
@@ -277,41 +300,50 @@ export class VFX {
 
   /** 石材修补：多层震波+碎石爆散+地面裂纹 */
   static skillStone(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
-    // 3层震波（灰→浅灰→白）
-    const ringColors = [0x666666, 0x999999, 0xcccccc];
-    for (let r = 0; r < 3; r++) {
+    // 5层震波（灰→浅灰→白）
+    const ringColors = [0x555555, 0x777777, 0x999999, 0xbbbbbb, 0xdddddd];
+    for (let r = 0; r < 5; r++) {
       const ring = scene.add.circle(x, y, 4, 0, 0);
-      ring.setStrokeStyle(3 - r * 0.8, ringColors[r], 1 - r * 0.25);
+      ring.setStrokeStyle(4 - r * 0.6, ringColors[r], 1 - r * 0.15);
       ring.setDepth(35);
       const cleanup = () => { if (ring.active) ring.destroy(); };
       scene.tweens.add({
         targets: ring,
-        radius: radius * (0.7 + r * 0.2),
+        radius: radius * (0.6 + r * 0.2),
         alpha: 0,
-        duration: 350 + r * 100,
-        delay: r * 50,
+        duration: 400 + r * 120,
+        delay: r * 40,
         ease: 'Power3',
         onComplete: cleanup,
         onStop: cleanup,
       });
     }
-    // 碎石爆散
-    const count = lv >= 3 ? 20 : 12;
-    VFX.burst(scene, x, y, count, [0x888888, 0xaaaaaa, 0x999999, 0xcccccc, 0x777777], 180, 3, 500);
-    // Lv3 额外大石块
-    if (lv >= 3) {
-      for (let i = 0; i < 5; i++) {
+    // 碎石爆散（更浓密）
+    const count = lv >= 3 ? 30 : 20;
+    VFX.burst(scene, x, y, count, [0x888888, 0xaaaaaa, 0x999999, 0xcccccc, 0x777777, 0xdddddd], 220, 4, 550, 'fx_bolt_hit');
+    VFX.shake(scene, 0.006, 80);
+    // 中心闪光
+    const flash = scene.add.circle(x, y, 5, 0xffffff, 0.5);
+    flash.setDepth(36);
+    scene.tweens.add({
+      targets: flash, scale: 2.5, alpha: 0, duration: 250,
+      onComplete: () => { if (flash.active) flash.destroy(); },
+    });
+    // Lv2+ 大石块
+    if (lv >= 2) {
+      const rockCount = lv >= 3 ? 8 : 4;
+      for (let i = 0; i < rockCount; i++) {
         const a = Math.random() * Math.PI * 2;
-        const rock = scene.add.rectangle(x, y, 6, 6, 0x777777, 1);
+        const rock = scene.add.rectangle(x, y, 7, 7, 0x777777, 1);
         rock.setDepth(36);
         rock.setRotation(Math.random() * Math.PI);
         const cleanup = () => { if (rock.active) rock.destroy(); };
         scene.tweens.add({
           targets: rock,
-          x: x + Math.cos(a) * 120,
-          y: y + Math.sin(a) * 120,
+          x: x + Math.cos(a) * 160,
+          y: y + Math.sin(a) * 160,
           alpha: 0, rotation: rock.rotation + Math.PI * 2,
-          duration: 600,
+          duration: 700,
           ease: 'Power2',
           onComplete: cleanup,
           onStop: cleanup,
@@ -322,12 +354,12 @@ export class VFX {
 
   /** 石材脉冲命中：碎石环 + 灰白粒子爆散 */
   static stonePulse(scene: Phaser.Scene, x: number, y: number, lv: number): void {
-    // 灰白碎石环
-    VFX.shockwave(scene, x, y, 24 + lv * 6, 0x999999, 250);
-    // 碎石子 burst（6-12个）
-    VFX.burst(scene, x, y, 6 + lv * 2, [0x888888, 0xaaaaaa, 0xcccccc, 0xdddddd], 100, 3, 350);
-    // 微震
-    VFX.shake(scene, 0.002, 40);
+    // 灰白碎石环（更大更浓）
+    VFX.shockwave(scene, x, y, 36 + lv * 8, 0xaaaaaa, 320);
+    // 碎石子 burst
+    VFX.burst(scene, x, y, 10 + lv * 3, [0x888888, 0xaaaaaa, 0xcccccc, 0xdddddd, 0xffffff], 140, 4, 400, 'fx_bolt_hit');
+    // 震屏
+    VFX.shake(scene, 0.004, 60);
   }
 
   /** 防水封护：4层水纹+水珠飞溅+护罩穹顶弧线 */
@@ -350,7 +382,7 @@ export class VFX {
       });
     }
     // 水珠喷溅
-    VFX.burst(scene, x, y, lv >= 3 ? 16 : 10, [0x4488cc, 0x66bbee, 0xaaddff, 0xddeeff], 100, 3, 600);
+    VFX.burst(scene, x, y, lv >= 3 ? 16 : 10, [0x4488cc, 0x66bbee, 0xaaddff, 0xddeeff], 100, 3, 600, 'fx_ring_42');
     // 中心水柱闪光
     const pillar = scene.add.rectangle(x, y, 8, 4, 0xddeeff, 0.6);
     pillar.setDepth(36);
@@ -402,7 +434,7 @@ export class VFX {
   static skillPaint(scene: Phaser.Scene, x: number, y: number, lv: number): void {
     // 发射点彩色闪光
     const colors = [0xff4488, 0xff8800, 0xffee00, 0x44ff88, 0x4488ff, 0xcc44ff];
-    VFX.burst(scene, x, y, lv >= 2 ? 10 : 6, colors, 120, 4, 500);
+    VFX.burst(scene, x, y, lv >= 2 ? 10 : 6, colors, 120, 4, 500, 'fx_star_34');
     // 多层彩色冲击波
     for (let r = 0; r < 3; r++) {
       const ring = scene.add.circle(x, y, 4, 0, 0);
@@ -431,15 +463,22 @@ export class VFX {
 
   /** 普攻命中 */
   static boltHit(scene: Phaser.Scene, x: number, y: number): void {
-    VFX.burst(scene, x, y, 3, [0x88ccff, 0xffffff, 0xaaddff], 50, 2, 200);
-    const spark = scene.add.circle(x, y, 3, 0xffffff, 0.9);
-    spark.setDepth(40);
-    const cleanup = () => { if (spark.active) spark.destroy(); };
-    scene.tweens.add({
-      targets: spark, scale: 3, alpha: 0, duration: 150,
-      onComplete: cleanup,
-      onStop: cleanup,
-    });
+    VFX.burst(scene, x, y, 3, [0x88ccff, 0xffffff, 0xaaddff], 50, 2, 200, 'fx_bolt_hit');
+    // 精灵冲击波（优先）+ procedural 圆环 fallback
+    if (scene.textures.exists('fx_impact')) {
+      const ring = scene.add.image(x, y, 'fx_impact').setAlpha(0.9).setDepth(40).setScale(0.5);
+      scene.tweens.add({
+        targets: ring, scale: 2.0, alpha: 0, duration: 180,
+        onComplete: () => ring.destroy(),
+      });
+    } else {
+      const spark = scene.add.circle(x, y, 3, 0xffffff, 0.9);
+      spark.setDepth(40);
+      scene.tweens.add({
+        targets: spark, scale: 3, alpha: 0, duration: 150,
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   // ═══════════════════════════════════
@@ -455,7 +494,7 @@ export class VFX {
       painting: [0x9966cc, 0x8855bb, 0xaa77dd],
     };
     const colors = colorMap[type] ?? [0xcccccc];
-    VFX.burst(scene, x, y, 5, colors, 90, 2, 350);
+    VFX.burst(scene, x, y, 5, colors, 90, 2, 350, 'fx_dust_16');
     VFX.shake(scene, 0.005, 100);
   }
 
@@ -485,7 +524,15 @@ export class VFX {
       });
     }
     // 紫色粒子爆散
-    VFX.burst(scene, x, y, 30, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF], 250, 5, 800);
+    VFX.burst(scene, x, y, 30, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF], 250, 5, 800, 'fx_glow_64');
+    // Boss 精灵冲击波叠加
+    if (scene.textures.exists('fx_boss_ring')) {
+      const bossRing = scene.add.image(x, y, 'fx_boss_ring').setAlpha(0.7).setDepth(39).setScale(0.2);
+      scene.tweens.add({
+        targets: bossRing, scale: 1.5, alpha: 0, duration: 900, ease: 'Power2',
+        onComplete: () => bossRing.destroy(),
+      });
+    }
     // 全屏闪紫
     scene.cameras.main.flash(400, 100, 50, 150, false);
     VFX.shake(scene, 0.012, 400);
@@ -493,7 +540,7 @@ export class VFX {
 
   /** Boss 受击：紫色碎屑 + 大伤害数字 */
   static bossHit(scene: Phaser.Scene, x: number, y: number, damage: number): void {
-    VFX.burst(scene, x, y, 5, [0xAA44FF, 0xCC66FF, 0xFFFFFF], 80, 4, 300);
+    VFX.burst(scene, x, y, 5, [0xAA44FF, 0xCC66FF, 0xFFFFFF], 80, 4, 300, 'fx_glow_64');
     const color = damage >= 30 ? '#FF44FF' : '#CC88FF';
     const size = damage >= 30 ? '22px' : '18px';
     VFX.floatText(scene, x, y, `${Math.round(damage)}`, color, size);
@@ -503,10 +550,18 @@ export class VFX {
   /** Boss 死亡：巨型紫色爆炸 */
   static bossDeath(scene: Phaser.Scene, x: number, y: number): void {
     // 超大爆散
-    VFX.burst(scene, x, y, 50, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF, 0xFFDD88], 350, 6, 1200);
+    VFX.burst(scene, x, y, 50, [0xAA44FF, 0xCC66FF, 0x8822CC, 0xFF66FF, 0xFFFFFF, 0xFFDD88], 350, 6, 1200, 'fx_glow_64');
     // 全屏闪白
     scene.cameras.main.flash(500, 255, 255, 255, false);
     VFX.shake(scene, 0.015, 600);
+    // Boss 死灵冲击波叠加
+    if (scene.textures.exists('fx_boss_ring')) {
+      const deathRing = scene.add.image(x, y, 'fx_boss_ring').setAlpha(0.8).setDepth(39).setScale(0.3);
+      scene.tweens.add({
+        targets: deathRing, scale: 2.0, alpha: 0, duration: 1100, ease: 'Power3',
+        onComplete: () => deathRing.destroy(),
+      });
+    }
     // 金色冲击波（胜利象征）
     const goldRing = scene.add.circle(x, y, 10, 0, 0);
     goldRing.setStrokeStyle(4, 0xFFD700, 0.9);
@@ -522,7 +577,7 @@ export class VFX {
       onStop: cleanupGold,
     });
     // 二次金色粒子
-    VFX.burst(scene, x, y, 30, [0xFFD700, 0xFFCC44, 0xFFFFFF], 200, 4, 800);
+    VFX.burst(scene, x, y, 30, [0xFFD700, 0xFFCC44, 0xFFFFFF], 200, 4, 800, 'fx_star_34');
   }
 
   /** Boss 出场预警：全屏闪红 + 脉冲 */
@@ -580,7 +635,7 @@ export class VFX {
 
   static skillRepairField(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
     VFX.shockwave(scene, x, y, radius * 0.95, 0x88ff66, 760);
-    VFX.burst(scene, x, y, 18 + lv * 5, [0x88ff66, 0xaaff88, 0xddffcc, 0xffffff], 120, 4, 950);
+    VFX.burst(scene, x, y, 18 + lv * 5, [0x88ff66, 0xaaff88, 0xddffcc, 0xffffff], 120, 4, 950, 'fx_heal');
   }
 
   static repairFieldPulse(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number, orbCount: number): void {
@@ -610,7 +665,7 @@ export class VFX {
         onComplete: () => arc.destroy(),
       });
     }
-    VFX.burst(scene, x + 18, y, 10 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 90, 3, 380);
+    VFX.burst(scene, x + 18, y, 10 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 90, 3, 380, 'fx_slash');
   }
 
   static whirlwindHit(scene: Phaser.Scene, x: number, y: number, lv: number): void {
@@ -622,12 +677,12 @@ export class VFX {
       targets: arc, rotation: arc.rotation + Math.PI * 1.3, alpha: 0, duration: 260,
       onComplete: () => arc.destroy(),
     });
-    VFX.burst(scene, x, y, 12 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 130, 3, 360);
+    VFX.burst(scene, x, y, 12 + lv * 2, [0x66ddff, 0xaaddff, 0xffffff], 130, 3, 360, 'fx_slash');
     VFX.shockwave(scene, x, y, 44 + lv * 12, 0x66ddff, 280);
   }
 
   static skillFireRain(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
-    VFX.burst(scene, x, y, 8 + lv * 2, [0xffaa33, 0xff6633, 0xffee88], 100, 3, 420);
+    VFX.burst(scene, x, y, 8 + lv * 2, [0xffaa33, 0xff6633, 0xffee88], 100, 3, 420, 'fx_glow_64');
     VFX.shockwave(scene, x, y, radius * 0.45, 0xff8844, 320);
   }
 
@@ -648,13 +703,13 @@ export class VFX {
       targets: pillar, y: y, alpha: 0, duration: 180,
       onComplete: () => pillar.destroy(),
     });
-    VFX.burst(scene, x, y, 12 + lv * 2, [0xffcc44, 0xff8844, 0xff4422, 0xffffff], 170, 4, 420);
+    VFX.burst(scene, x, y, 12 + lv * 2, [0xffcc44, 0xff8844, 0xff4422, 0xffffff], 170, 4, 420, 'fx_glow_64');
     VFX.shockwave(scene, x, y, Math.max(24, radius), 0xff6633, 260);
     VFX.shake(scene, 0.003 + lv * 0.001, 70);
   }
 
   static skillLightningCast(scene: Phaser.Scene, x: number, y: number, lv: number): void {
-    VFX.burst(scene, x, y, 16 + lv * 4, [0x66ccff, 0xffffff, 0x99eeff], 220, 4, 520);
+    VFX.burst(scene, x, y, 16 + lv * 4, [0x66ccff, 0xffffff, 0x99eeff], 220, 4, 520, 'fx_bolt_hit');
     VFX.flash(scene, 80);
   }
 
@@ -708,19 +763,19 @@ export class VFX {
       });
     }
     // 金属火花 burst
-    VFX.burst(scene, x, y, 8 + lv * 2, [0xffffff, 0xaaddff, 0xccddff, 0x88bbff], 140, 2, 300);
+    VFX.burst(scene, x, y, 8 + lv * 2, [0xffffff, 0xaaddff, 0xccddff, 0x88bbff], 140, 2, 300, 'fx_bolt_hit');
     // 微震
     VFX.shake(scene, 0.004, 50);
   }
 
   static woodImpact(scene: Phaser.Scene, x: number, y: number, lv: number): void {
     const count = lv >= 3 ? 18 : 12;
-    VFX.burst(scene, x, y, count, [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88], 180, 4, 520);
+    VFX.burst(scene, x, y, count, [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88], 180, 4, 520, 'fx_dust_16');
     VFX.shockwave(scene, x, y, lv >= 3 ? 48 : 34, 0xc4884d, 340);
   }
 
   static waterImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
-    VFX.burst(scene, x, y, lv >= 3 ? 18 : 12, [0x4488cc, 0x66bbee, 0xaaddff, 0xffffff], 150, 4, 620);
+    VFX.burst(scene, x, y, lv >= 3 ? 18 : 12, [0x4488cc, 0x66bbee, 0xaaddff, 0xffffff], 150, 4, 620, 'fx_ring_42');
     VFX.shockwave(scene, x, y, Math.max(24, radius * 1.1), 0x66bbee, 360);
     const flash = scene.add.circle(x, y, 6, 0xddeeff, 0.8);
     flash.setDepth(38);
@@ -732,19 +787,26 @@ export class VFX {
 
   static insectTick(scene: Phaser.Scene, x: number, y: number, radius: number): void {
     VFX.shockwave(scene, x, y, Math.max(24, radius * 1.2), 0x66dd66, 260);
-    VFX.burst(scene, x, y, 8, [0x44cc44, 0x88cc44, 0xccee88], 100, 3, 420);
+    VFX.burst(scene, x, y, 8, [0x44cc44, 0x88cc44, 0xccee88], 100, 3, 420, 'fx_star_34');
   }
 
   /** 药雾孢子命中：绿色菌丝 burst + 微光环 */
   static insectSpore(scene: Phaser.Scene, x: number, y: number): void {
-    VFX.burst(scene, x, y, 5, [0x44cc44, 0x88cc44, 0xaadd88, 0xccee88], 70, 2, 280);
+    VFX.burst(scene, x, y, 5, [0x44cc44, 0x88cc44, 0xaadd88, 0xccee88], 70, 2, 280, 'fx_impact');
     // 微光环
     VFX.shockwave(scene, x, y, 16, 0x88cc44, 200);
   }
 
   static paintImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
     const colors = [0xff4488, 0xff8800, 0xffee00, 0x44ff88, 0x4488ff, 0xcc44ff];
-    VFX.burst(scene, x, y, lv >= 3 ? 22 : 16, colors, 210, 5, 650);
-    VFX.shockwave(scene, x, y, Math.max(28, radius * 1.15), 0xff66cc, 380);
+    VFX.burst(scene, x, y, lv >= 3 ? 32 : 24, colors, 280, 6, 700, 'fx_bolt_hit');
+    VFX.shockwave(scene, x, y, Math.max(40, radius * 1.4), 0xff66cc, 420);
+    // 闪光
+    const flash = scene.add.circle(x, y, 4, 0xffddff, 0.7);
+    flash.setDepth(39);
+    scene.tweens.add({
+      targets: flash, scale: 3.0, alpha: 0, duration: 200,
+      onComplete: () => { if (flash.active) flash.destroy(); },
+    });
   }
 }

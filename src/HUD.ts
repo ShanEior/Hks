@@ -496,9 +496,17 @@ export class HUD {
     const info = data[monsterType];
     if (!info) return;
 
-    for (const el of this.popupElements) el.destroy();
-    this.popupElements = [];
-
+    const popup = document.getElementById('monster-popup')!;
+    (document.getElementById('monster-illus-img') as HTMLImageElement).src = 'assets/monster_' + monsterType + '.png';
+    document.getElementById('monster-popup-name')!.style.color = info.dangerColor;
+    document.getElementById('monster-popup-name')!.textContent = info.name;
+    document.getElementById('monster-popup-desc')!.innerHTML = info.desc.replace(/\\n/g, '<br>');
+    popup.style.display = 'flex';
+    const _close = () => { popup.style.display = 'none'; (window as any)._closeMonsterPopup = null; onClose?.(); };
+    (window as any)._closeMonsterPopup = _close;
+    this.scene.time.delayedCall(8000, _close);
+    return;
+    /* dead old Phaser popup code below - kept to avoid breaking file structure */
     const depth = 350;
     const cx = GAME_WIDTH / 2, cy = GAME_HEIGHT / 2;
     const w = 780, h = 430;
