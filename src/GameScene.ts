@@ -772,9 +772,9 @@ export class GameScene extends Phaser.Scene {
   private checkLevelUp(): void {
     if (this.levelUpPanelActive) return;
     if (this.player.exp >= this.player.expToNext) {
-      // 升级庆祝（仅金色粒子 + 音阶音，不再闪全屏）
+      // 升级庆祝
       SoundManager.levelUp();
-      VFX.levelUp(this, this.player.x, this.player.y);
+      VFX.levelUp(this, this.player.x, this.player.y, this.player.level + 1);
       this.player.exp -= this.player.expToNext;
       this.player.level++;
       this.player.expToNext = BASE_EXP_TO_LEVEL + this.player.level * EXP_PER_LEVEL;

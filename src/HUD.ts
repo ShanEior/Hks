@@ -403,19 +403,8 @@ export class HUD {
     });
   }
 
-  showLevelNotify(level: number): void {
-    const msg = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, '升级! Lv.' + level, {
-      ...FONT.huge, color: '#FFD700',
-    }).setOrigin(0.5, 0.5).setDepth(200);
-
-    const bg = this.scene.add.graphics();
-    bg.fillStyle(0x000000, 0.5);
-    bg.fillRoundedRect(GAME_WIDTH / 2 - 140, GAME_HEIGHT / 2 - 110, 280, 60, 12);
-    bg.setDepth(199);
-
-    this.scene.time.delayedCall(1200, () => {
-      msg.destroy(); bg.destroy();
-    });
+  showLevelNotify(_level: number): void {
+    // 升级文字已移至 VFX.levelUp 角色头顶展示，此处仅播放音效 + 粒子
   }
 
   hideLevelUpPanel(): void {

@@ -217,15 +217,31 @@ export class VFX {
       onComplete: cleanup,
       onStop: cleanup,
     });
-    // 击杀确认文字
-    if (monsterType) {
-      VFX.floatSpecial(scene, x, y, 'kill');
-    }
+    // 击杀确认文字已移除（视觉过载，仅保留视觉+音效反馈）
   }
 
-  /** 升级庆祝 — 仅金色粒子螺旋上升 + 轻震，摒弃全屏闪 */
-  static levelUp(scene: Phaser.Scene, x: number, y: number): void {
-    // 金色粒子螺旋上升
+  /** 升级庆祝 — 角色头顶金光柱 + "Level X" 漂浮文字 + 金色粒子 */
+  static levelUp(scene: Phaser.Scene, x: number, y: number, level: number): void {
+    // ── 1. 角色脚下金光爆闪（增强版核心闪光） ──
+    const core = scene.add.circle(x, y, 10, 0xffdd44, 0.95);
+    core.setDepth(44);
+    const coreCleanup = () => { if (core.active) core.destroy(); };
+    scene.tweens.add({
+      targets: core, scale: 5, alpha: 0, duration: 350,
+      ease: 'Power2',
+      onComplete: coreCleanup, onStop: coreCleanup,
+    });
+    // 第二圈更淡更慢的外扩光
+    const outer = scene.add.circle(x, y, 12, 0xffd700, 0.6);
+    outer.setDepth(43);
+    const outerCleanup = () => { if (outer.active) outer.destroy(); };
+    scene.tweens.add({
+      targets: outer, scale: 8, alpha: 0, duration: 550,
+      delay: 60, ease: 'Power2',
+      onComplete: outerCleanup, onStop: outerCleanup,
+    });
+
+    // ── 2. 金色粒子螺旋上升 ──
     for (let i = 0; i < 20; i++) {
       const angle = (i / 20) * Math.PI * 2;
       const dist = 20 + Math.random() * 30;
@@ -243,12 +259,35 @@ export class VFX {
         duration: 800,
         delay: i * 30,
         ease: 'Power2',
-        onComplete: cleanup,
-        onStop: cleanup,
+        onComplete: cleanup, onStop: cleanup,
       });
     }
-    // 单一金色扩散圈（柔和）
+
+    // ── 3. 双重金色扩散圈 ──
     VFX.shockwave(scene, x, y, 60, 0xffdd44, 400);
+    scene.time.delayedCall(100, () => {
+      VFX.shockwave(scene, x, y, 95, 0xffd700, 500);
+    });
+
+    // ── 4. 角色头顶 "Level X" 金色漂浮文字 ──
+    const lvText = scene.add.text(x, y - 30, 'Level ' + level, {
+      fontSize: '22px', color: '#FFD700', fontFamily: 'monospace',
+      stroke: '#3E2510', strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(46);
+    // 弹入
+    lvText.setScale(0.3);
+    scene.tweens.add({
+      targets: lvText, scale: 1.3, duration: 180, ease: 'Back.easeOut',
+      onComplete: () => {
+        scene.tweens.add({ targets: lvText, scale: 1.0, duration: 80, ease: 'Power1' });
+      },
+    });
+    // 上飘淡出
+    const lvCleanup = () => { if (lvText.active) lvText.destroy(); };
+    scene.tweens.add({
+      targets: lvText, y: lvText.y - 56, alpha: 0, duration: 900, delay: 300, ease: 'Power2',
+      onComplete: lvCleanup, onStop: lvCleanup,
+    });
   }
 
   // ═══════════════════════════════════
