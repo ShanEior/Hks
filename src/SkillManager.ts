@@ -47,7 +47,7 @@ interface Zone {
   remaining: number;
   tickTimer: number;
   tickInterval: number;
-  kind: 'poison' | 'repair';
+  kind: 'poison' | 'quake';
   damage: number;
   repairType: StructureType[];
   repairAmount: number;
@@ -171,7 +171,7 @@ export class SkillManager {
 
   // ── 技能释放调度 ──
   private castSkill(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    // ── 统一释放反馈（Cast Burst）：角色微缩 + 微闪 + 轻震 ──
+    // ── 统一释放反馈（Cast Burst）：角色微缩 + 微闪 ──
     player.sprite.setScale(1.04, 1.04);
     this.scene.tweens.add({
       targets: player.sprite, scaleX: 1, scaleY: 1,
@@ -184,7 +184,6 @@ export class SkillManager {
       targets: flashRing, radius: 8, alpha: 0, duration: 80,
       onComplete: flashCleanup, onStop: flashCleanup,
     });
-    VFX.shake(this.scene, 0.001, 30);
 
     switch (skill.id) {
       case 'wood_reinforce':
@@ -212,11 +211,6 @@ export class SkillManager {
         VFX.skillPaint(this.scene, player.x, player.y, skill.level);
         this.castPaintingRestore(skill, player, monsters);
         break;
-      case 'repair_field':
-        SoundManager.skillRepairField(skill.level, player.x, player.y);
-        VFX.skillRepairField(this.scene, player.x, player.y, skill.range, skill.level);
-        this.castRepairField(skill, player);
-        break;
       case 'whirlwind_slash':
         SoundManager.skillWhirlwind(skill.level, player.x, player.y);
         VFX.skillWhirlwind(this.scene, player.x, player.y, skill.level);
@@ -232,10 +226,10 @@ export class SkillManager {
 
   // ── 木构加固：向最近敌人发射木梁冲击波 ──
   private castWoodReinforce(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const speed = 320;
+    const speed = 340;
     const lifetime = 99;
     const shots = skill.shots ?? 1;
-    const spread = Phaser.Math.DegToRad(16);
+    const spread = Phaser.Math.DegToRad(14);
     const nearest = this.findNearestTarget(player.x, player.y, monsters);
     const baseAngle = nearest
       ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
@@ -250,7 +244,7 @@ export class SkillManager {
         : this.scene.add.rectangle(player.x, player.y, 80, 22, 0xC4884D, 0.9) as any;
 
       beam.setDepth(15);
-      beam.setRotation(angle + Math.PI / 2); // 木梁横过来：长边垂直于飞行方向
+      beam.setRotation(angle + Math.PI / 2); // 横过来：长边垂直于飞行方向
       const s = skill.widthMultiplier ?? 1.15;
       beam.setScale(s * 2.2, 1.3 + skill.level * 0.2);
 
@@ -264,68 +258,85 @@ export class SkillManager {
         level: skill.level,
         widthMultiplier: skill.widthMultiplier,
         hitTargets: new Set(),
-        remainingHits: skill.pierceCount ?? 3,
+        remainingHits: 999,
         splashRadius: skill.splashRadius,
-        hitRadius: 120 * (skill.widthMultiplier ?? 1),
+        hitRadius: 100,
         trailColor: 0xc4884d,
         effectType: 'wood',
       });
     }
   }
 
-  // ── 石材修补：圆形震波 ──
+  // ── 石材修补：持续地震区域 ──
   private castStoneRepair(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const pulses = skill.pulseCount ?? 1;
-    const pulseInterval = (skill.pulseInterval ?? 0.15) * 1000;
+    const g = this.scene.add.graphics();
+    g.setPosition(player.x, player.y);
+    g.setDepth(4);
 
-    for (let i = 0; i < pulses; i++) {
-      this.scene.time.delayedCall(i * pulseInterval, () => {
-        const radiusFactor = 0.55 + i * 0.18;
-        const radius = skill.range * Math.min(radiusFactor, 1);
-        const damageFactor = 1 - i * 0.12;
-        this.damageInRadius(
-          player.x, player.y, radius, skill.damage * damageFactor,
-          monsters, skill.repairType, skill.repairAmount,
-        );
-        if (skill.knockbackForce) {
-          this.applyKnockbackInRadius(player.x, player.y, radius, skill.knockbackForce * (0.85 + i * 0.08), monsters);
-        }
-        this.playAoeEffect(player.x, player.y, radius, 0x999999);
-        VFX.burst(this.scene, player.x, player.y, 4 + i * 2, [0x777777, 0x999999, 0xcccccc], 80, 3, 260);
-        VFX.stonePulse(this.scene, player.x, player.y, skill.level);
-        SoundManager.skillStoneHit(skill.level, player.x, player.y);
-      });
-    }
+    const zoneDuration = skill.zoneDuration ?? 3;
+
+    // 施放瞬间大震
+    VFX.stonePulse(this.scene, player.x, player.y, skill.level);
+    SoundManager.skillStoneHit(skill.level, player.x, player.y);
+    VFX.shake(this.scene, 0.004, 120);
+
+    this.zones.push({
+      x: player.x, y: player.y,
+      radius: skill.range,
+      remaining: zoneDuration,
+      tickTimer: 0,
+      tickInterval: skill.tickInterval ?? 0.5,
+      kind: 'quake',
+      damage: skill.damage,
+      repairType: [...skill.repairType],
+      repairAmount: skill.repairAmount,
+      followPlayer: false,
+      extraShots: skill.knockbackForce ?? 0, // 复用 extraShots 传递击退力
+      level: skill.level,
+      graphic: g,
+    });
   }
 
-  // ── 防水封护：多目标水幕打击 ──
+  // ── 防水封护：随机炮击地图上3个圆形区域 ──
   private castWaterproof(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const targets = this.getNearestTargets(player.x, player.y, monsters, skill.shots ?? 4, skill.range);
-    if (targets.length === 0) {
-      this.damageInRadius(player.x, player.y, skill.range * 0.6, skill.damage, monsters, skill.repairType, skill.repairAmount);
-      this.playAoeEffect(player.x, player.y, skill.range * 0.6, 0x4488cc);
-      return;
-    }
+    const bombCount = 3;
+    const margin = 80;
+    const delayPerBomb = 400; // ms between each bomb
 
-    targets.forEach((target, index) => {
-      this.scene.time.delayedCall(index * 60, () => {
-        if (target.isDead) return;
-        const hitX = target.x;
-        const hitY = target.y;
-        let damage = skill.damage;
-        if (skill.bonusDamageVs && target instanceof Monster && target.type === skill.bonusDamageVs) {
-          damage *= skill.bonusDamageMultiplier ?? 2;
-        }
-        target.takeDamage(damage, undefined, undefined, true);
-        SoundManager.skillWaterHit(skill.level, hitX, hitY);
-        this.applyRepair(skill.repairType, skill.repairAmount);
-        this.damageSplash(
-          hitX, hitY, target, skill.splashRadius ?? 0, damage * 0.45,
-          monsters, skill.repairType, skill.repairAmount,
-        );
-        VFX.waterImpact(this.scene, hitX, hitY, skill.splashRadius ?? 26, skill.level);
+    for (let i = 0; i < bombCount; i++) {
+      this.scene.time.delayedCall(i * delayPerBomb, () => {
+        // 绕开古建区域
+        const building = this.getBuilding();
+        const bx = building.x;
+        const by = building.y;
+        const safeDist = 240;
+        let tx: number, ty: number;
+        let tries = 0;
+        do {
+          tx = margin + Math.random() * (MAP_WIDTH - margin * 2);
+          ty = margin + Math.random() * (MAP_HEIGHT - margin * 2);
+          tries++;
+        } while (Phaser.Math.Distance.Between(tx, ty, bx, by) < safeDist && tries < 20);
+
+        // 预警标记 — 蓝色光圈收缩
+        VFX.waterBombWarning(this.scene, tx, ty, skill.range, skill.level);
+
+        // 炸弹从天而降（600ms 预警后）
+        this.scene.time.delayedCall(600, () => {
+          VFX.waterBombFall(this.scene, tx, ty, skill.level, () => {
+            // 落地后爆炸
+            VFX.waterBombImpact(this.scene, tx, ty, skill.range, skill.level);
+            SoundManager.skillWaterHit(skill.level, tx, ty);
+
+            this.damageInRadius(tx, ty, skill.range, skill.damage, monsters, skill.repairType, skill.repairAmount);
+            if (skill.splashRadius && skill.splashRadius > 0) {
+              this.damageInRadius(tx, ty, skill.splashRadius, skill.damage * 0.5, monsters, skill.repairType, skill.repairAmount);
+              VFX.shockwave(this.scene, tx, ty, skill.splashRadius, 0x4488ff, 450, skill.damage);
+            }
+          });
+        });
       });
-    });
+    }
   }
 
   // ── 防虫处理：跟随玩家的持续药雾 ──
@@ -349,30 +360,6 @@ export class SkillManager {
       followPlayer: skill.followPlayer,
       owner: skill.followPlayer ? player : undefined,
       extraShots: skill.shots ?? 0,
-      level: skill.level,
-      graphic: g,
-    });
-  }
-
-  // ── 恢复结构血条：跟随玩家的修复法阵 ──
-  private castRepairField(skill: ActiveSkill, player: Player): void {
-    const g = this.scene.add.graphics();
-    g.setPosition(player.x, player.y);
-    g.setDepth(4);
-
-    this.zones.push({
-      x: player.x, y: player.y,
-      radius: skill.range,
-      remaining: skill.zoneDuration ?? 4,
-      tickTimer: 0,
-      tickInterval: skill.tickInterval ?? 0.6,
-      kind: 'repair',
-      damage: 0,
-      repairType: [...skill.repairType],
-      repairAmount: skill.repairAmount,
-      followPlayer: true,
-      owner: player,
-      extraShots: skill.shots ?? 6,
       level: skill.level,
       graphic: g,
     });
@@ -430,10 +417,17 @@ export class SkillManager {
         let fromY = player.y;
         let hops = 0;
         while (current && hops <= (skill.chainCount ?? 3)) {
-          VFX.lightningArc(this.scene, fromX, fromY, current.x, current.y, hops === 0, skill.level);
-          VFX.lightningImpact(this.scene, current.x, current.y, skill.level);
-          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08), undefined, undefined, true);
-          SoundManager.skillLightningHit(skill.level, current.x, current.y);
+          const hopFromX = fromX;
+          const hopFromY = fromY;
+          const hopTarget = current;
+          const hopIdx = hops;
+          this.scene.time.delayedCall(hopIdx * 80, () => {
+            if (hopTarget.isDead) return;
+            VFX.lightningArc(this.scene, hopFromX, hopFromY, hopTarget.x, hopTarget.y, hopIdx === 0, skill.level);
+            VFX.lightningImpact(this.scene, hopTarget.x, hopTarget.y, skill.level);
+            hopTarget.takeDamage(skill.damage * Math.max(0.62, 1 - hopIdx * 0.08), undefined, undefined, true);
+            SoundManager.skillLightningHit(skill.level, hopTarget.x, hopTarget.y);
+          });
           hitSet.add(current);
           fromX = current.x;
           fromY = current.y;
@@ -537,7 +531,9 @@ export class SkillManager {
       } else {
         p.graphic.x += Math.cos(p.angle) * p.speed * dt;
         p.graphic.y += Math.sin(p.angle) * p.speed * dt;
-        if (p.trailColor && Math.random() < 0.22) {
+        if (p.effectType === 'whirlwind') {
+          this.spawnWhirlwindTrail(p.graphic.x, p.graphic.y, p.graphic.rotation, p.level);
+        } else if (p.trailColor && Math.random() < 0.22) {
           this.spawnTrailDot(p.graphic.x, p.graphic.y, p.trailColor);
         }
 
@@ -546,7 +542,16 @@ export class SkillManager {
           const dist = Phaser.Math.Distance.Between(p.graphic.x, p.graphic.y, m.x, m.y);
           const hitRadius = (p.hitRadius ?? 18) + m.radius * 0.6;
           if (dist < hitRadius) {
-            this.handleProjectileHit(p, m, monsters);
+            // 木梁直接伤害（确保命中）
+            if (p.effectType === 'wood') {
+              p.hitTargets!.add(m);
+              m.takeDamage(p.damage);
+              this.applyRepair(p.repairType, p.repairAmount);
+              SoundManager.skillWoodHit(p.level, m.x, m.y);
+              VFX.woodImpact(this.scene, m.x, m.y, p.level);
+            } else {
+              this.handleProjectileHit(p, m, monsters);
+            }
             if (!p.graphic.active) break;
           }
         }
@@ -556,7 +561,16 @@ export class SkillManager {
           const dist = Phaser.Math.Distance.Between(p.graphic.x, p.graphic.y, boss.x, boss.y);
           const hitRadius = (p.hitRadius ?? 18) + boss.radius * 0.45;
           if (dist < hitRadius) {
-            this.handleProjectileHit(p, boss, monsters);
+            // 木梁直接伤害 Boss
+            if (p.effectType === 'wood') {
+              p.hitTargets!.add(boss);
+              boss.takeDamage(p.damage);
+              this.applyRepair(p.repairType, p.repairAmount);
+              SoundManager.skillWoodHit(p.level, boss.x, boss.y);
+              VFX.woodImpact(this.scene, boss.x, boss.y, p.level);
+            } else {
+              this.handleProjectileHit(p, boss, monsters);
+            }
           }
         }
       }
@@ -567,7 +581,6 @@ export class SkillManager {
         else if (p.graphic.x > MAP_WIDTH - 20) { p.graphic.x = MAP_WIDTH - 20; p.angle = Math.PI - p.angle; }
         if (p.graphic.y < 20) { p.graphic.y = 20; p.angle = -p.angle; }
         else if (p.graphic.y > MAP_HEIGHT - 20) { p.graphic.y = MAP_HEIGHT - 20; p.angle = -p.angle; }
-        p.graphic.setRotation(p.angle);
       }
       // 木梁飞出地图后销毁
       if (p.effectType === 'wood' && p.graphic.active) {
@@ -599,15 +612,48 @@ export class SkillManager {
       }
       if (z.kind === 'poison') {
         this.renderPoisonZone(z);
-      } else {
-        this.renderRepairZone(z);
+      } else if (z.kind === 'quake') {
+        this.renderQuakeZone(z);
       }
 
       z.tickTimer += dt;
       while (z.tickTimer >= z.tickInterval) {
         z.tickTimer -= z.tickInterval;
 
-        if (z.kind === 'poison') {
+        if (z.kind === 'quake') {
+          // 地震脉冲：伤害 + 向外击退
+          VFX.stonePulse(this.scene, z.x, z.y, z.level);
+          SoundManager.skillStoneHit(z.level, z.x, z.y);
+          VFX.shake(this.scene, 0.003 + z.level * 0.001, 80);
+          // 石屑粒子爆散 — 每次脉冲大量碎石飞溅
+          VFX.burst(this.scene, z.x, z.y, 14 + z.level * 4, [0x666655, 0x888877, 0x999988, 0xaaaa99], 180, 4, 500, 'fx_bolt_hit');
+          VFX.burst(this.scene, z.x, z.y, 8 + z.level * 3, [0x555544, 0x777766, 0x888877, 0xccccbb], 140, 3, 400, 'fx_dust_16');
+          VFX.burst(this.scene, z.x, z.y, 5 + z.level * 2, [0x444433, 0x666655, 0x888877], 260, 5, 550, 'fx_glow_64');
+          // 地面尘圈
+          VFX.shockwave(this.scene, z.x, z.y, z.radius * 0.5, 0x888877, 280, z.damage);
+          for (const m of monsters) {
+            if (m.isDead) continue;
+            const dist = Phaser.Math.Distance.Between(z.x, z.y, m.x, m.y);
+            if (dist < z.radius) {
+              m.takeDamage(z.damage, undefined, undefined, true);
+              this.applyRepair(z.repairType, z.repairAmount);
+              // 向圆心外击退
+              const knockbackForce = z.extraShots ?? 200;
+              const angle = Math.atan2(m.y - z.y, m.x - z.x);
+              const factor = 1 - dist / z.radius;
+              m.sprite.x += Math.cos(angle) * knockbackForce * 0.025 * factor;
+              m.sprite.y += Math.sin(angle) * knockbackForce * 0.025 * factor;
+            }
+          }
+          // Boss 也吃地震
+          const boss = this.getBoss();
+          if (boss && !boss.isDead) {
+            const dist = Phaser.Math.Distance.Between(z.x, z.y, boss.x, boss.y);
+            if (dist < z.radius) {
+              boss.takeDamage(z.damage);
+            }
+          }
+        } else if (z.kind === 'poison') {
           VFX.insectTick(this.scene, z.x, z.y, Math.min(42, z.radius * 0.35));
           for (const m of monsters) {
             if (m.isDead) continue;
@@ -637,10 +683,6 @@ export class SkillManager {
               VFX.insectSpore(this.scene, target.x, target.y);
             }
           }
-        } else {
-          // 修复法阵纯回复，不产生命中音效
-          this.applyRepair(z.repairType, z.repairAmount);
-          VFX.repairFieldPulse(this.scene, z.x, z.y, z.radius, z.level, z.extraShots ?? 6);
         }
       }
     }
@@ -781,13 +823,10 @@ export class SkillManager {
       return;
     }
 
-    // 木梁和旋风刃不因碰撞次数销毁，只飞出地图才消失
-    if (p.effectType !== 'wood' && p.effectType !== 'whirlwind') {
-      p.remainingHits = (p.remainingHits ?? 1) - 1;
-      if ((p.remainingHits ?? 0) <= 0) {
-        p.elapsed = p.lifetime;
-        this.destroyProjectile(p);
-      }
+    p.remainingHits = (p.remainingHits ?? 1) - 1;
+    if ((p.remainingHits ?? 0) <= 0) {
+      p.elapsed = p.lifetime;
+      this.destroyProjectile(p);
     }
   }
 
@@ -853,6 +892,79 @@ export class SkillManager {
     });
   }
 
+  private spawnWhirlwindTrail(x: number, y: number, rotation: number, level: number): void {
+    // 每帧以 ~55% 概率生成旋转粒子
+    if (Math.random() > 0.55) return;
+
+    const colors = [0x66ddff, 0xaaddff, 0xffffff, 0x44bbee, 0x88eeff];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    // 1) 旋转弧光 — 大范围弧形残影甩出
+    const arcAngle = rotation + (Math.random() - 0.5) * 2.0;
+    const arcR = 24 + level * 10;
+    const arc = this.scene.add.arc(x, y, arcR, arcAngle - 0.45, arcAngle + 0.45, false, color, 0);
+    arc.setStrokeStyle(4 + level * 2, color, 0.8);
+    arc.setDepth(16);
+    this.scene.tweens.add({
+      targets: arc,
+      x: x + Math.cos(arcAngle) * 70,
+      y: y + Math.sin(arcAngle) * 70,
+      alpha: 0,
+      duration: 200 + Math.random() * 150,
+      ease: 'Sine.easeOut',
+      onComplete: () => arc.destroy(),
+    });
+
+    // 2) 厚重粒子爆散 — 每次2~3个大颗粒
+    const texKey = ['fx_slash', 'fx_glow_64', 'fx_bolt_hit'][Math.floor(Math.random() * 3)];
+    const particleCount = 2 + level;
+    for (let i = 0; i < particleCount; i++) {
+      if (!this.scene.textures.exists(texKey)) continue;
+      const p = this.scene.add.image(x, y, texKey);
+      p.setDepth(16);
+      p.setScale(0.8 + Math.random() * 1.2);
+      p.setAlpha(0.8 + Math.random() * 0.2);
+      p.setTint(color);
+      p.setRotation(Math.random() * Math.PI * 2);
+      const spreadAngle = rotation + (Math.random() - 0.5) * 2.5;
+      const dist = 120 + Math.random() * 180;
+      this.scene.tweens.add({
+        targets: p,
+        x: p.x + Math.cos(spreadAngle) * dist * 0.3,
+        y: p.y + Math.sin(spreadAngle) * dist * 0.3,
+        alpha: 0,
+        scaleX: p.scaleX * 0.15,
+        scaleY: p.scaleY * 0.15,
+        rotation: p.rotation + (Math.random() - 0.5) * 6,
+        duration: 250 + Math.random() * 250,
+        ease: 'Sine.easeOut',
+        onComplete: () => p.destroy(),
+      });
+    }
+
+    // 3) 小碎屑 — 大范围密度层
+    for (let i = 0; i < 2 + level * 2; i++) {
+      const dot = this.scene.add.circle(
+        x + (Math.random() - 0.5) * 40,
+        y + (Math.random() - 0.5) * 40,
+        2 + Math.random() * 4,
+        color,
+        0.6 + Math.random() * 0.4,
+      );
+      dot.setDepth(16);
+      this.scene.tweens.add({
+        targets: dot,
+        x: dot.x + (Math.random() - 0.5) * 80,
+        y: dot.y + (Math.random() - 0.5) * 80,
+        alpha: 0,
+        scale: 0.1,
+        duration: 160 + Math.random() * 200,
+        ease: 'Sine.easeOut',
+        onComplete: () => dot.destroy(),
+      });
+    }
+  }
+
   private destroyProjectile(p: Projectile): void {
     if (p.glow?.active) p.glow.destroy();
     if (p.graphic.active) p.graphic.destroy();
@@ -880,24 +992,57 @@ export class SkillManager {
     }
   }
 
-  private renderRepairZone(z: Zone): void {
+  private renderQuakeZone(z: Zone): void {
     const g = z.graphic;
     const t = this.scene.time.now / 1000;
+    const pulse = 1 + Math.sin(t * 8) * 0.06;
     g.clear();
-    g.lineStyle(3, 0x99ff66, 0.45);
-    g.strokeCircle(0, 0, z.radius);
-    g.lineStyle(2, 0x66ff88, 0.28);
-    g.strokeCircle(0, 0, z.radius * 0.72);
-    for (let i = 0; i < (z.extraShots ?? 6); i++) {
-      const a = t * 1.8 + (Math.PI * 2 * i) / (z.extraShots ?? 6);
-      const d = i % 2 === 0 ? z.radius * 0.72 : z.radius * 0.42;
-      const x = Math.cos(a) * d;
-      const y = Math.sin(a) * d;
-      g.fillStyle(0x99ff88, 0.9);
-      g.fillCircle(x, y, 4);
-      g.fillStyle(0xffffff, 0.45);
-      g.fillCircle(x, y, 2);
+
+    // 灰色阴影填充 — 暗化地面
+    g.fillStyle(0x333333, 0.18);
+    g.fillCircle(0, 0, z.radius * 0.95 * pulse);
+    g.fillStyle(0x222222, 0.12);
+    g.fillCircle(0, 0, z.radius * 0.6 * pulse);
+
+    // 外圈主环 — 加粗灰褐色
+    g.lineStyle(7, 0x887766, 0.55);
+    g.strokeCircle(0, 0, z.radius * pulse);
+    g.lineStyle(4, 0x998877, 0.38);
+    g.strokeCircle(0, 0, z.radius * 0.78 * pulse);
+    g.lineStyle(2, 0x776655, 0.28);
+    g.strokeCircle(0, 0, z.radius * 0.48 * pulse);
+
+    // 地面裂缝 — 加粗锯齿线，更多裂缝
+    const cracks = 10 + z.level * 4;
+    for (let i = 0; i < cracks; i++) {
+      const baseAngle = (Math.PI * 2 * i) / cracks + t * 0.25;
+      const len = z.radius * (0.4 + 0.45 * Math.abs(Math.sin(i * 2.7 + t * 0.5)));
+      g.lineStyle(3, 0x665544, 0.45);
+      const segments = 5;
+      for (let s = 0; s < segments; s++) {
+        const r1 = (s / segments) * len;
+        const r2 = ((s + 1) / segments) * len;
+        const ax = Math.cos(baseAngle + s * 0.2) * r1;
+        const ay = Math.sin(baseAngle + s * 0.2) * r1;
+        const bx = Math.cos(baseAngle + (s + 1) * 0.2) * r2;
+        const by = Math.sin(baseAngle + (s + 1) * 0.2) * r2;
+        g.lineBetween(ax, ay, bx, by);
+      }
     }
+
+    // 碎石粒子 — 更大、更多
+    for (let i = 0; i < 16 + z.level * 6; i++) {
+      const a = t * 1.2 + i * 0.85;
+      const d = z.radius * (0.15 + 0.65 * Math.abs(Math.sin(i * 1.3 + t)));
+      const sx = Math.cos(a) * d;
+      const sy = Math.sin(a * 0.7) * d;
+      g.fillStyle(0x665544, 0.55);
+      g.fillCircle(sx, sy, 2 + (i % 5));
+    }
+
+    // 中心暗核
+    g.fillStyle(0x111111, 0.22);
+    g.fillCircle(0, 0, 14 + z.level * 4);
   }
 
 

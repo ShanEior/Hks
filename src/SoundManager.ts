@@ -428,24 +428,6 @@ export class SoundManager {
 
   // ── 新增技能 Cast 音效 (Batch 3) ──
 
-  static skillRepairField(level = 1, x = 0, _y = 0): void {
-    const a = SKILL_AUDIO.repair_field;
-    const p = SOUND_CONFIG.skillPower.levels[Math.min(level, 3) - 1];
-    const pan = this.worldPan(x);
-    const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
-
-    // Warm woody rising harmony — gentle sine waves ascending
-    this.playTone(a.primaryFreq[0], p.durationMs / 1000, 'sine',
-      0.06 * p.volMul, a.primaryFreq[1],
-      SOUND_CONFIG.pitchVar.ui, pan, 'lowpass', a.noiseLowpass, 1, pri);
-    this.playTone(a.bodyFreq[0], p.durationMs / 1000 * 0.7, 'sine',
-      0.04 * p.volMul, a.bodyFreq[1],
-      SOUND_CONFIG.pitchVar.ui, pan, undefined, undefined, undefined, pri);
-    // Quiet crackle — warm texture
-    this.playNoise(0.15, 0.02, a.noiseHighpass, a.noiseLowpass,
-      undefined, undefined, 0.1, pan, pri);
-  }
-
   static skillWhirlwind(level = 1, x = 0, _y = 0): void {
     const a = SKILL_AUDIO.whirlwind_slash;
     const p = SOUND_CONFIG.skillPower.levels[Math.min(level, 3) - 1];

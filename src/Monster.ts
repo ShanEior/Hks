@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, MAP_WIDTH, MAP_HEIGHT } from './config';
+import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, MAP_WIDTH, MAP_HEIGHT, EASY_MODE } from './config';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
@@ -73,6 +73,7 @@ export class Monster {
     this.type = template.type;
     this.timeScale = timeScale ?? { hpMult: 1, damageMult: 1, speedMult: 1, expMult: 1 };
     this.hp = Math.round(template.hp * this.timeScale.hpMult);
+    if (EASY_MODE.active) this.hp = Math.ceil(this.hp / 2);
     this.maxHp = this.hp;
     this.speed = template.speed * SPEED_FACTOR * this.timeScale.speedMult;
     this.damage = Math.round(template.damage * this.timeScale.damageMult);
@@ -176,6 +177,9 @@ export class Monster {
 
   takeDamage(amount: number, attackerX?: number, attackerY?: number, skipGenericSound?: boolean): boolean {
     if (this.isDead) return false;
+
+    // 菜鸡模式：玩家伤害翻倍
+    if (EASY_MODE.active) amount *= 2;
 
     // 判定是否为致命一击（在扣血之前检查，避免命中与死亡反馈重叠）
     const willDie = this.hp - amount <= 0;

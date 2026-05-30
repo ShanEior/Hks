@@ -19,6 +19,7 @@ interface StructureConfig {
 interface BurnState {
   dps: number;
   remaining: number;
+  accumulator: number;  // 累积小数伤害，>=1 时才释放
 }
 
 export class Building {
@@ -57,14 +58,21 @@ export class Building {
     this.graphics.setDepth(3);
   }
 
-  /** 对指定结构造成伤害 */
-  damageStructure(type: StructureType, amount: number): void {
+  /** 对指定结构造成伤害。skipSound 用于 DoT 类伤害抑制音效/VFX 刷屏 */
+  damageStructure(type: StructureType, amount: number, skipSound = false): void {
     const s = this.structures.get(type);
     if (!s) return;
-    s.currentHp = Math.max(0, s.currentHp - amount);
-    SoundManager.buildingHit();
-    VFX.buildingHit(this.scene, this.x, this.y, type);
-    this.flashDamage(amount);
+    const dmg = Math.max(1, Math.round(amount));
+    s.currentHp = Math.max(0, s.currentHp - dmg);
+    if (!skipSound) {
+      SoundManager.buildingHit();
+      VFX.buildingHit(this.scene, this.x, this.y, type);
+    }
+    if (!skipSound) {
+      this.flashDamage(dmg);
+      // 跳出伤害数字（DoT 不重复浮字，避免刷屏）
+      VFX.floatText(this.scene, this.x + (Math.random() - 0.5) * 30, this.y - 60, `${dmg}`, '#ff4444', '15px');
+    }
 
     if (s.currentHp <= 0 && this.onFailure) {
       this.onFailure();
@@ -86,13 +94,18 @@ export class Building {
   }
 
   applyBurn(type: StructureType, dps: number, duration: number): void {
-    this.burns.set(type, { dps, remaining: duration });
+    this.burns.set(type, { dps, remaining: duration, accumulator: 0 });
   }
 
   updateBurn(delta: number): void {
     for (const [type, burn] of this.burns) {
       burn.remaining -= delta / 1000;
-      this.damageStructure(type, burn.dps * delta / 1000);
+      burn.accumulator += burn.dps * delta / 1000;
+      // 累积满 1 点伤害后才释放，避免每帧小数舍入爆炸
+      while (burn.accumulator >= 1) {
+        burn.accumulator -= 1;
+        this.damageStructure(type, 1, true); // skipSound: 燃烧只浮字不堆音效
+      }
       if (burn.remaining <= 0) this.burns.delete(type);
     }
   }
@@ -119,39 +132,40 @@ export class Building {
   }
 
   private flashDamage(damage: number): void {
-    // 比例反馈：伤害越大闪越狠
-    const severity = Math.min(damage / 20, 1);
-    this.graphics.setAlpha(1 - severity * 0.6);
-    if (severity > 0.5) this.graphics.setTint(0xff4444);
-    this.scene.time.delayedCall(120, () => {
+    // 闪红：伤害越大闪越狠
+    this.graphics.setTint(0xff3333);
+    this.scene.time.delayedCall(150, () => {
       if (this.graphics.active) {
-        this.graphics.setAlpha(1);
         this.graphics.clearTint();
       }
     });
+    this.shakeSprite();
     this.updateAppearance();
   }
 
-  /** 古建被击中时短暂抖动（不是全局摇晃） */
+  /** 古建被击中时短暂抖动 */
   private shakeSprite(): void {
-    const ox = this.graphics.x;
+    const baseX = this.x;
+    // 停止之前未完成的抖动 tween，防止位置偏移
+    this.scene.tweens.killTweensOf(this.graphics);
+    this.graphics.x = baseX;
     this.scene.tweens.add({
       targets: this.graphics,
-      x: ox + 3,
-      duration: 30,
+      x: baseX - 3,
+      duration: 25,
       yoyo: true,
-      repeat: 2,
+      repeat: 1,
       ease: 'Sine.easeInOut',
-      onComplete: () => { this.graphics.x = ox; },
+      onComplete: () => { this.graphics.x = baseX; },
     });
   }
 
-  private flashHeal(): void {
-    const overlay = this.scene.add.graphics();
-    overlay.fillStyle(0xffdd44, 0.3);
-    overlay.fillRect(this.x - 55, this.y - 40, 110, 80);
-    overlay.setDepth(4);
-    this.scene.time.delayedCall(200, () => overlay.destroy());
+  flashHeal(): void {
+    // 古建绿色闪光
+    this.graphics.setTint(0x44ff66);
+    this.scene.time.delayedCall(200, () => {
+      if (this.graphics.active) this.graphics.clearTint();
+    });
   }
 
   getStructure(type: StructureType): StructureState | undefined {

@@ -9,6 +9,7 @@ import {
   AUTO_ATTACK_CONFIG, BOSS_CONFIG,
   calcTimeScaling,
   MonsterType, SkillId, WaveStage, StructureType,
+  EASY_MODE,
 } from './config';
 import { Player } from './Player';
 import { Building } from './Building';
@@ -20,6 +21,7 @@ import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 import { CombatFeel } from './CombatFeel';
 import { generateAllTextures } from './ArtGen';
+import { saveRecord } from './SaveData';
 
 // ── 水洼 ──
 interface Puddle {
@@ -52,6 +54,7 @@ interface RepairCrate {
   graphic: Phaser.GameObjects.Image;
   x: number; y: number;
   lifetime: number;
+  triggered: boolean;
 }
 
 // ── 升级选项 ──
@@ -70,6 +73,9 @@ export class GameScene extends Phaser.Scene {
   private skillManager!: SkillManager;
   private combatFeel!: CombatFeel;
   private monsters: Monster[] = [];
+  private freezeThawTimers = new Map<Monster, number>();
+  private monsterFlameFx = new Map<Monster, Phaser.GameObjects.Particles.ParticleEmitter>();
+  private acidRainPuddleTimer = 0;
   private puddles: Puddle[] = [];
   private expOrbs: ExpOrb[] = [];
   private repairCrates: RepairCrate[] = [];
@@ -88,6 +94,8 @@ export class GameScene extends Phaser.Scene {
 
   // Boss 状态
   private boss: Boss | null = null;
+  private bossArrow: Phaser.GameObjects.Image | null = null;
+  private freezeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private bossWarningDone = false;
   private bossSpawned = false;
   private bossKilled = false;
@@ -112,18 +120,77 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  /** 场景重启时 Phaser 调用，重置所有运行状态 */
+  init(): void {
+    this.monsters = [];
+    this.freezeThawTimers = new Map();
+    this.monsterFlameFx = new Map();
+    this.acidRainPuddleTimer = 0;
+    this.puddles = [];
+    this.expOrbs = [];
+    this.repairCrates = [];
+    this.collidables = [];
+    this.collidableRects = [];
+    this.collidableTriangles = [];
+
+    this.gameTime = GAME_DURATION;
+    this.spawnTimer = 0;
+    this.killCount = 0;
+    this.invincibleTimer = 0;
+    this.spawnInterval = INITIAL_SPAWN_INTERVAL;
+    this.isGameOver = false;
+    this.isPaused = false;
+    this.seenMonsterTypes = new Set();
+
+    this.boss = null;
+    this.bossArrow = null;
+    this.freezeOverlay = null;
+    this.bossWarningDone = false;
+    this.bossSpawned = false;
+    this.bossKilled = false;
+
+    this.autoAttackTimer = 0;
+    this.autoBolts = [];
+    this.levelUpPanelActive = false;
+
+    this.joystickBase = null;
+    this.joystickKnob = null;
+    this.joystickActive = false;
+    this.joystickId = null;
+    this.joystickStartX = 0;
+    this.joystickStartY = 0;
+
+    this.debugMonsterIndex = 0;
+    this.debugDraw = false;
+    this.debugGfx = null;
+    this.debugDisableAutoAttack = false;
+    this.debugMode = false;
+    this.nPressTimes = [];
+    EASY_MODE.active = false;  // 每局重置菜鸡模式
+
+    // 清除 Boss 事件监听（避免 create 重复注册）
+    this.events.off('boss-earthquake');
+  }
+
   preload(): void {
     this.load.image('bg', 'assets/bg.png');
     this.load.image('illus_termite','assets/monster_termite.png');
     this.load.image('illus_wind','assets/monster_wind.png');
     this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
     this.load.image('illus_fire','assets/monster_fire.png');
+    this.load.image('fire','assets/fire_monster.png');
+    this.load.image('fire_flame','assets/fire_flame.png');
+    this.load.image('freeze_thaw','assets/freeze_thaw_monster.png');
     this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
+    this.load.image('player_idle', 'assets/player_idle.png');
+    this.load.image('player_attack', 'assets/player_attack.png');
+    this.load.image('calamity_core', 'assets/boss.png');
+    this.load.image('leaf', 'assets/leaf.png');
     this.load.image('gj', 'assets/building.png');
     this.load.image('arrow', 'assets/arrow.png');
 
     // ── Terraria 特效精灵纹理 ──
-    this.load.image('fx_glow_64',    'assets/effects/extra_Extra_252.png');
+    // fx_glow_64 由 ArtGen 程序化生成
 
     this.load.image('fx_star_34',    'assets/effects/extra_Extra_283.png');
     this.load.image('fx_ring_42',    'assets/effects/extra_Extra_76.png');
@@ -132,10 +199,15 @@ export class GameScene extends Phaser.Scene {
     this.load.image('fx_whirlwind',  'assets/effects/proj_Projectile_97.png');
     this.load.image('fx_bolt_extra', 'assets/effects/proj_Projectile_108.png');
     this.load.image('fx_bolt_hit',   'assets/effects/proj_Projectile_165.png');
+    this.load.image('fx_water_bomb','assets/effects/extra_46.png');
     this.load.image('fx_impact',     'assets/effects/extra_Extra_33.png');
     this.load.image('fx_ring_impact','assets/effects/extra_Extra_148.png');
     this.load.image('fx_heal',       'assets/effects/proj_Projectile_164.png');
     this.load.image('fx_boss_ring',  'assets/effects/extra_Extra_196.png');
+    // ── 冰块/冰晶主题 ──
+    this.load.image('fx_ice_shard',  'assets/effects/proj_Projectile_350.png');
+    this.load.image('fx_ice_orb',    'assets/effects/proj_Projectile_116.png');
+    this.load.image('fx_ice_crack',  'assets/effects/extra_Extra_36.png');
   }
 
   create(): void {
@@ -154,9 +226,9 @@ export class GameScene extends Phaser.Scene {
     // 古建碰撞体 — 三角形（塔形：上尖下宽）
     const bx = BUILDING_CONFIG.x, by = BUILDING_CONFIG.y - 130;
     this.collidableTriangles.push({
-      x1: bx, y1: by - 140,
-      x2: bx - 190, y2: by + 180,
-      x3: bx + 190, y3: by + 180,
+      x1: bx, y1: by - 130,
+      x2: bx - 160, y2: by + 150,
+      x3: bx + 160, y3: by + 150,
     });
 
     this.player = new Player(
@@ -185,6 +257,23 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // 动态飘落落叶
+    if (this.textures.exists('leaf')) {
+      this.add.particles(0, -60, 'leaf', {
+        x: { min: 0, max: MAP_WIDTH },
+        y: { min: 0, max: 0 },
+        speed: { min: 15, max: 40 },
+        angle: { min: 90, max: 100 },
+        rotate: { min: 0, max: 360 },
+        scale: { start: 1.5, end: 0.6 },
+        alpha: { start: 0.8, end: 0 },
+        lifespan: 20000,
+        frequency: 500,
+        quantity: 1,
+        tint: [0xC4884D, 0xD4A060, 0x8B6914, 0xB08050],
+      }).setDepth(2);
+    }
+
     this.setupDebugControls();
     this.setupTouchJoystick();
   }
@@ -205,6 +294,20 @@ export class GameScene extends Phaser.Scene {
     VFX.updateTrauma(this, delta);
 
     this.player.update(delta); // 玩家始终全速
+
+    // 冰冻滤镜
+    if (this.player.isFrozen) {
+      if (!this.freezeOverlay) {
+        this.freezeOverlay = this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x2266CC, 0.15);
+        this.freezeOverlay.setDepth(90).setScrollFactor(0);
+        // 冰晶边框效果
+        this.cameras.main.setBackgroundColor(0x112244);
+      }
+    } else {
+      if (this.freezeOverlay) { this.freezeOverlay.destroy(); this.freezeOverlay = null; }
+      this.cameras.main.setBackgroundColor(0x1a1a2e);
+    }
+
     this.resolveCollision(this.player.sprite, 14); // 玩家环境碰撞
 
     // 刷怪（使用有效 delta，Hit Stop 期间暂停生怪）
@@ -222,10 +325,16 @@ export class GameScene extends Phaser.Scene {
     for (const m of this.monsters) {
       m.update(time, effectiveDelta);
       this.resolveCollision(m.sprite, m.radius);
+      // 火焰特效跟随
+      const fx = this.monsterFlameFx.get(m);
+      if (fx && !m.isDead) { fx.setPosition(m.x, m.y); }
     }
 
     this.checkPlayerMonsterCollision();
     this.checkFreezeAura();
+    this.updateAcidRainPuddles(delta); // 酸雨怪在场时定期落水洼
+    this.updatePuddles(delta); // 在 freeze aura 之后，水洼减速更强且可覆盖
+    this.updateFreezeThawShockwave(delta);
     this.monsters = this.monsters.filter(m => !m.isDead);
 
     // 经验球更新（全速）
@@ -249,16 +358,19 @@ export class GameScene extends Phaser.Scene {
     if (this.boss && this.boss.isActive && !this.boss.isDead) {
       this.boss.update(time, effectiveDelta);
       const distToBuilding = Phaser.Math.Distance.Between(
-        this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+        this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 130,
       );
       if (distToBuilding < BUILDING_CONFIG.attackRange + 60) {
         // Boss 接近建筑持续侵蚀
       }
       this.hud.updateBossHpBar(this.boss.hp, this.boss.maxHp);
+      // 红色箭头指向 Boss
+      this.drawBossArrow();
+    } else {
+      if (this.bossArrow) { this.bossArrow.destroy(); this.bossArrow = null; }
     }
 
-    // 水洼/灼烧
-    this.updatePuddles(delta);
+    // 水洼/灼烧（checkFreezeAura 在前，puddles 在后以覆盖更强减速）
     this.building.updateBurn(delta);
 
     // 升级检测（在经验球拾取后）
@@ -458,19 +570,33 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private spawnSingleMonster(type: MonsterType): void {
+  private spawnSingleMonster(type: MonsterType, _sx?: number, _sy?: number): void {
+    // 冻融怪场上最多 10 只
+    if (type === 'freeze_thaw') {
+      const ftCount = this.monsters.filter(m => !m.isDead && m.type === 'freeze_thaw').length;
+      if (ftCount >= 10) return;
+    }
     const template = MONSTER_TEMPLATES[type];
-    // 从地图左右两侧外生成
-    const fromLeft = Math.random() < 0.5;
-    const sx = fromLeft ? -60 : MAP_WIDTH + 60;
-    const sy = 80 + Math.random() * (MAP_HEIGHT - 160);
+    // 指定位置或从地图左右两侧外生成
+    let sx: number, sy: number;
+    if (_sx !== undefined && _sy !== undefined) {
+      sx = _sx; sy = _sy;
+    } else {
+      const fromLeft = Math.random() < 0.5;
+      sx = fromLeft ? -60 : MAP_WIDTH + 60;
+      sy = 80 + Math.random() * (MAP_HEIGHT - 160);
+    }
 
     // 时间缩放 — 唯一来源
     const scaling = calcTimeScaling(GAME_DURATION - this.gameTime);
+    // 最后 120s 风蚀怪血量翻倍
+    if (type === 'wind' && this.gameTime <= 120) {
+      scaling.hpMult *= 2;
+    }
 
     const monster = new Monster(
       this, sx, sy, template,
-      BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      BUILDING_CONFIG.x, BUILDING_CONFIG.y - 130,
       BUILDING_CONFIG.attackRange,
       scaling,
     );
@@ -479,11 +605,25 @@ export class GameScene extends Phaser.Scene {
       for (const structType of m.attackStructures) {
         this.building.damageStructure(structType, m.damage);
       }
-      if (m.type === 'acid_rain') this.addPuddle(m.x, m.y);
       if (m.type === 'fire') {
-        for (const st of m.attackStructures) this.building.applyBurn(st, 5, 2);
+        for (const st of m.attackStructures) this.building.applyBurn(st, 0.5, 2);
       }
     };
+
+    // 火焰怪：挂载火焰粒子特效
+    if (type === 'fire' && this.textures.exists('fire_flame')) {
+      const flameFx = this.add.particles(monster.x, monster.y, 'fire_flame', {
+        speed: { min: 10, max: 30 },
+        scale: { start: 0.8, end: 0.2 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 400,
+        frequency: 60,
+        angle: { min: 0, max: 360 },
+        tint: [0xFF6633, 0xFF8833, 0xFF4422],
+      });
+      flameFx.setDepth(6);
+      this.monsterFlameFx.set(monster, flameFx);
+    }
 
     monster.onPlayerContact = (m) => {
       if (m.type === 'wind') this.player.applyKnockback(m.x, m.y, 250);
@@ -505,10 +645,13 @@ export class GameScene extends Phaser.Scene {
     };
 
     monster.onDeath = (m) => {
+      // 清理火焰特效
+      const flameFx = this.monsterFlameFx.get(m);
+      if (flameFx) { flameFx.stop(); this.time.delayedCall(500, () => { if (flameFx.active) flameFx.destroy(); }); this.monsterFlameFx.delete(m); }
       this.killCount++;
       this.spawnExpOrb(m.x, m.y, m.expDrop);
-      // 15% 概率掉落修补箱
-      if (Math.random() < 0.15) {
+      // 8% 概率掉落修补箱
+      if (Math.random() < 0.08) {
         this.spawnRepairCrate(m.x, m.y);
       }
     };
@@ -595,7 +738,7 @@ export class GameScene extends Phaser.Scene {
 
     this.boss = new Boss(
       this, bx, by,
-      BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      BUILDING_CONFIG.x, BUILDING_CONFIG.y - 130,
       BUILDING_CONFIG.attackRange,
     );
 
@@ -667,6 +810,24 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
+  /** 红色箭头指向 Boss */
+  private drawBossArrow(): void {
+    if (!this.boss || this.boss.isDead) {
+      if (this.bossArrow) { this.bossArrow.destroy(); this.bossArrow = null; }
+      return;
+    }
+    const angle = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
+    const dist = 50; // 箭头离玩家距离
+    const ax = this.player.x + Math.cos(angle) * dist;
+    const ay = this.player.y + Math.sin(angle) * dist;
+    if (!this.bossArrow) {
+      this.bossArrow = this.add.image(ax, ay, 'arrow').setDepth(50).setTint(0xFF2222).setScale(1.2);
+    } else {
+      this.bossArrow.setPosition(ax, ay);
+    }
+    this.bossArrow.setRotation(angle + Math.PI / 2);
+  }
+
   /** Boss 召唤小怪 */
   private bossSummonMinions(count: number, type: MonsterType): void {
     const template = MONSTER_TEMPLATES[type];
@@ -685,7 +846,7 @@ export class GameScene extends Phaser.Scene {
       // 小怪以古建为目标
       const monster = new Monster(
         this, sx, sy, minionTemplate,
-        BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+        BUILDING_CONFIG.x, BUILDING_CONFIG.y - 130,
         BUILDING_CONFIG.attackRange,
       );
 
@@ -728,6 +889,7 @@ export class GameScene extends Phaser.Scene {
 
   // ── 经验球 ──
   private spawnExpOrb(x: number, y: number, value: number): void {
+    if (EASY_MODE.active) value *= 2;
     const orb = this.add.image(x, y, 'exp_orb');
     orb.setDepth(8);
     this.expOrbs.push({
@@ -774,38 +936,39 @@ export class GameScene extends Phaser.Scene {
   private spawnRepairCrate(x: number, y: number): void {
     const crate = this.add.image(x, y, 'repair_crate');
     crate.setDepth(9);
-    this.repairCrates.push({ graphic: crate, x, y, lifetime: 20 });
+    this.repairCrates.push({ graphic: crate, x, y, lifetime: 20, triggered: false });
   }
 
   private updateRepairCrates(delta: number): void {
     const dt = delta / 1000;
+    const bx = this.building.x;
+    const by = this.building.y;
     for (const c of this.repairCrates) {
       c.lifetime -= dt;
       if (c.lifetime <= 0) { c.graphic.destroy(); continue; }
 
-      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
-      if (dist < PICKUP_RANGE) {
-        // 吸附
-        const a = Math.atan2(this.player.y - c.y, this.player.x - c.x);
-        c.x += Math.cos(a) * EXP_ORB_CONFIG.attractSpeed * dt;
-        c.y += Math.sin(a) * EXP_ORB_CONFIG.attractSpeed * dt;
+      const distToPlayer = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
+      // 玩家靠近即触发，之后自行飞向古建
+      if (distToPlayer < PICKUP_RANGE) c.triggered = true;
+      if (c.triggered) {
+        const a = Math.atan2(by - c.y, bx - c.x);
+        const speed = 340;
+        c.x += Math.cos(a) * speed * dt;
+        c.y += Math.sin(a) * speed * dt;
         c.graphic.x = c.x;
         c.graphic.y = c.y;
 
-        if (dist < 16) {
-          // 拾取：每个结构 +10 HP
+        const distToBuilding = Phaser.Math.Distance.Between(bx, by, c.x, c.y);
+        if (distToBuilding < 40) {
           for (const type of ['wood', 'stone', 'tile', 'painting'] as const) {
             this.building.healStructure(type, 10);
           }
-          VFX.burst(this, c.x, c.y, 12, [0x44ff88, 0xffdd44, 0xffffff], 80, 3, 400, 'fx_heal');
+          VFX.burst(this, bx, by, 14, [0x44ff88, 0x88ff66, 0xffffff], 100, 4, 500, 'fx_heal');
+          VFX.floatText(this, bx + (Math.random() - 0.5) * 20, by - 50, '+10×4', '#44ff66', '17px');
+          this.building.flashHeal();
           SoundManager.repairCratePickup();
           c.graphic.destroy();
         }
-      }
-
-      // 快过期闪烁
-      if (c.lifetime < 5) {
-        c.graphic.setAlpha(Math.sin(c.lifetime * 10) > 0 ? 1 : 0.3);
       }
     }
     this.repairCrates = this.repairCrates.filter(c => c.lifetime > 0 && c.graphic.active);
@@ -967,14 +1130,6 @@ export class GameScene extends Phaser.Scene {
         }
         break;
 
-      case 'repair_field':
-        lines.push(`在脚下展开修复法阵，持续恢复全部结构`);
-        lines.push(`每跳回复 ${cfg.repairAmount}  CD ${cfg.cooldown}s  半径 ${cfg.range}  持续 ${cfg.zoneDuration}s`);
-        if (cfg.tickInterval) lines.push(`每 ${cfg.tickInterval}s 触发一次恢复`);
-        if (cfg.shots) lines.push(`法阵环绕 ${cfg.shots} 枚治愈光球`);
-        if (prevCfg) lines.push(`↑ 回复 +${cfg.repairAmount - prevCfg.repairAmount}  持续 +${(cfg.zoneDuration ?? 0) - (prevCfg.zoneDuration ?? 0)}s`);
-        break;
-
       case 'whirlwind_slash':
         lines.push(`朝前方发射旋风刃，沿路径切割敌人`);
         lines.push(`单刃 ${cfg.damage}  CD ${cfg.cooldown}s  飞行距离 ${cfg.range}`);
@@ -1019,15 +1174,83 @@ export class GameScene extends Phaser.Scene {
     let near = false;
     for (const m of this.monsters) {
       if (m.isDead || m.type !== 'freeze_thaw') continue;
-      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y) < 120) {
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y) < 60) {
         near = true; break;
       }
     }
     this.player.setSlow(near, 0.4);
   }
 
+  /** 冻融怪冲击波：每 5s 朝玩家方向释放柱状冻结区域 */
+  private updateFreezeThawShockwave(delta: number): void {
+    const dt = delta / 1000;
+    for (const m of this.monsters) {
+      if (m.isDead || m.type !== 'freeze_thaw') continue;
+
+      let timer = this.freezeThawTimers.get(m) ?? 0;
+      timer += dt;
+      if (timer >= 5) {
+        timer = 0;
+        this.fireFreezeShockwave(m);
+      }
+      this.freezeThawTimers.set(m, timer);
+    }
+    // 清理死亡怪物的计时器
+    for (const key of this.freezeThawTimers.keys()) {
+      if (key.isDead) this.freezeThawTimers.delete(key);
+    }
+  }
+
+  private fireFreezeShockwave(m: Monster): void {
+    const px = this.player.x, py = this.player.y;
+    const mx = m.x, my = m.y;
+    const angle = Math.atan2(py - my, px - mx);
+    const dist = Phaser.Math.Distance.Between(mx, my, px, py);
+    const length = Math.max(dist + 10, 60);
+    const halfW = 16;
+
+    // 柱状区域中心坐标
+    const cx = mx + Math.cos(angle) * length / 2;
+    const cy = my + Math.sin(angle) * length / 2;
+
+    // 预警矩形
+    const warn = this.add.rectangle(cx, cy, length, halfW * 2, 0x000000, 0);
+    warn.setStrokeStyle(3, 0xFF2222, 0.7);
+    warn.setRotation(angle);
+    warn.setDepth(20);
+
+    // 0.75s 后引爆
+    this.time.delayedCall(750, () => {
+      warn.destroy();
+      // 检测玩家是否在柱状区域内
+      const dx = px - mx, dy = py - my;
+      const proj = dx * Math.cos(angle) + dy * Math.sin(angle);
+      const perp = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
+      if (proj > 0 && proj < length && perp < halfW) {
+        if (this.player.tryFreeze(2)) {
+          // 冻结成功 — 冰爆特效
+          const ice = this.add.circle(px, py, 32, 0xFF3333, 0.4);
+          ice.setDepth(45);
+          this.tweens.add({ targets: ice, scale: 1.6, alpha: 0, duration: 400, onComplete: () => ice.destroy() });
+          VFX.shake(this, 0.005, 150);
+        }
+      }
+    });
+
+    // 预警收缩动画
+    this.tweens.add({
+      targets: warn,
+      alpha: 0.7,
+      duration: 350,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
+      onComplete: () => { if (warn.active) warn.setAlpha(0.3); },
+    });
+  }
+
   // ── 自动普攻 ──
   private updateAutoAttack(delta: number): void {
+    if (this.debugDisableAutoAttack) return;
     const dt = delta / 1000;
     this.autoAttackTimer += dt;
     if (this.autoAttackTimer >= AUTO_ATTACK_CONFIG.cooldown) {
@@ -1113,11 +1336,66 @@ export class GameScene extends Phaser.Scene {
 
   // ── 水洼 ──
   addPuddle(x: number, y: number): void {
+    const r = 65;
     const g = this.add.graphics();
-    g.fillStyle(0x44CC44, 0.25);
-    g.fillCircle(x, y, 40);
+    g.fillStyle(0xCC2222, 0.22);
+    g.fillCircle(x, y, r);
     g.setDepth(1);
-    this.puddles.push({ x, y, radius: 40, remaining: 5, graphic: g });
+    // 内圈更浓
+    g.fillStyle(0xAA1111, 0.15);
+    g.fillCircle(x, y, r * 0.5);
+    this.puddles.push({ x, y, radius: r, remaining: 5, graphic: g });
+
+    // 下雨粒子特效
+    const rainEmitter = this.add.particles(x, y - 80, 'px_white', {
+      speed: { min: 180, max: 350 },
+      angle: { min: 85, max: 95 },
+      scale: { start: 0.3, end: 0.1 },
+      alpha: { start: 0.5, end: 0 },
+      lifespan: 500,
+      tint: [0xCC3333, 0xDD4444, 0xFF5555],
+      frequency: 30,
+      x: { min: -r, max: r },
+    });
+    rainEmitter.setDepth(19);
+    // 5秒后停止下雨
+    this.time.delayedCall(5000, () => {
+      rainEmitter.stop();
+      this.time.delayedCall(600, () => { if (rainEmitter.active) rainEmitter.destroy(); });
+    });
+  }
+
+  /** 酸雨怪专有：在玩家位置生成警示后落水洼 */
+  private addPuddleWithWarning(x: number, y: number): void {
+    const r = 65;
+    const warn = this.add.circle(x, y, r, 0x000000, 0);
+    warn.setStrokeStyle(3, 0xCC3333, 0.7);
+    warn.setDepth(20);
+    this.tweens.add({
+      targets: warn,
+      radius: 8,
+      alpha: 0,
+      duration: 600,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        warn.destroy();
+        this.addPuddle(x, y);
+      },
+    });
+  }
+
+  /** 酸雨怪在场时每隔 1s 在玩家脚下生成水洼 */
+  private updateAcidRainPuddles(delta: number): void {
+    const hasAcidRain = this.monsters.some(m => !m.isDead && m.type === 'acid_rain');
+    if (!hasAcidRain) {
+      this.acidRainPuddleTimer = 0;
+      return;
+    }
+    this.acidRainPuddleTimer += delta / 1000;
+    if (this.acidRainPuddleTimer >= 1) {
+      this.acidRainPuddleTimer -= 1;
+      this.addPuddleWithWarning(this.player.x, this.player.y);
+    }
   }
 
   private updatePuddles(delta: number): void {
@@ -1128,7 +1406,8 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < p.radius) onPuddle = true;
     }
     this.puddles = this.puddles.filter(p => p.remaining > 0);
-    if (onPuddle) this.player.setSlow(true, 0.6);
+    // 只在踩中水洼时覆盖减速（比冻融光环更强），离开时不重置
+    if (onPuddle) this.player.setSlow(true, 0.25);
   }
 
   // ── 胜负 ──
@@ -1205,6 +1484,16 @@ export class GameScene extends Phaser.Scene {
     restartBtn.on('pointerdown', () => {
       this.scene.start('MenuScene');
     });
+
+    // ── 保存最高纪录 ──
+    saveRecord({
+      killCount: this.killCount,
+      survivalTime: elapsed,
+      level: this.player.level,
+      bossKilled: this.bossKilled,
+      victory,
+      date: new Date().toISOString(),
+    });
   }
 
   // ── 移动端虚拟摇杆 ──
@@ -1263,32 +1552,112 @@ export class GameScene extends Phaser.Scene {
   private debugMonsterIndex = 0;
   private debugDraw = false;
   private debugGfx: Phaser.GameObjects.Graphics | null = null;
+  private debugDisableAutoAttack = false;
+  private debugMode = false;
+  private nPressTimes: number[] = [];
 
   private setupDebugControls(): void {
     const kb = this.input.keyboard;
     if (!kb) return;
 
-    // T: 切换碰撞箱可视化
-    kb.on('keydown-T', () => {
-      this.debugDraw = !this.debugDraw;
-      if (!this.debugDraw && this.debugGfx) {
-        this.debugGfx.clear();
+    // N: 2s内连点3次切换调试模式
+    kb.on('keydown-N', () => {
+      const now = this.time.now;
+      this.nPressTimes.push(now);
+      // 清除超过2s的记录
+      this.nPressTimes = this.nPressTimes.filter(t => now - t < 2000);
+      if (this.nPressTimes.length >= 3) {
+        this.nPressTimes = [];
+        this.debugMode = !this.debugMode;
+        const msg = this.debugMode ? '🔧 进入开发者模式' : '🔒 已退出开发者模式';
+        const t = this.add.text(GAME_WIDTH/2, 60, msg, {
+          fontSize: '22px', fontFamily: 'sans-serif', color: this.debugMode ? '#FFD700' : '#888888',
+          stroke: '#000', strokeThickness: 4,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(300).setAlpha(0);
+        this.tweens.add({ targets: t, alpha: 1, y: 50, duration: 300, yoyo: true, hold: 800,
+          onComplete: () => t.destroy() });
       }
     });
 
+    // M: 2s内连点3次切换菜鸡模式
+    let mPressTimes: number[] = [];
+    kb.on('keydown-M', () => {
+      const now = this.time.now;
+      mPressTimes.push(now);
+      mPressTimes = mPressTimes.filter(t => now - t < 2000);
+      if (mPressTimes.length >= 3) {
+        mPressTimes = [];
+        EASY_MODE.active = !EASY_MODE.active;
+        const msg = EASY_MODE.active ? '🐣 进入菜鸡模式（怪物血量减半 · 伤害翻倍 · 经验翻倍）' : '🦅 已退出菜鸡模式';
+        const t = this.add.text(GAME_WIDTH/2, 60, msg, {
+          fontSize: '20px', fontFamily: 'sans-serif',
+          color: EASY_MODE.active ? '#FFD700' : '#888888',
+          stroke: '#000', strokeThickness: 4,
+          wordWrap: { width: GAME_WIDTH - 80 },
+          align: 'center',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(300).setAlpha(0);
+        this.tweens.add({ targets: t, alpha: 1, y: 50, duration: 300, yoyo: true, hold: 1200,
+          onComplete: () => t.destroy() });
+      }
+    });
+
+    // I: 开关普攻
+    kb.on('keydown-I', () => {
+      if (!this.debugMode) return;
+      this.debugDisableAutoAttack = !this.debugDisableAutoAttack;
+    });
+
+    // T: 切换碰撞箱可视化
+    kb.on('keydown-T', () => {
+      if (!this.debugMode) return;
+      this.debugDraw = !this.debugDraw;
+      if (!this.debugDraw && this.debugGfx) { this.debugGfx.clear(); }
+    });
+
     // Q: 快速升级
-    kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
+    kb.on('keydown-Q', () => {
+      if (!this.debugMode) return;
+      this.player.exp += this.player.expToNext;
+    });
 
     // 空格: 秒杀全屏怪物
     kb.on('keydown-SPACE', () => {
+      if (!this.debugMode) return;
       for (const m of this.monsters) {
         if (!m.isDead) m.takeDamage(9999);
       }
     });
 
+    // 1-4: 在玩家脚下召唤指定类型怪物
+    kb.on('keydown-ONE', () => { if (!this.debugMode) return; this.spawnSingleMonster('wind', this.player.x, this.player.y); });
+    kb.on('keydown-TWO', () => { if (!this.debugMode) return; this.spawnSingleMonster('acid_rain', this.player.x, this.player.y); });
+    kb.on('keydown-THREE', () => { if (!this.debugMode) return; this.spawnSingleMonster('fire', this.player.x, this.player.y); });
+    kb.on('keydown-FOUR', () => { if (!this.debugMode) return; this.spawnSingleMonster('freeze_thaw', this.player.x, this.player.y); });
+
+    // O: 秒杀全屏怪物
+    kb.on('keydown-O', () => {
+      if (!this.debugMode) return;
+      for (const m of this.monsters) {
+        if (!m.isDead) m.takeDamage(9999);
+      }
+    });
+
+    // 0: 掉落治疗箱
+    kb.on('keydown-ZERO', () => {
+      if (!this.debugMode) return;
+      this.spawnRepairCrate(this.player.x, this.player.y);
+    });
+
+    // P: 快进到 360s
+    kb.on('keydown-P', () => {
+      if (!this.debugMode) return;
+      this.gameTime = 60;
+    });
+
     // R: 循环显示下一个怪物科普弹窗
     const allTypes: MonsterType[] = ['termite', 'wind', 'acid_rain', 'fire', 'freeze_thaw'];
     kb.on('keydown-R', () => {
+      if (!this.debugMode) return;
       const type = allTypes[this.debugMonsterIndex % allTypes.length];
       this.debugMonsterIndex++;
       this.isPaused = true;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, StructureType, SkillId, SKILL_CONFIGS, FONT, PALETTE, STRUCT_BAR, LEVELUP_CARD, MonsterType } from './config';
+import { GAME_WIDTH, GAME_HEIGHT, StructureType, SkillId, SKILL_CONFIGS, FONT, PALETTE, STRUCT_BAR, LEVELUP_CARD, SKILL_COLORS, MonsterType } from './config';
 import { Player } from './Player';
 import { Building } from './Building';
 import { genOrnatePanel, genPixelButton } from './ArtGen';
@@ -47,6 +47,7 @@ export class HUD {
 
   // 升级面板（动态创建/销毁）
   private levelUpElements: Phaser.GameObjects.GameObject[] = [];
+  private levelUpTimers: Phaser.Time.TimerEvent[] = [];
   // 技能弹窗
   private popupElements: Phaser.GameObjects.GameObject[] = [];
 
@@ -335,10 +336,45 @@ export class HUD {
 
     options.forEach((opt, i) => {
       const cx = startX + i * (cardW + cardGap) + cardW / 2;
-      const cardKey = `card_${cardGridW}_${cardGridH}_${i}`;
-      // 边框颜色：新技能=玉绿，升级=金色
-      const borderColor = opt.isUpgrade ? PALETTE.BRIGHT_GOLD : PALETTE.JADE_GREEN;
-      genOrnatePanel(this.scene, cardKey, cardGridW, cardGridH, borderColor, '#3E2510');
+      const cardKey = `card_${opt.id}_${cardGridW}_${cardGridH}_${i}`;
+      // 边框颜色：每个技能独立颜色
+      const skillColor = SKILL_COLORS[opt.id] ?? PALETTE.BRIGHT_GOLD;
+      genOrnatePanel(this.scene, cardKey, cardGridW, cardGridH, skillColor, '#3E2510');
+
+      // 升级卡片：背后动态光晕 + 边框脉冲
+      if (opt.isUpgrade) {
+        const skillColorNum = Phaser.Display.Color.HexStringToColor(skillColor).color;
+        // 背后光晕
+        const glow = this.scene.add.rectangle(cx, centerY, cardW + 12, cardH + 12, skillColorNum, 0.12)
+          .setScrollFactor(0).setDepth(depth);
+        this.levelUpElements.push(glow);
+        this.scene.tweens.add({
+          targets: glow,
+          alpha: { from: 0.12, to: 0.28 },
+          scaleX: { from: 1, to: 1.04 },
+          scaleY: { from: 1, to: 1.04 },
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        // 边框脉冲 — 叠加在卡片上方
+        const borderGlow = this.scene.add.rectangle(cx, centerY, cardW, cardH, 0x000000, 0)
+          .setScrollFactor(0).setDepth(depth + 3)
+          .setStrokeStyle(3, skillColorNum, 0.5);
+        this.levelUpElements.push(borderGlow);
+        // 用 scene time 驱动边框脉动
+        const borderPulse = this.scene.time.addEvent({
+          delay: 33, loop: true,
+          callback: () => {
+            if (!borderGlow.active) { borderPulse.remove(false); return; }
+            const t = this.scene.time.now / 1000;
+            const a = 0.35 + 0.35 * Math.sin(t * 4.5);
+            borderGlow.setStrokeStyle(2 + Math.round(a * 5), skillColorNum, a);
+          },
+        });
+        this.levelUpTimers.push(borderPulse);
+      }
 
       // 卡片背景（像素纹理）
       const bg = this.scene.add.image(cx, centerY, cardKey)
@@ -348,7 +384,7 @@ export class HUD {
 
       // 类型徽章（像素小标签）
       const tag = opt.isUpgrade ? '技能升级' : '获得技能';
-      const tagColor = opt.isUpgrade ? PALETTE.BRIGHT_GOLD : PALETTE.JADE_GREEN;
+      const tagColor = skillColor;
       const tagBg = this.scene.add.rectangle(cx, centerY - cardH / 2 + 22, 82, 18, 0x1A1410, 0.82)
         .setScrollFactor(0).setDepth(depth + 2).setStrokeStyle(1, Phaser.Display.Color.HexStringToColor(tagColor).color);
       this.levelUpElements.push(tagBg);
@@ -356,6 +392,19 @@ export class HUD {
         ...FONT.tiny, color: tagColor,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 3);
       this.levelUpElements.push(tagText);
+
+      // 升级标签：变大跳动动画
+      if (opt.isUpgrade) {
+        this.scene.tweens.add({
+          targets: [tagBg, tagText],
+          scaleX: { from: 1, to: 1.15 },
+          scaleY: { from: 1, to: 1.15 },
+          duration: 500,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
 
       // 技能名
       const nameText = this.scene.add.text(cx, centerY - cardH / 2 + 54, opt.name, {
@@ -378,21 +427,37 @@ export class HUD {
         .setStrokeStyle(1, 0x8a6b2f, 0.5);
       this.levelUpElements.push(descBg);
 
-      // 效果描述
-      const useTiny = opt.description.length > 92;
-      const descFont = useTiny ? FONT.tiny : FONT.small;
-      const wrappedDesc = this.wrapCJK(opt.description, descFont.fontSize, cardW - 42);
-      const desc = this.scene.add.text(cx, descTop, wrappedDesc, {
-        ...descFont, color: PALETTE.PARCHMENT,
-        align: 'center',
-        stroke: '#000', strokeThickness: 2,
-        lineSpacing: 3,
-      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 2);
-      this.levelUpElements.push(desc);
+      // 效果描述 — 首行（风味文字）加粗加大
+      const descLines = opt.description.split('\n');
+      const flavor = descLines[0] ?? '';
+      const stats = descLines.slice(1).join('\n');
+      const descW = cardW - 34;
+      let curY = descTop;
 
+      // 风味行 — 17px bold
+      const flavorWrapped = this.wrapCJK(flavor, '17px', descW);
+      const flavorText = this.scene.add.text(cx, curY, flavorWrapped, {
+        fontFamily: FONT.body.fontFamily, fontSize: '17px', fontStyle: 'bold',
+        color: PALETTE.PARCHMENT, align: 'center',
+        stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 2);
+      this.levelUpElements.push(flavorText);
+      curY += flavorText.height + 12;
+
+      // 数据行 — 12px regular
+      if (stats) {
+        const statsWrapped = this.wrapCJK(stats, '12px', descW);
+        const statsText = this.scene.add.text(cx, curY, statsWrapped, {
+          fontFamily: FONT.body.fontFamily, fontSize: '12px',
+          color: '#C0B090', align: 'center',
+          stroke: '#000', strokeThickness: 1,
+          lineSpacing: 2,
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 2);
+        this.levelUpElements.push(statsText);
+      }
       // 像素按钮
       const btnW = Math.ceil(100 / 2), btnH = Math.ceil(28 / 2);
-      const btnKey = `btn_card_${cardGridW}_${i}`;
+      const btnKey = `btn_card_${opt.id}_${cardGridW}_${i}`;
       genPixelButton(this.scene, btnKey, btnW, btnH, PALETTE.OAK_WOOD, PALETTE.DARK_GOLD);
       const btnY = centerY + cardH / 2 - 26;
       const btnImg = this.scene.add.image(cx, btnY, btnKey + '_normal')
@@ -437,6 +502,8 @@ export class HUD {
   hideLevelUpPanel(): void {
     for (const el of this.levelUpElements) el.destroy();
     this.levelUpElements = [];
+    for (const t of this.levelUpTimers) t.remove(false);
+    this.levelUpTimers = [];
   }
 
   /** 手动 CJK 换行 — 按字符数估算每行宽度 */
@@ -474,23 +541,23 @@ export class HUD {
     }> = {
       termite: {
         name: '白蚁怪', dangerColor: '#DDDDDD', illusKey: 'illus_termite',
-        desc: '白蚁蛀蚀是木构古建最普遍的病害。它们钻进梁、柱、斗拱内部，将木材蛀成空壳，表面完好而内部已朽。\n\n▸ 攻击木质结构，快速啃噬\n▸ 数量多、速度快，优先围攻古建',
+        desc: '<span style="font-size:18px;font-weight:bold;color:#FFCC88;">白蚁蛀蚀 — 木构古建的头号病害</span>\n白蚁钻进梁、柱、斗拱内部，将木材蛀成空壳。表面完好无损，内部早已腐朽不堪，是古建木结构最隐蔽也最普遍的威胁。\n\n<span style="font-weight:bold;color:#8B6914;">📌 山西实例：应县木塔</span>\n世界现存最高最古的木塔，其松木构件若遭白蚁蛀蚀，整塔结构将面临坍塌风险。每年需投入大量人力监测虫害。\n\n<hr style="border-color:#C8A878;opacity:0.4;margin:6px 0;">\n<b>▸ 攻击木质结构</b>，快速啃噬\n▸ 数量多、速度快，优先围攻古建',
       },
       wind: {
         name: '风蚀怪', dangerColor: '#DDCC88', illusKey: 'illus_wind',
-        desc: '风沙侵蚀对露天石质文物威胁极大。携带沙粒的强风不断打磨石刻表面，使雕刻纹饰逐渐模糊消失。\n\n▸ 攻击石质结构 + 彩绘壁画\n▸ 接触玩家时造成击退',
+        desc: '<span style="font-size:18px;font-weight:bold;color:#FFDD88;">风沙侵蚀 — 露天石质文物的慢性杀手</span>\n携带沙粒的强风不断打磨石刻表面，使雕刻纹饰逐渐模糊消失。千年石窟、石碑、石塔都难逃风沙的消磨。\n\n<span style="font-weight:bold;color:#8B6914;">📌 山西实例：云冈石窟</span>\n第20窟露天大佛面部纹饰已严重模糊，正是千年风沙侵蚀的结果。如不加以保护，佛像细节将在未来数百年内彻底消失。\n\n<hr style="border-color:#C8A878;opacity:0.4;margin:6px 0;">\n<b>▸ 攻击石质结构 + 彩绘壁画</b>\n▸ <span style="color:#FF1111;font-weight:bold;">触碰玩家时造成击退</span>，注意保持距离',
       },
       acid_rain: {
         name: '酸雨怪', dangerColor: '#44CC44', illusKey: 'illus_acid_rain',
-        desc: '酸雨渗入砖瓦缝隙后加速化学风化，冬季结冰还会胀裂墙体。雨水沿裂缝渗入内部木构件，造成腐朽霉变。\n\n▸ 攻击石质结构 + 砖瓦结构\n▸ 攻击时留下腐蚀水洼，踩中减速',
+        desc: '<span style="font-size:18px;font-weight:bold;color:#88FF88;">酸雨侵蚀 — 砖石古建的化学天敌</span>\n酸雨渗入砖瓦缝隙后加速化学风化，冬季结冰还会胀裂墙体。雨水沿裂缝渗入内部木构件，造成腐朽霉变。\n\n<span style="font-weight:bold;color:#8B6914;">📌 山西实例：平遥古城</span>\n平遥明清砖墙近年风化速度明显加快，工业酸雨是主因之一。雨水渗入墙内冻胀后，墙面大面积剥落、酥碱。\n\n<hr style="border-color:#C8A878;opacity:0.4;margin:6px 0;">\n<b>▸ 攻击石质结构 + 砖瓦结构</b>\n▸ 持续在玩家脚下生成<b>红色腐蚀水洼</b>\n▸ <span style="color:#FF1111;font-weight:bold;">踩中水洼减速75%</span>，保持移动躲避！',
       },
       fire: {
         name: '火焰怪', dangerColor: '#FF6633', illusKey: 'illus_fire',
-        desc: '火灾可在数小时内摧毁一座千年古建。木构架遇火即燃，彩绘壁画在高温下颜料起泡剥落。\n\n▸ 攻击木质结构 + 彩绘壁画\n▸ 造成灼烧，目标结构持续掉血',
+        desc: '<span style="font-size:18px;font-weight:bold;color:#FF8866;">火灾 — 数小时内吞噬千年古建</span>\n木构架遇火即燃，彩绘壁画在高温下颜料起泡剥落。一座千年木塔，从起火到坍塌可能只需几小时。\n\n<span style="font-weight:bold;color:#8B6914;">📌 山西实例：五台山佛光寺</span>\n佛光寺东大殿是现存最完整的唐代木构，距今已逾千年。一旦发生火灾，全国唯一完整唐代大殿将不复存在。\n\n<hr style="border-color:#C8A878;opacity:0.4;margin:6px 0;">\n<b>▸ 攻击木质结构 + 彩绘壁画</b>\n▸ 攻击造成<b>灼烧</b>，结构持续掉血\n▸ <span style="color:#FF1111;font-weight:bold;">高速高伤</span>，优先击杀！',
       },
       freeze_thaw: {
         name: '冻融怪', dangerColor: '#6699FF', illusKey: 'illus_freeze_thaw',
-        desc: '水渗入砖石裂隙后结冰膨胀，产生巨大张力使裂缝扩大。反复冻融循环是砖石古建冬季的头号威胁。\n\n▸ 攻击石质结构 + 砖瓦结构\n▸ 血厚攻高，靠近玩家时减速',
+        desc: '<span style="font-size:18px;font-weight:bold;color:#88BBFF;">冻融循环 — 砖石古建冬季的头号威胁</span>\n水渗入砖石裂隙后结冰膨胀，产生巨大张力使裂缝扩大。反复冻融循环让裂缝逐年加深，最终导致墙体崩塌。\n\n<span style="font-weight:bold;color:#8B6914;">📌 山西实例：恒山悬空寺</span>\n悬空寺嵌于悬崖峭壁，冬季雪水渗入石缝后结冰膨胀，对支撑结构和崖壁产生巨大张力，威胁建筑稳定性。\n\n<hr style="border-color:#C8A878;opacity:0.4;margin:6px 0;">\n<b>▸ 攻击石质结构 + 砖瓦结构</b>\n▸ 身边带有<b>减速光环</b>，靠近玩家大幅降速\n▸ <b>定期释放柱状冰冻冲击波</b>，<span style="color:#FF1111;font-weight:bold;">冻结玩家2秒！</span>看到<span style="color:#FF1111;font-weight:bold;">红色预警区域</span>请立刻躲避！',
       },
     };
     const info = data[monsterType];
@@ -504,7 +571,6 @@ export class HUD {
     popup.style.display = 'flex';
     const _close = () => { popup.style.display = 'none'; (window as any)._closeMonsterPopup = null; onClose?.(); };
     (window as any)._closeMonsterPopup = _close;
-    this.scene.time.delayedCall(8000, _close);
     return;
     /* dead old Phaser popup code below - kept to avoid breaking file structure */
     const depth = 350;
@@ -614,7 +680,7 @@ export class HUD {
     const cfg = SKILL_CONFIGS[skillId][level - 1];
     const depth = 350;
     const cx = GAME_WIDTH / 2;
-    const cy = GAME_HEIGHT / 2 - 120;
+    const cy = 100;
     const w = 300, h = 150;
     const gridW = Math.ceil(w / 2), gridH = Math.ceil(h / 2);
 
@@ -648,8 +714,9 @@ export class HUD {
       cfg.repairAmount > 0 ? `回复${cfg.repairType.join('/')} ${cfg.repairAmount} 点` : '',
     ].filter(Boolean).join('，');
     const desc = this.scene.add.text(cx, cy, descLines, {
-      ...FONT.small, color: PALETTE.PARCHMENT,
-      wordWrap: { width: w - 40 }, align: 'center',
+      fontFamily: FONT.body.fontFamily, fontSize: '15px', fontStyle: 'bold',
+      color: PALETTE.PARCHMENT,
+      wordWrap: { width: w - 40 }, align: 'center', lineSpacing: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 1);
     this.popupElements.push(desc);
 
@@ -660,7 +727,6 @@ export class HUD {
       waterproof: '防水是古建保护的关键，雨水渗漏会造成严重损害。',
       insect_control: '木构古建需要注意白蚁和蛀虫防治。',
       painting_restore: '彩绘壁画受潮后颜料层会起甲、剥落。',
-      repair_field: '古建修缮讲究整体养护，结构健康需要持续维护。',
       whirlwind_slash: '旋风刃适合朝尸潮前方穿透推进，能快速切开一条输出通道。',
       chain_lightning: '连锁雷击善于清理分散敌群，能快速串联多个目标。',
     };

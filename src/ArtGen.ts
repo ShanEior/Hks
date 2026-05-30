@@ -117,6 +117,7 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genRepairCrate(scene);
   genSkillTextures(scene);
   genUIAllTextures(scene);
+  genGlowTexture(scene);
   // Batch 3: GPU 粒子系统用 4×4 白色像素纹理
   genPxWhite(scene);
 }
@@ -127,6 +128,25 @@ function genPxWhite(scene: Phaser.Scene): void {
   const ctx = canvas!.getContext();
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, 4, 4);
+  canvas!.refresh();
+}
+
+/** 程序化光晕纹理 64×64，替代缺失的 extra_Extra_252.png */
+function genGlowTexture(scene: Phaser.Scene): void {
+  const s = 64;
+  const canvas = scene.textures.createCanvas('fx_glow_64', s, s);
+  const ctx = canvas!.getContext();
+  const cx = s / 2, cy = s / 2, maxR = s / 2;
+  for (let py = 0; py < s; py++) {
+    for (let px = 0; px < s; px++) {
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) / maxR;
+      const alpha = Math.max(0, 1 - dist * dist); // 二次衰减，中心最亮
+      const v = Math.round(128 + 127 * alpha);
+      ctx.fillStyle = `rgba(${v},${v},${v},${alpha})`;
+      ctx.fillRect(px, py, 1, 1);
+    }
+  }
   canvas!.refresh();
 }
 
