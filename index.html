@@ -16,10 +16,25 @@
       user-select: none;
     }
     #game-container {
-      width: 100%; height: 100%;
+      width: 100vw; height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      border: 20px solid #3E2510;
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 0 0 4px #8B6914, 0 0 0 8px #3E2510;
+      position: fixed; top: 0; left: 0;
+      box-sizing: border-box;
+    }
+    #game-container::before {
+      content: '';
+      position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px;
+      border: 3px solid #6B4C3B;
+      pointer-events: none; z-index: 10;
+    }
+    #game-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
     }
     canvas { display: block; }
     #error-screen {
@@ -47,6 +62,176 @@
       cursor: pointer;
       border-radius: 4px;
     }
+    /* 怪物弹窗 — 卷轴样式 */
+    #monster-popup {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(10,5,2,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
+    }
+    #monster-popup .scroll {
+      display: flex;
+      max-width: 740px; width: 92%;
+      min-height: 360px;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(139,105,20,0.06) 2px, rgba(139,105,20,0.06) 4px),
+        linear-gradient(180deg, #F5E6C8 0%, #F0DEB8 15%, #EDD9B0 50%, #E8D0A0 85%, #E5CDA0 100%);
+      border: 4px solid #8B6914;
+      box-shadow:
+        0 0 0 2px #3E2510,
+        0 0 0 6px #8B6914,
+        0 0 0 8px #3E2510,
+        inset 0 0 30px rgba(139,105,20,0.1),
+        6px 8px 24px rgba(0,0,0,0.7);
+      position: relative;
+      image-rendering: auto;
+    }
+    /* 卷轴上下轴杆 */
+    #monster-popup .scroll::before,
+    #monster-popup .scroll::after {
+      content: '';
+      position: absolute; left: -14px; right: -14px;
+      height: 16px;
+      background:
+        linear-gradient(180deg, #D4AA60 0%, #C8A060 20%, #8B6914 40%, #6B4A10 50%, #8B6914 60%, #C8A060 80%, #D4AA60 100%);
+      border-radius: 8px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.2);
+    }
+    #monster-popup .scroll::before { top: -12px; }
+    #monster-popup .scroll::after { bottom: -12px; }
+    /* 卷轴纹理覆盖 */
+    #monster-popup .scroll .texture {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 20% 30%, rgba(200,160,100,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(180,140,80,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    /* 插图区 — 画框 */
+    #monster-popup .illus-wrap {
+      flex: 0 0 290px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px 10px 20px 20px;
+    }
+    #monster-popup .illus-frame {
+      background: #1A1008;
+      border: 3px solid #6B4C3B;
+      padding: 6px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 2px 3px 8px rgba(0,0,0,0.4);
+    }
+    #monster-popup .illus-frame img {
+      display: block;
+      max-width: 240px; max-height: 280px;
+      image-rendering: pixelated;
+    }
+    /* 信息区 */
+    #monster-popup .info {
+      flex: 1;
+      padding: 28px 24px 20px 10px;
+      display: flex; flex-direction: column;
+    }
+    #monster-popup .info .name {
+      font-size: 30px; font-weight: 700;
+      text-align: center;
+      letter-spacing: 4px;
+      margin-bottom: 6px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    #monster-popup .info .ornament {
+      text-align: center;
+      font-size: 14px; color: #8B6914;
+      margin-bottom: 12px;
+      letter-spacing: 6px;
+    }
+    #monster-popup .info .desc {
+      font-size: 15px; color: #3E2510;
+      line-height: 1.8; flex: 1;
+      padding: 8px 4px;
+      border-top: 1px solid #C8A878;
+      border-bottom: 1px solid #C8A878;
+    }
+    #monster-popup .info .desc b { color: #6B2A10; }
+    #monster-popup .close-hint {
+      text-align: center;
+      font-size: 13px; color: #8B7830;
+      margin-top: 10px;
+      letter-spacing: 2px;
+    }
+    /* 技能升级弹窗 */
+    #levelup-popup {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(10,5,2,0.7);
+      z-index: 1001;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      font-family: 'Noto Serif SC', 'SimSun', serif;
+    }
+    #levelup-popup .title {
+      font-size: 32px; font-weight: 700;
+      color: #FFD700; letter-spacing: 6px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+      margin-bottom: 20px;
+    }
+    #levelup-popup .cards {
+      display: flex; gap: 20px;
+      max-width: 780px; width: 94%;
+    }
+    #levelup-popup .card {
+      flex: 1;
+      background: linear-gradient(180deg, #2A1A10 0%, #1A1008 100%);
+      border: 2px solid #5C3A1E;
+      padding: 18px 14px 14px 14px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.1s, border-color 0.15s;
+    }
+    #levelup-popup .card:hover {
+      transform: scale(1.03);
+      border-color: #FFD700;
+    }
+    #levelup-popup .card .tag {
+      display: inline-block;
+      font-size: 12px; padding: 2px 10px;
+      margin-bottom: 10px;
+      border: 1px solid;
+    }
+    #levelup-popup .card .tag.new { color: #5B8C5A; border-color: #5B8C5A; }
+    #levelup-popup .card .tag.upgrade { color: #FFD700; border-color: #FFD700; }
+    #levelup-popup .card .sname {
+      font-size: 20px; font-weight: 700;
+      color: #FFFFFF; margin-bottom: 4px;
+    }
+    #levelup-popup .card .slevel {
+      font-size: 15px; color: #FFD700;
+      margin-bottom: 12px;
+    }
+    #levelup-popup .card .sdesc {
+      font-size: 13px; color: #D0C0A0;
+      line-height: 1.6; margin-bottom: 14px;
+    }
+    #levelup-popup .card .sbtn {
+      display: inline-block;
+      padding: 6px 24px;
+      background: #6B4226; color: #FFD700;
+      border: 1px solid #8B6914;
+      font-size: 14px; font-family: inherit;
+      cursor: pointer;
+    }
+    #levelup-popup .card:hover .sbtn { background: #8B5A30; }
+    #levelup-popup .card.upgrade-card { border-color: #8B6914; }
+    #levelup-popup .card.new-card { border-color: #5B8C5A; }
+    #levelup-popup .close-hint {
+      color: #666; font-size: 13px;
+      margin-top: 16px; letter-spacing: 2px;
+    }
   </style>
 </head>
 <body>
@@ -55,6 +240,27 @@
     <div class="icon">⚠️</div>
     <div class="msg">哎呀，出错了，请重启试试吧~</div>
     <button class="retry" onclick="location.reload()">重新加载</button>
+  </div>
+
+  <div id="monster-popup" onclick="window._closeMonsterPopup&&window._closeMonsterPopup()">
+    <div class="scroll">
+      <div class="texture"></div>
+      <div class="illus-wrap">
+        <div class="illus-frame"><img id="monster-illus-img" src="" alt="" /></div>
+      </div>
+      <div class="info">
+        <div class="name" id="monster-popup-name"></div>
+        <div class="ornament">◆ ◇ ◆</div>
+        <div class="desc" id="monster-popup-desc"></div>
+        <div class="close-hint">— 点 击 任 意 处 关 闭 —</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="levelup-popup">
+    <div class="title">升 级 ！ 选 择 一 个 技 能</div>
+    <div class="cards" id="levelup-cards"></div>
+    <div class="close-hint">— 点 击 卡 片 选 择 —</div>
   </div>
 
   <script>

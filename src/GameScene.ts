@@ -20,7 +20,6 @@ import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 import { CombatFeel } from './CombatFeel';
 import { generateAllTextures } from './ArtGen';
-import { preloadSprites, nthKey } from './SpriteLoader';
 
 // ── 水洼 ──
 interface Puddle {
@@ -113,15 +112,12 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image('bg', 'assets/bg.png');
-    this.load.image('png_earth', 'assets/earth.png');
-    for(let i=1;i<=9;i++)this.load.image('grass'+i,'assets/精灵-000'+i+'.png');
     this.load.image('illus_termite','assets/monster_termite.png');
     this.load.image('illus_wind','assets/monster_wind.png');
     this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
     this.load.image('illus_fire','assets/monster_fire.png');
     this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
     this.load.image('gj', 'assets/building.png');
-    preloadSprites(this);
   }
 
   create(): void {
@@ -317,6 +313,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── 树 + 石头精灵 ──
   private placeEnvironmentSprites(): void {
+    // 已移除：场景仅用 bg.png，不再放置环境精灵
+    const nthKey = (_cat:string, _n:number) => 'bolt';
     const cx = MAP_WIDTH / 2, cy = MAP_HEIGHT / 2;
     const hash = (x: number, y: number): number =>
       ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
