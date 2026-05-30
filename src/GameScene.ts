@@ -5,8 +5,9 @@ import {
   SPAWN_DISTANCE, INITIAL_SPAWN_INTERVAL, MAX_MONSTERS,
   EXP_ORB_CONFIG, PICKUP_RANGE,
   BASE_EXP_TO_LEVEL, EXP_PER_LEVEL, ALL_SKILL_IDS,
-  SKILL_CONFIGS, WAVE_STAGES, BOSS_CONFIG,
-  AUTO_ATTACK_CONFIG, calcTimeScaling,
+  SKILL_CONFIGS, WAVE_STAGES,
+  AUTO_ATTACK_CONFIG, BOSS_CONFIG,
+  calcTimeScaling,
   MonsterType, SkillId, WaveStage, StructureType,
 } from './config';
 import { Player } from './Player';
@@ -72,6 +73,7 @@ export class GameScene extends Phaser.Scene {
   private puddles: Puddle[] = [];
   private expOrbs: ExpOrb[] = [];
   private repairCrates: RepairCrate[] = [];
+  private collidables: {x:number,y:number,radius:number}[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -109,6 +111,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.image('bg', 'assets/bg.png');
+    this.load.image('png_earth', 'assets/earth.png');
+    for(let i=1;i<=9;i++)this.load.image('grass'+i,'assets/精灵-000'+i+'.png');
+    this.load.image('illus_termite','assets/monster_termite.png');
+    this.load.image('illus_wind','assets/monster_wind.png');
+    this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
+    this.load.image('illus_fire','assets/monster_fire.png');
+    this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
+    this.load.image('gj', 'assets/building.png');
     preloadSprites(this);
   }
 
@@ -118,13 +129,15 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.drawBackground();
-    this.placeEnvironmentSprites();
 
     this.building = new Building(
-      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 180,
       BUILDING_CONFIG.structures as any,
     );
+    this.building.graphics.setScale(1.5);
     this.building.onFailure = () => this.endGame(false);
+    // 古建碰撞体
+    this.collidables.push({ x: BUILDING_CONFIG.x, y: BUILDING_CONFIG.y - 180, radius: 180 });
 
     this.player = new Player(
       this, BUILDING_CONFIG.x,
@@ -162,7 +175,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     if (this.isPaused) {
-      // 暂停期间仅更新 HUD（血量条），包含击杀计数
+      // 暂停期间仅更新 HUD（血量条）
       this.hud.update(this.player, this.building, this.gameTime, this.killCount);
       return;
     }
@@ -171,11 +184,13 @@ export class GameScene extends Phaser.Scene {
     const effectiveDelta = this.combatFeel.update(delta, time);
 
     this.player.update(delta); // 玩家始终全速
+    this.resolveCollision(this.player.sprite, 14); // 玩家环境碰撞
 
     // 刷怪（使用有效 delta，Hit Stop 期间暂停生怪）
     const stage = this.getCurrentStage();
     if (stage) {
       this.spawnTimer += effectiveDelta;
+      this.invincibleTimer = Math.max(0, this.invincibleTimer - delta);
       if (this.spawnTimer >= stage.spawnInterval) {
         this.spawnTimer -= stage.spawnInterval;
         this.spawnWave(stage);
@@ -185,6 +200,7 @@ export class GameScene extends Phaser.Scene {
     // 怪物更新（使用有效 delta，Hit Stop 期间怪物几乎冻结）
     for (const m of this.monsters) {
       m.update(time, effectiveDelta);
+      this.resolveCollision(m.sprite, m.radius);
     }
 
     this.checkPlayerMonsterCollision();
@@ -200,7 +216,7 @@ export class GameScene extends Phaser.Scene {
     this.updateAutoAttack(effectiveDelta);
     this.skillManager.update(effectiveDelta, time);
 
-    // ── Boss 预警 & 出场 ── (pipi)
+    // ═══ Boss 预警 & 出场逻辑 ═══
     if (!this.bossWarningDone && this.gameTime <= BOSS_CONFIG.appearTime + BOSS_CONFIG.warnDuration) {
       this.startBossWarning();
     }
@@ -211,10 +227,16 @@ export class GameScene extends Phaser.Scene {
     // Boss 更新
     if (this.boss && this.boss.isActive && !this.boss.isDead) {
       this.boss.update(time, delta);
+      const distToBuilding = Phaser.Math.Distance.Between(
+        this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      );
+      if (distToBuilding < BUILDING_CONFIG.attackRange + 60) {
+        // Boss 接近建筑持续侵蚀
+      }
       this.hud.updateBossHpBar(this.boss.hp, this.boss.maxHp);
     }
 
-    // 水洼/灼烧（全速，不影响玩家移动体验）
+    // 水洼/灼烧
     this.updatePuddles(delta);
     this.building.updateBurn(delta);
 
@@ -237,10 +259,26 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(this.player, this.building, this.gameTime, this.killCount);
   }
 
+  // ── 环境碰撞 ──
+  private resolveCollision(sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, r: number): void {
+    for (const c of this.collidables) {
+      const dx = sprite.x - c.x, dy = sprite.y - c.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const min = r + c.radius;
+      if (dist < min && dist > 0.01) {
+        sprite.x += (dx / dist) * (min - dist);
+        sprite.y += (dy / dist) * (min - dist);
+      }
+    }
+  }
+
   // ── 背景 ──
   private drawBackground(): void {
-    const tex = this.textures.get('background');
-    if (tex) {
+    // 优先使用 PNG 背景图
+    if (this.textures.exists('bg')) {
+      const bgImg = this.add.image(MAP_WIDTH / 2, MAP_HEIGHT / 2, 'bg').setDepth(0);
+      bgImg.setDisplaySize(MAP_WIDTH, MAP_HEIGHT);
+    } else if (this.textures.exists('background')) {
       this.add.image(MAP_WIDTH / 2, MAP_HEIGHT / 2, 'background').setDepth(0);
     } else {
       const bg = this.add.graphics();
@@ -915,13 +953,18 @@ export class GameScene extends Phaser.Scene {
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
       if (d < nearestDist) { nearestDist = d; nearest = m; }
     }
-    // ── Boss 目标检测 ── (pipi)
+    // 检查 Boss 是否比最近怪物更近
     if (this.boss && !this.boss.isDead) {
-      const dBoss = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
-      if (dBoss < nearestDist) {
-        // Boss 更近，使用 Boss 追踪弹
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
+      if (d < nearestDist) { nearestDist = d; }
+    }
+    if (!nearest) {
+      // 没有普通怪物，尝试打 Boss
+      if (this.boss && !this.boss.isDead) {
         SoundManager.autoAttack(this.player.x, this.player.y);
         this.player.applyAttackRecoil();
+        const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
+        bolt.setDepth(12);
         let bossTargetDead = false;
         const bossTarget = {
           x: this.boss.x, y: this.boss.y,
@@ -934,14 +977,10 @@ export class GameScene extends Phaser.Scene {
             bossTargetDead = true;
           },
         };
-        const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
-        bolt.setDepth(12);
         this.autoBolts.push({ graphic: bolt, target: bossTarget as any, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });
-        return;
       }
+      return;
     }
-
-    if (!nearest) return;
     SoundManager.autoAttack(this.player.x, this.player.y);
     this.player.applyAttackRecoil();
     const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
@@ -1098,9 +1137,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── 调试 ──
+  private debugMonsterIndex = 0;
+
   private setupDebugControls(): void {
     const kb = this.input.keyboard;
     if (!kb) return;
+
+    // Q: 快速升级
     kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
+
+    // 空格: 秒杀全屏怪物
+    kb.on('keydown-SPACE', () => {
+      for (const m of this.monsters) {
+        if (!m.isDead) m.takeDamage(9999);
+      }
+    });
+
+    // R: 循环显示下一个怪物科普弹窗
+    const allTypes: MonsterType[] = ['termite', 'wind', 'acid_rain', 'fire', 'freeze_thaw'];
+    kb.on('keydown-R', () => {
+      const type = allTypes[this.debugMonsterIndex % allTypes.length];
+      this.debugMonsterIndex++;
+      this.isPaused = true;
+      this.hud.showMonsterPopup(type, () => { this.isPaused = false; });
+    });
   }
 }
