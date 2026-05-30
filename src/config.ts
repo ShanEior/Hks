@@ -220,6 +220,37 @@ export function calcTimeScaling(elapsedSec: number): {
   };
 }
 
+// ============================================================
+// Boss 配置（灾蚀核心）
+// ============================================================
+
+export const BOSS_CONFIG = {
+  type: 'calamity_core' as const,
+  name: '灾蚀核心',
+  hp: 500,
+  speed: 0.25,             // spec 值，* 60 = 15 px/s
+  damage: 8,                // 每次攻击对每个结构伤害
+  attackInterval: 1500,     // ms
+  radius: 48,               // 像素格
+  color: 0x6611AA,
+  expDrop: 200,
+
+  // 技能
+  earthquakeCooldown: 5000,   // 地震波冷却 ms
+  earthquakeDamage: 6,        // 每个结构地震伤害
+  summonCooldown: 8000,       // 召唤冷却 ms
+  summonCount: 4,             // 每次召唤数量
+  summonType: 'termite' as MonsterType,  // 召唤小怪类型
+  summonHpMult: 0.5,          // 小怪 HP 倍率
+
+  // 出场
+  appearTime: 30,             // 剩余秒数时出场
+  warnDuration: 3,            // 预警秒数
+
+  // 奖励
+  guaranteedCrateCount: 1,    // 必定掉修补箱数量
+} as const;
+
 // ---- 波次阶段（spec 13.4） ----
 export interface WaveStage {
   timeStart: number;

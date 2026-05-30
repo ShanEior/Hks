@@ -156,4 +156,49 @@ export class SoundManager {
     this.playTone(200, 0.3, 'sawtooth', 0.1, 80);
     this.playTone(150, 0.4, 'sawtooth', 0.08, 50);
   }
+
+  // ── Boss 音效 ──
+
+  /** Boss 出场预警 */
+  static bossAlert(): void {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        this.playTone(200, 0.2, 'square', 0.12, 400);
+        this.playTone(300, 0.15, 'square', 0.1, 500);
+      }, i * 500);
+    }
+  }
+
+  /** Boss 出场 */
+  static bossAppear(): void {
+    this.playTone(120, 0.5, 'sawtooth', 0.15, 60);
+    setTimeout(() => this.playTone(200, 0.4, 'sawtooth', 0.12, 80), 200);
+    setTimeout(() => this.playTone(300, 0.3, 'sawtooth', 0.1, 100), 400);
+  }
+
+  /** Boss 地震波 */
+  static bossEarthquake(): void {
+    this.playTone(40, 0.6, 'sawtooth', 0.2, 20);
+    this.playNoise(0.5, 0.1);
+  }
+
+  /** Boss 召唤 */
+  static bossSummon(): void {
+    this.playTone(600, 0.2, 'sine', 0.08, 800);
+    this.playTone(800, 0.15, 'sine', 0.06, 1000);
+    this.playNoise(0.2, 0.05);
+  }
+
+  /** Boss 受击 */
+  static bossHit(): void {
+    this.playTone(100, 0.08, 'square', 0.08, 50);
+    this.playNoise(0.05, 0.04);
+  }
+
+  /** Boss 死亡 */
+  static bossDeath(): void {
+    this.playTone(80, 0.4, 'sawtooth', 0.18, 30);
+    setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.12, 60), 300);
+    setTimeout(() => this.playTone(500, 0.5, 'triangle', 0.15, 800), 600);
+  }
 }

@@ -33,6 +33,12 @@ export class HUD {
   private expFill!: Phaser.GameObjects.Image;
   private expLabel!: Phaser.GameObjects.Text;
 
+  // Boss 血条元素
+  private bossHpBarBg: Phaser.GameObjects.Graphics | null = null;
+  private bossHpBarFill: Phaser.GameObjects.Graphics | null = null;
+  private bossHpLabel: Phaser.GameObjects.Text | null = null;
+  private bossNameLabel: Phaser.GameObjects.Text | null = null;
+
   // 升级面板（动态创建/销毁）
   private levelUpElements: Phaser.GameObjects.GameObject[] = [];
   // 技能弹窗
@@ -134,7 +140,12 @@ export class HUD {
   }
 
   // ── 每帧刷新 ──
-  update(player: Player, building: Building, gameTime: number, killCount: number): void {
+  update(player: Player, building: Building, gameTime: number, killCount = 0): void {
+    // 更新击杀数
+    if (this.killCountText) {
+      this.killCountText.setText(`击杀: ${killCount}`);
+    }
+
     // 古建结构血条（左侧竖排）
     for (const bar of this.structBars) {
       const s = building.getStructure(bar.type);
@@ -178,6 +189,97 @@ export class HUD {
       this.expLabel.setColor('#FFFFFF');
     }
     this.expLabel.setText(`Lv.${player.level}  ${player.exp}/${player.expToNext}`);
+  }
+
+  // ── Boss 血条（屏幕上方中央） ──
+  showBossHpBar(maxHp: number): void {
+    this.hideBossHpBar();
+
+    const cx = GAME_WIDTH / 2;
+    const barY = 72;
+    const barW = 280, barH = 18;
+    const depth = 103;
+
+    // Boss 名称
+    this.bossNameLabel = this.scene.add.text(cx, barY - 22, '⚡ 灾蚀核心 ⚡', {
+      ...FONT.body,
+      color: '#CC66FF',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(depth);
+
+    // 血条底板
+    this.bossHpBarBg = this.scene.add.graphics();
+    this.bossHpBarBg.setScrollFactor(0).setDepth(depth);
+    this.bossHpBarBg.fillStyle(0x330033, 0.9);
+    this.bossHpBarBg.fillRoundedRect(cx - barW / 2, barY, barW, barH, 4);
+    this.bossHpBarBg.lineStyle(2, 0xCC66FF, 1);
+    this.bossHpBarBg.strokeRoundedRect(cx - barW / 2, barY, barW, barH, 4);
+
+    // 血条填充
+    this.bossHpBarFill = this.scene.add.graphics();
+    this.bossHpBarFill.setScrollFactor(0).setDepth(depth + 1);
+
+    // HP 文字
+    this.bossHpLabel = this.scene.add.text(cx, barY + barH / 2, `${maxHp}/${maxHp}`, {
+      ...FONT.small,
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
+
+    // 出场动画：从上滑入
+    if (this.bossNameLabel) {
+      this.bossNameLabel.setAlpha(0);
+      this.scene.tweens.add({
+        targets: this.bossNameLabel,
+        alpha: 1, y: this.bossNameLabel.y + 5, duration: 300, ease: 'Back.easeOut',
+      });
+    }
+  }
+
+  updateBossHpBar(currentHp: number, maxHp: number): void {
+    if (!this.bossHpBarFill || !this.bossHpLabel) return;
+
+    const cx = GAME_WIDTH / 2;
+    const barY = 72;
+    const barW = 280, barH = 18;
+    const ratio = Math.max(0, currentHp / maxHp);
+
+    this.bossHpBarFill.clear();
+
+    // 渐变颜色：HP 高→紫，中→橙，低→红
+    let fillColor = 0xCC44FF;
+    if (ratio < 0.3) {
+      fillColor = 0xFF2244;
+      // 低血量闪烁
+      const alpha = 0.6 + 0.4 * Math.sin(this.scene.time.now * 0.01);
+      this.bossHpBarFill.fillStyle(fillColor, alpha);
+    } else if (ratio < 0.6) {
+      fillColor = 0xFF8844;
+      this.bossHpBarFill.fillStyle(fillColor, 1);
+    } else {
+      this.bossHpBarFill.fillStyle(fillColor, 1);
+    }
+
+    this.bossHpBarFill.fillRoundedRect(cx - barW / 2 + 2, barY + 2, (barW - 4) * ratio, barH - 4, 3);
+
+    // 更新文字
+    this.bossHpLabel.setText(`${currentHp}/${maxHp}`);
+    if (ratio < 0.3) {
+      this.bossHpLabel.setColor('#FF4444');
+    } else if (ratio < 0.6) {
+      this.bossHpLabel.setColor('#FFAA44');
+    } else {
+      this.bossHpLabel.setColor('#FFFFFF');
+    }
+  }
+
+  hideBossHpBar(): void {
+    if (this.bossHpBarBg) { this.bossHpBarBg.destroy(); this.bossHpBarBg = null; }
+    if (this.bossHpBarFill) { this.bossHpBarFill.destroy(); this.bossHpBarFill = null; }
+    if (this.bossHpLabel) { this.bossHpLabel.destroy(); this.bossHpLabel = null; }
+    if (this.bossNameLabel) { this.bossNameLabel.destroy(); this.bossNameLabel = null; }
   }
 
   // ── 升级选择面板（像素风） ──
