@@ -6,6 +6,8 @@ import Phaser from 'phaser';
 import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier, SHAKE_TRAUMA_CONFIG, COMBAT_FEEL_EXTRA } from './config';
 
 export class VFX {
+  private static shakeState = new WeakMap<Phaser.Scene, { lastAt: number }>();
+
   // ═══════════════════════════════════
   // 屏震创伤累积系统 (Nuclear Throne style)
   // ═══════════════════════════════════
@@ -91,12 +93,15 @@ export class VFX {
 
   /** 屏幕震动（累积创伤 + 即时反馈） */
   static shake(scene: Phaser.Scene, intensity = 0.005, duration = 80): void {
-    // 添加到创伤累积器（多个命中叠加，持续屏震）
-    VFX.trauma += intensity;
-    VFX.trauma = Math.min(VFX.trauma, SHAKE_TRAUMA_CONFIG.maxTrauma);
-    VFX.traumaScene = scene;
-    // 同时施加即时微小震动，提供瞬间命中反馈
-    scene.cameras.main.shake(duration, Math.min(intensity, 0.02));
+    const state = VFX.shakeState.get(scene) ?? { lastAt: -Infinity };
+    const now = scene.time.now;
+    const finalIntensity = Math.min(intensity * 0.55, 0.009);
+    const finalDuration = Math.min(Math.round(duration * 0.75), 220);
+
+    if (now - state.lastAt < 90 && finalIntensity <= 0.004) return;
+    state.lastAt = now;
+    VFX.shakeState.set(scene, state);
+    scene.cameras.main.shake(finalDuration, finalIntensity);
   }
 
   /** 镜头短暂闪白 */
@@ -171,7 +176,7 @@ export class VFX {
     VFX.floatText(scene, x + (Math.random() - 0.5) * 4, y, `${Math.round(damage)}`, color, size);
 
     // 微震
-    if (damage >= 15) VFX.shake(scene, 0.002, 50);
+    if (damage >= 18) VFX.shake(scene, 0.0013, 40);
   }
 
   /** 怪物死亡 */
@@ -185,7 +190,7 @@ export class VFX {
     // 冲击波
     VFX.shockwave(scene, x, y, 40, ringColor, 350);
     // 微震
-    VFX.shake(scene, 0.003, 60);
+    VFX.shake(scene, 0.0018, 45);
     // 白色闪光
     const flash = scene.add.circle(x, y, 8, 0xffffff, 1);
     flash.setDepth(39);
@@ -229,7 +234,7 @@ export class VFX {
     VFX.shockwave(scene, x, y, 80, 0xffdd44, 500);
     // 闪光
     VFX.flash(scene, 80);
-    VFX.shake(scene, 0.004, 100);
+    VFX.shake(scene, 0.0022, 70);
   }
 
   // ═══════════════════════════════════
@@ -427,7 +432,7 @@ export class VFX {
     };
     const colors = colorMap[type] ?? [0xcccccc];
     VFX.burst(scene, x, y, 5, colors, 90, 2, 350);
-    VFX.shake(scene, 0.005, 100);
+    VFX.shake(scene, 0.0022, 70);
   }
 
   // ═══════════════════════════════════
@@ -468,7 +473,7 @@ export class VFX {
     const color = damage >= 30 ? '#FF44FF' : '#CC88FF';
     const size = damage >= 30 ? '22px' : '18px';
     VFX.floatText(scene, x, y, `${Math.round(damage)}`, color, size);
-    VFX.shake(scene, 0.004, 80);
+    VFX.shake(scene, 0.0026, 55);
   }
 
   /** Boss 死亡：巨型紫色爆炸 */

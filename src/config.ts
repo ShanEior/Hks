@@ -352,7 +352,7 @@ export const UI_PX = 2;
 export const STRUCT_BAR = { w: 160, h: 14, gap: 10 } as const;
 
 /** 升级卡片尺寸 */
-export const LEVELUP_CARD = { w: 230, h: 250 } as const;
+export const LEVELUP_CARD = { w: 286, h: 340 } as const;
 
 // ============================================================
 // 战斗手感 — 命中点光晕（替代全屏闪白）
