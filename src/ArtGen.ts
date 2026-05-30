@@ -119,7 +119,62 @@ export function generateAllTextures(scene: Phaser.Scene): void {
 }
 
 // ═══════════════════════════════════════════════
+// 夜雀食堂风格草皮生成器
+// ═══════════════════════════════════════════════
+
+/** 生成一张无缝草皮瓦片 (物理像素) */
+function genGrassTile(size: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(size, size);
+
+  // 夜雀食堂草皮调色板 (橄榄绿/棕主色调)
+  const base = [
+    [0x90,0x80,0x40],[0xb0,0xa0,0x60],[0x70,0x50,0x20],
+    [0x90,0x90,0x20],[0x90,0x70,0x40],[0x60,0x80,0x30],
+    [0x70,0x70,0x20],[0x50,0x40,0x10],
+  ];
+  // 权重累积
+  const weights = [35,55,70,78,84,90,95,100];
+
+  const hash = (x: number, y: number): number =>
+    ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
+
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      const h = hash(px, py);
+      const r2 = h % 100;
+      let cidx = 0;
+      for (let w = 0; w < weights.length; w++) {
+        if (r2 < weights[w]) { cidx = w; break; }
+      }
+      const color = base[cidx];
+      // 低对比微调 (±3)
+      const j = ((h % 7) - 3) | 0;
+      const i = (py * size + px) * 4;
+      img.data[i]     = Math.max(0, Math.min(255, color[0] + j));
+      img.data[i + 1] = Math.max(0, Math.min(255, color[1] + j));
+      img.data[i + 2] = Math.max(0, Math.min(255, color[2] + j));
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // 稀疏深色杂点 (3%密度，模拟碎石/草根)
+  for (let i = 0; i < size * size * 0.03; i++) {
+    const sx = hash(i, 99) % size;
+    const sy = hash(88, i) % size;
+    ctx.fillStyle = hash(sx, sy) & 1 ? '#504010' : '#403008';
+    ctx.fillRect(sx, sy, 1 + (hash(sx,sy) & 1), 1 + (hash(sy,sx) & 1));
+  }
+
+  return c;
+}
+
+// ═══════════════════════════════════════════════
 // 背景：山西古建草地 960×540 像素格（=1920×1080 物理px）
+// 夜雀食堂风格草皮 + 古建装饰，树木由 GameScene PNG 精灵放置
 // 全地图单张，不重复平铺
 // ═══════════════════════════════════════════════
 
@@ -127,148 +182,40 @@ function genBackground(scene: Phaser.Scene) {
   const W = 960, H = 540;
   const { canvas, ctx } = makeCanvas(W * PX, H * PX);
 
-  // ── 坐标哈希 ──
-  const hash = (x: number, y: number): number =>
-    ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
-
-  // ── 调色板：暖黄土地 + 斑驳草痕 ──
-  const earth0 = '#C8B080'; // 浅赭黄（远）
-  const earth1 = '#C0A870'; // 暖土黄
-  const earth2 = '#B89860'; // 中土黄
-  const earth3 = '#B09050'; // 暖棕黄
-  const earth4 = '#A08048'; // 深赭黄（近）
-  const earthR = '#9A6040'; // 红褐泥土
-  const earthD = '#8A7050'; // 暗土色
-  const grass0 = '#8A9E6A'; // 灰绿草斑（远）
-  const grass1 = '#7E9460'; // 灰绿草斑
-  const grass2 = '#6E8452'; // 橄榄绿草斑
-  const grass3 = '#6A7E4E'; // 暗橄榄绿
-  const pathC  = '#C4A878'; // 土路
-  const sdDark = '#4E3E26'; // 阴影
-
-  // ── 1. 基底：暖黄土渐变（上淡下暖） ──
-  for (let gy = 0; gy < H; gy++) {
-    const t = gy / H;
-    let c: string;
-    if      (t < 0.15) c = earth0;
-    else if (t < 0.35) c = earth1;
-    else if (t < 0.55) c = earth2;
-    else if (t < 0.75) c = earth3;
-    else               c = earth4;
-    pxHLine(ctx, 0, gy, W, c);
-  }
-
-  // ── 2. 泥土色块：大块不规则斑驳（赭红/暗土/浅棕交替） ──
-  function earthBlotch(bx:number,by:number,bw:number,bh:number,color:string):void{
-    for(let dy=0;dy<bh;dy++){
-      const ww=Math.floor(bw*(1-Math.abs(dy-bh/2)/(bh/2)*0.4));
-      const sx2=bx+Math.floor((bw-ww)/2);
-      for(let dx=0;dx<ww;dx++){
-        const qx=sx2+dx,qy=by+dy;
-        if(qx<0||qx>=W||qy<0||qy>=H)continue;
-        if(hash(qx,qy)%6<4)px(ctx,qx,qy,color);
-      }
-    }
-  }
-  // 赭红色泥土斑
-  for(let i=0;i<35;i++){
-    const bx=hash(i,70)%W,by=hash(80,i)%H;
-    const bw=10+(hash(i,i*7)%20),bh=6+(hash(i*3,i)%10);
-    earthBlotch(bx,by,bw,bh,earthR);
-  }
-  // 暗土色斑
-  for(let i=0;i<45;i++){
-    const bx=hash(i+100,70)%W,by=hash(80,i+100)%H;
-    const bw=8+(hash(i,i*5)%25),bh=5+(hash(i*4,i)%12);
-    earthBlotch(bx,by,bw,bh,earthD);
-  }
-  // 浅棕色亮斑
-  for(let i=0;i<50;i++){
-    const bx=hash(i+200,70)%W,by=hash(80,i+200)%H;
-    const bw=6+(hash(i,i*9)%18),bh=4+(hash(i*2,i)%8);
-    earthBlotch(bx,by,bw,bh,'#D4C098');
-  }
-
-  // ── 3. 云状草斑：不规则灰绿/橄榄绿片区（稀疏覆盖，不占主导） ──
-  function grassCloud(gx:number,gy:number,rw:number,rh:number,color:string):void{
-    for(let dy=-rh;dy<=rh;dy++){
-      const hw=Math.floor(rw*Math.sqrt(Math.max(0,1-(dy/rh)**2))*0.9);
-      for(let dx=-hw;dx<=hw;dx++){
-        const qx=gx+dx,qy=gy+dy;
-        if(qx<0||qx>=W||qy<0||qy>=H)continue;
-        // 边缘稀疏，中心密实
-        const edge=Math.abs(dx)/Math.max(1,hw);
-        if(hash(qx,qy)%100<(edge>0.7?25:edge>0.4?55:80))
-          px(ctx,qx,qy,color);
-      }
-    }
-  }
-  // 灰绿草斑（远景偏灰）
-  for(let i=0;i<30;i++){
-    const gx=hash(i,40)%W,gy=hash(50,i)%H;
-    grassCloud(gx,gy,12+(hash(i,i)%20),8+(hash(i*2,i)%10),grass0);
-  }
-  // 橄榄绿草斑（中景）
-  for(let i=0;i<40;i++){
-    const gx=hash(i+60,40)%W,gy=hash(50,i+60)%H;
-    grassCloud(gx,gy,10+(hash(i,i*3)%22),7+(hash(i*2,i)%12),grass1);
-  }
-  // 暗橄榄草斑（近景偏暖）
-  for(let i=0;i<35;i++){
-    const gx=hash(i+120,40)%W,gy=hash(50,i+120)%H;
-    grassCloud(gx,gy,8+(hash(i,i*5)%18),6+(hash(i*3,i)%8),grass2);
-  }
-
-  // ── 4. 小簇草点（草斑边缘点缀，不是主纹理） ──
-  for(let i=0;i<200;i++){
-    const gx=hash(i,90)%W,gy=hash(100,i)%H;
-    const c=hash(gx,gy)%3===0?grass1:grass2;
-    if(hash(gx+1,gy)%12===0){
-      // 2-4px 小簇
-      const l=2+(hash(gx,gy+1)%2);
-      for(let j=0;j<l&&gx+j<W;j++)px(ctx,gx+j,gy,c);
+  // ── 夜雀食堂风格草皮满铺 ──
+  const grassTile = genGrassTile(128); // 128物理px = 64逻辑px
+  const GT = 64; // 草皮瓦片逻辑尺寸
+  for (let ty = 0; ty < H; ty += GT) {
+    for (let tx = 0; tx < W; tx += GT) {
+      ctx.drawImage(grassTile, tx * PX, ty * PX);
     }
   }
 
-  // ── 5. 土路（纯色，在斑驳地面之上） ──
   const cx = W / 2, cy = H / 2;
-  const pathDefs:[number,number,number,number,number][] = [
-    [cx, cy, cx, H, 14], [cx, cy, cx, 0, 10],
-    [cx, cy, 0, cy, 10], [cx, cy, W, cy, 12],
-    [cx - 60, cy, 0, H, 6], [cx + 60, cy, W, H, 6],
-  ];
-  for (const [sx, sy, ex, ey, pw] of pathDefs) {
-    const len = Math.sqrt((ex - sx) ** 2 + (ey - sy) ** 2);
-    for (let s = 0; s < len; s++) {
-      const t = s / len;
-      const px2 = Math.floor(sx + (ex - sx) * t);
-      const py = Math.floor(sy + (ey - sy) * t);
-      for (let dw = -pw / 2; dw < pw / 2; dw++) {
-        const qx = px2 + Math.floor(dw);
-        const qy = py;
-        if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
-        px(ctx, qx, qy, pathC);
+  const hash = (x: number, y: number): number => ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
+
+  // ── 石板路（深色覆盖模拟路径） ──
+  function drawStoneRoad(sx: number, sy: number, w: number, h: number): void {
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        if (hash(sx+dx, sy+dy) % 3 === 0) {
+          px(ctx, sx+dx, sy+dy, hash(sx+dx, sy+dy) & 1 ? '#9a8e7e' : '#7a6e62');
+        }
       }
     }
   }
+  drawStoneRoad(cx - 8, cy - 8, 16, H - cy + 8);
+  drawStoneRoad(cx - 6, 0, 12, cy + 20);
+  drawStoneRoad(0, cy - 6, cx + 20, 12);
+  drawStoneRoad(cx - 20, cy - 7, W - cx + 20, 14);
+  drawStoneRoad(cx - 70, cy + 60, 16, H - cy - 40);
+  drawStoneRoad(cx + 40, cy + 80, 16, H - cy - 60);
 
-  // ── 4. 黄土斑（稀疏大块，不碎） ──
-  for (let i = 0; i < 60; i++) {
-    const lx = hash(i, 50) % W;
-    const ly = hash(60, i) % H;
-    const r = 3 + (hash(i, i * 3) % 5);
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const qx = lx + dx, qy = ly + dy;
-        if (qx < 0 || qx >= W || qy < 0 || qy >= H) continue;
-        if (Math.abs(dx) + Math.abs(dy) > r + 1) continue;
-        px(ctx, qx, qy, '#C4A870');
-      }
-    }
-  }
-
-  // ── 5. 古建环境元素 ──
-  // 调色板（复用 PAL + 本地补充）
+  // ── 古建环境元素 ──
+  // 调色板
+  const sdDark = '#4E3E26';
+  const stoneColors = ['#bca36f','#b6a078','#c5baab','#b0a690','#c3a98d',
+    '#b5a997','#7f7361','#bfb5a0','#bdae97','#a69886','#b69d72','#998777'];
   const wTile   = '#6E6058'; // 灰瓦
   const wTileL  = '#7E7068'; // 灰瓦亮
   const wWood   = '#5A3828'; // 深棕木
@@ -437,7 +384,7 @@ function genBackground(scene: Phaser.Scene) {
           for (let dh = -1; dh <= 1; dh++) {
             const rx = qx + Math.floor(dw), ry = qy + dh;
             if (rx<0||rx>=W||ry<0||ry>=H) continue;
-            if (hash(rx,ry) % 5 < 3) px(ctx, rx, ry, pathC);
+            if (hash(rx,ry) % 5 < 3) px(ctx, rx, ry, stoneColors[hash(rx,ry)%stoneColors.length]);
           }
         }
       }
@@ -467,7 +414,7 @@ function genBackground(scene: Phaser.Scene) {
   const plazaR=40;
   for(let dy=-plazaR;dy<plazaR;dy++)for(let dx=-plazaR;dx<plazaR;dx++)
     if(Math.abs(dx)+Math.abs(dy)<plazaR&&hash(cx+dx,cy+dy)%5<3)
-      px(ctx,cx+dx,cy+dy,pathC);
+      px(ctx,cx+dx,cy+dy,stoneColors[hash(cx+dx,cy+dy)%stoneColors.length]);
   drawStonePath([[cx,cy],[cx,490] as any],12);
   drawStonePath([[cx,cy],[cx,50] as any],10);
   drawStonePath([[cx,cy],[10,cy] as any],10);
@@ -537,6 +484,7 @@ function genBackground(scene: Phaser.Scene) {
   shadow(W-200,500,8,6);drawIncenseBurner(W-200,500);
   shadow(380,510,12,8);drawSmallGate(380,510,0.85);
   shadow(580,495,6,4);drawStoneLantern(580,495);
+
 
   // ── 7. 底部暗角 ──
   for (let gy = H - 20; gy < H; gy++) {

@@ -16,6 +16,7 @@ import { SkillManager } from './SkillManager';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 import { generateAllTextures } from './ArtGen';
+import { preloadSprites, nthKey } from './SpriteLoader';
 
 // ── 水洼 ──
 interface Puddle {
@@ -98,12 +99,17 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  preload(): void {
+    preloadSprites(this);
+  }
+
   create(): void {
-    // 生成全部精灵纹理
+    // 生成全部程序化精灵纹理（玩家、怪物、古建、UI等）
     generateAllTextures(this);
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.drawBackground();
+    this.placeEnvironmentSprites();
 
     this.building = new Building(
       this, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
@@ -188,16 +194,94 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(this.player, this.building, this.gameTime);
   }
 
-  // ── 背景（全地图单张，不重复） ──
+  // ── 背景 ──
   private drawBackground(): void {
     const tex = this.textures.get('background');
     if (tex) {
       this.add.image(MAP_WIDTH / 2, MAP_HEIGHT / 2, 'background').setDepth(0);
     } else {
       const bg = this.add.graphics();
-      bg.fillStyle(0x2d5a1e, 1);
+      bg.fillStyle(0x4a6530, 1);
       bg.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
       bg.setDepth(0);
+    }
+  }
+
+  // ── 树 + 石头精灵 ──
+  private placeEnvironmentSprites(): void {
+    const cx = MAP_WIDTH / 2, cy = MAP_HEIGHT / 2;
+    const hash = (x: number, y: number): number =>
+      ((x * 374761393 + y * 668265263) ^ 0x5bf03635) >>> 0;
+
+    // ── 石头稀疏散布 ──
+    let gi = 0;
+    for (let i = 0; i < 40; i++) {
+      const gx = hash(i+999, 30) % MAP_WIDTH;
+      const gy = hash(40, i+999) % MAP_HEIGHT;
+      if (Math.abs(gy-cy) < 50 && Math.abs(gx-cx) < 50) continue;
+      if (hash(gx+1, gy+1) % 12 > 0) continue;
+      const key = nthKey('ground', gi);
+      if (!this.textures.exists(key)) continue;
+      this.add.image(gx, gy, key)
+        .setScale(0.5 + (hash(gx,gy) % 100) / 100 * 0.6)
+        .setDepth(1);
+      gi++;
+    }
+
+    // ═══ 第 4 层：树木 ═══
+    const treeSpots: [number, number, number, number, boolean][] = [
+      [420,340,0.6,2,false],[1540,330,0.55,2,true],[720,310,0.5,2,false],
+      [1300,320,0.55,2,true],[900,330,0.5,2,true],[1080,325,0.55,2,false],
+      [340,480,0.55,2,true],[1600,470,0.5,2,false],
+      [260,620,0.75,3,true],[1660,600,0.7,3,false],[560,580,0.65,3,false],
+      [1440,590,0.7,3,true],[760,640,0.65,3,true],[1200,630,0.7,3,false],
+      [140,700,0.8,3,false],[1760,690,0.75,3,true],
+      [220,780,0.75,3,false],[1720,770,0.8,3,true],
+      [180,880,0.95,4,false],[1720,860,0.9,4,true],
+      [420,900,0.9,4,true],[1560,920,0.85,4,false],
+      [700,940,0.85,4,false],[1300,930,0.9,4,true],
+      [100,1000,1.05,4,false],[1820,980,1.0,4,true],
+      [520,1050,0.95,4,true],[1400,1030,0.9,4,false],
+      [900,1070,0.85,4,true],[1080,1065,0.9,4,false],
+    ];
+    let ti = 0;
+    for (const [tx, ty, s, d, flip] of treeSpots) {
+      if (Math.abs(ty-cy)<80 && Math.abs(tx-cx)<80) continue;
+      const key = nthKey('trees', ti);
+      if (!this.textures.exists(key)) continue;
+      const img = this.add.image(tx, ty, key);
+      img.setScale(s).setDepth(d);
+      if (flip) img.setFlipX(true);
+      ti++;
+    }
+
+    // ═══ 第 5 层：竹子 ═══
+    const bSpot: [number, number, number, number][] = [
+      [640,720,0.65,3],[1360,710,0.6,3],
+      [600,960,0.8,4],[1400,950,0.75,4],
+      [540,1080,0.95,4],[1480,1060,0.9,4],
+    ];
+    let bi = 0;
+    for (const [bx, by, s, d] of bSpot) {
+      const key = nthKey('bamboo', bi);
+      if (this.textures.exists(key))
+        this.add.image(bx, by, key).setScale(s).setDepth(d);
+      bi++;
+    }
+
+    // ═══ 第 6 层：山脉远景 ═══
+    const mSpot: [number, number, number, number][] = [
+      [200,250,0.3,0],[600,240,0.28,0],[1000,250,0.32,0],
+      [1400,245,0.27,0],[1700,240,0.3,0],
+      [100,400,0.35,1],[1800,390,0.33,1],
+      [300,500,0.4,1],[1600,490,0.38,1],
+    ];
+    let mi = 0;
+    for (const [mx, my, s, d] of mSpot) {
+      const key = nthKey('mountain', mi);
+      if (this.textures.exists(key))
+        this.add.image(mx, my, key).setScale(s).setDepth(d);
+      mi++;
     }
   }
 
