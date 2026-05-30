@@ -14,7 +14,7 @@ const MANIFEST: Record<string, string[]> = {
   trees: [
     'Trees01_0','Trees01_10','Trees01_11','Trees01_12','Trees01_13',
     'Trees01_14','Trees01_15','Trees01_16','Trees01_18','Trees01_19',
-    'Trees01_25','Trees01_5','Trees01_6','Trees01_7','Trees01_9',
+    'Trees01_25','Trees01_5','Trees01_6','Trees01_7',
   ],
   bamboo: [
     'Garden_Bamboo_15','Garden_Bamboo_4',
@@ -40,7 +40,7 @@ const MANIFEST: Record<string, string[]> = {
     'collection_45','collection_46','collection_47','collection_48','collection_49',
     'collection_50','collection_51','collection_52','collection_53','collection_54',
     'collection_55','collection_56','collection_57','collection_58','collection_59',
-    'collection_60','钓鱼水箱',
+    '钓鱼水箱',
   ],
   ground_tex: [
     '2048x2048-BC7-Map_HumanVillage_Atlas_Main',
