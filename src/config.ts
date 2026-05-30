@@ -454,3 +454,108 @@ export const MONSTER_DEATH_AUDIO: Record<MonsterType, {
   fire:        { thumpFreq: 70,  bodyFreq: 180, crunchHighpass: 1500, duration: 0.22, volume: 0.09 },
   freeze_thaw: { thumpFreq: 50,  bodyFreq: 150, crunchHighpass: 600,  duration: 0.35, volume: 0.07 },
 } as const;
+
+// ============================================================
+// Batch 3 — 元素颜色体系（命中反馈 + 粒子 + 伤害数字统一）
+// ============================================================
+
+/** 怪物类型 → 元素反馈颜色映射
+ *  参照 Death Must Die 9 神体系 + Diablo 4 元素辨识设计
+ *  flash: 命中闪光色 = lerp(elementColor, white, 0.7)
+ *  particles: 粒子色阶（深→浅）
+ *  damageColor: 浮动数字 CSS 色
+ */
+export const ELEMENT_COLORS: Record<MonsterType, {
+  flash: number;
+  particles: number[];
+  damageColor: string;
+  theme: 'physical' | 'fire' | 'ice' | 'nature';
+}> = {
+  termite: {
+    flash: 0xEEEEEE,
+    particles: [0xDDDDDD, 0xCCBB99, 0xFFFFFF],
+    damageColor: '#DDDDDD',
+    theme: 'physical',
+  },
+  wind: {
+    flash: 0xEEEEDD,
+    particles: [0xDDCC88, 0xEEEECC, 0xFFFFFF],
+    damageColor: '#DDCC88',
+    theme: 'physical',
+  },
+  acid_rain: {
+    flash: 0xAAFFAA,
+    particles: [0x44CC44, 0x66EE66, 0xAAFFAA],
+    damageColor: '#66EE66',
+    theme: 'nature',
+  },
+  fire: {
+    flash: 0xFFAA66,
+    particles: [0xFF6633, 0xFF8844, 0xFFCC44, 0xFF4444],
+    damageColor: '#FF8844',
+    theme: 'fire',
+  },
+  freeze_thaw: {
+    flash: 0xAADDFF,
+    particles: [0x6699FF, 0x88BBFF, 0xCCEEFF, 0xFFFFFF],
+    damageColor: '#88BBFF',
+    theme: 'ice',
+  },
+} as const;
+
+// ============================================================
+// Batch 3 — 伤害数字信息层级
+// ============================================================
+
+export interface DamageNumberStyle {
+  color: string;
+  size: string;
+  scale: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+export const DAMAGE_NUMBER_CONFIG = {
+  normal:  { color: '#FFFFFF', size: '14px', scale: 1.0 },
+  heavy:   { color: '#FFAA44', size: '16px', scale: 1.2 },
+  crit:    { color: '#FF6600', size: '20px', scale: 1.5, suffix: '!' },
+  kill:    { color: '#FF4444', size: '18px', scale: 1.3, prefix: '击杀 ' },
+  boss:    { color: '#CC44FF', size: '22px', scale: 1.4 },
+  heal:    { color: '#44FF66', size: '14px', scale: 1.0, prefix: '+' },
+} as const;
+
+export type DamageNumberTier = keyof typeof DAMAGE_NUMBER_CONFIG;
+
+// ============================================================
+// Batch 3 — 屏震创伤累积系统（参照 Nuclear Throne）
+// ============================================================
+
+export const SHAKE_TRAUMA_CONFIG = {
+  /** 每点伤害增加的创伤值 */
+  traumaPerDamage: 0.008,
+  /** 每帧衰减系数 */
+  decayPerFrame: 0.88,
+  /** 最大创伤（对应最大屏震幅度） */
+  maxTrauma: 0.025,
+  /** 最小有效创伤（低于此值归零） */
+  minTrauma: 0.0005,
+  /** 创伤→屏震强度映射系数 */
+  intensityScale: 1.0,
+} as const;
+
+// ============================================================
+// Batch 3 — CombatFeel 扩展配置
+// ============================================================
+
+export const COMBAT_FEEL_EXTRA = {
+  /** Hit Stop 期间返回的最小有效 delta（原来是硬编码 0.05） */
+  minEffectiveDelta: 0.05,
+  /** 扩散环基础缩放 */
+  shockwaveBaseScale: 0.8,
+  /** 扩散环伤害映射上限对应的伤害值 */
+  shockwaveMaxDamageRef: 80,
+  /** 暴击扩散环倍数 */
+  shockwaveCritMult: 2.0,
+  /** Boss 扩散环倍数 */
+  shockwaveBossMult: 3.0,
+} as const;
