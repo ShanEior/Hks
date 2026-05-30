@@ -22,7 +22,8 @@ function makeCanvas(w: number, h: number) {
 }
 
 function addTex(scene: Phaser.Scene, key: string, canvas: HTMLCanvasElement) {
-  if (scene.textures.exists(key)) scene.textures.remove(key);
+  // PNG 贴图优先，程序化纹理不覆盖
+  if (scene.textures.exists(key)) return;
   scene.textures.addCanvas(key, canvas);
 }
 

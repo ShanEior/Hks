@@ -73,6 +73,7 @@ export class GameScene extends Phaser.Scene {
   private puddles: Puddle[] = [];
   private expOrbs: ExpOrb[] = [];
   private repairCrates: RepairCrate[] = [];
+  private collidables: {x:number,y:number,radius:number}[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -118,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
     this.load.image('illus_fire','assets/monster_fire.png');
     this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
+    this.load.image('gj', 'assets/building.png');
     preloadSprites(this);
   }
 
@@ -129,10 +131,13 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
 
     this.building = new Building(
-      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
+      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 180,
       BUILDING_CONFIG.structures as any,
     );
+    this.building.graphics.setScale(1.5);
     this.building.onFailure = () => this.endGame(false);
+    // 古建碰撞体
+    this.collidables.push({ x: BUILDING_CONFIG.x, y: BUILDING_CONFIG.y - 180, radius: 180 });
 
     this.player = new Player(
       this, BUILDING_CONFIG.x,
@@ -179,6 +184,7 @@ export class GameScene extends Phaser.Scene {
     const effectiveDelta = this.combatFeel.update(delta, time);
 
     this.player.update(delta); // 玩家始终全速
+    this.resolveCollision(this.player.sprite, 14); // 玩家环境碰撞
 
     // 刷怪（使用有效 delta，Hit Stop 期间暂停生怪）
     const stage = this.getCurrentStage();
@@ -194,6 +200,7 @@ export class GameScene extends Phaser.Scene {
     // 怪物更新（使用有效 delta，Hit Stop 期间怪物几乎冻结）
     for (const m of this.monsters) {
       m.update(time, effectiveDelta);
+      this.resolveCollision(m.sprite, m.radius);
     }
 
     this.checkPlayerMonsterCollision();
@@ -250,6 +257,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.hud.update(this.player, this.building, this.gameTime, this.killCount);
+  }
+
+  // ── 环境碰撞 ──
+  private resolveCollision(sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, r: number): void {
+    for (const c of this.collidables) {
+      const dx = sprite.x - c.x, dy = sprite.y - c.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const min = r + c.radius;
+      if (dist < min && dist > 0.01) {
+        sprite.x += (dx / dist) * (min - dist);
+        sprite.y += (dy / dist) * (min - dist);
+      }
+    }
   }
 
   // ── 背景 ──

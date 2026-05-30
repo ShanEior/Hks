@@ -50,8 +50,9 @@ export class Building {
       });
     }
 
-    // 使用生成的精灵纹理
-    this.graphics = scene.add.image(x, y, 'building');
+    // 优先使用 PNG 贴图，fallback 程序化纹理
+    const texKey = scene.textures.exists('gj') ? 'gj' : 'building';
+    this.graphics = scene.add.image(x, y, texKey);
     this.graphics.setDepth(3);
   }
 
