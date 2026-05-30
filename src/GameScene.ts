@@ -1,4 +1,4 @@
-﻿import Phaser from 'phaser';
+import Phaser from 'phaser';
 import {
   MAP_WIDTH, MAP_HEIGHT, GAME_WIDTH, GAME_HEIGHT, GAME_DURATION,
   PLAYER_CONFIG, BUILDING_CONFIG, MONSTER_TEMPLATES,
@@ -6,6 +6,7 @@ import {
   EXP_ORB_CONFIG, PICKUP_RANGE,
   BASE_EXP_TO_LEVEL, EXP_PER_LEVEL, ALL_SKILL_IDS,
   SKILL_CONFIGS, WAVE_STAGES,
+  calcTimeScaling,
   MonsterType, SkillId, WaveStage,
 } from './config';
 import { Player } from './Player';
@@ -316,10 +317,15 @@ export class GameScene extends Phaser.Scene {
     const sx = MAP_WIDTH / 2 + Math.cos(angle) * SPAWN_DISTANCE;
     const sy = MAP_HEIGHT / 2 + Math.sin(angle) * SPAWN_DISTANCE;
 
+    // 根据已过时间计算敌怪强化倍率
+    const elapsed = GAME_DURATION - this.gameTime;
+    const scaling = calcTimeScaling(elapsed);
+
     const monster = new Monster(
       this, sx, sy, template,
       BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       BUILDING_CONFIG.attackRange,
+      scaling,
     );
 
     monster.onAttack = (m) => {

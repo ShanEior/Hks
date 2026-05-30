@@ -59,35 +59,35 @@ export const MONSTER_TEMPLATES: Record<MonsterType, MonsterTemplate> = {
     hp: 8, speed: 0.5, damage: 2,
     attackInterval: 1000,
     attackStructures: ['wood'],
-    color: 0xDDDDDD, radius: 8, expDrop: 1,
+    color: 0xDDDDDD, radius: 8, expDrop: 8,
   },
   wind: {
     type: 'wind', name: '风蚀怪',
     hp: 12, speed: 0.6, damage: 3,
     attackInterval: 1200,
     attackStructures: ['stone', 'painting'],
-    color: 0xDDCC88, radius: 10, expDrop: 2,
+    color: 0xDDCC88, radius: 10, expDrop: 12,
   },
   acid_rain: {
     type: 'acid_rain', name: '酸雨怪',
     hp: 15, speed: 0.4, damage: 3,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
-    color: 0x44CC44, radius: 11, expDrop: 3,
+    color: 0x44CC44, radius: 11, expDrop: 8,
   },
   fire: {
     type: 'fire', name: '火焰怪',
     hp: 18, speed: 0.7, damage: 4,
     attackInterval: 1500,
     attackStructures: ['wood', 'painting'],
-    color: 0xFF6633, radius: 12, expDrop: 4,
+    color: 0xFF6633, radius: 12, expDrop: 10,
   },
   freeze_thaw: {
     type: 'freeze_thaw', name: '冻融怪',
     hp: 25, speed: 0.3, damage: 5,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
-    color: 0x6699FF, radius: 14, expDrop: 5,
+    color: 0x6699FF, radius: 14, expDrop: 12,
   },
 };
 
@@ -186,6 +186,39 @@ export const EXP_ORB_CONFIG = {
 export const ALL_SKILL_IDS: SkillId[] = [
   'wood_reinforce', 'stone_repair', 'waterproof', 'insect_control', 'painting_restore',
 ];
+
+// ---- 敌怪时间缩放 ----
+// 让敌怪随时间变强：基础值 × (1 + growthRate × 经过分钟数)
+// 例如经过 3 分钟时，termite 的 HP = 8 × (1 + 0.35 × 3) ≈ 16.4
+export interface TimeScaling {
+  hpGrowthPerMin: number;     // HP 每分钟增长系数
+  damageGrowthPerMin: number; // 伤害每分钟增长系数
+  speedGrowthPerMin: number;  // 速度每分钟增长系数
+  expGrowthPerMin: number;    // 经验每分钟增长系数
+}
+
+export const TIME_SCALING: TimeScaling = {
+  hpGrowthPerMin: 0.35,      // 5分钟时 ≈ 2.75x
+  damageGrowthPerMin: 0.20,  // 5分钟时 ≈ 2.0x
+  speedGrowthPerMin: 0.08,   // 5分钟时 ≈ 1.4x
+  expGrowthPerMin: 0.35,     // 和经验挂钩，5分钟时 ≈ 2.75x
+};
+
+/** 根据已过秒数计算当前缩放倍率 */
+export function calcTimeScaling(elapsedSec: number): {
+  hpMult: number;
+  damageMult: number;
+  speedMult: number;
+  expMult: number;
+} {
+  const t = elapsedSec / 60; // 转换为分钟
+  return {
+    hpMult:     1 + TIME_SCALING.hpGrowthPerMin      * t,
+    damageMult: 1 + TIME_SCALING.damageGrowthPerMin  * t,
+    speedMult:  1 + TIME_SCALING.speedGrowthPerMin   * t,
+    expMult:    1 + TIME_SCALING.expGrowthPerMin     * t,
+  };
+}
 
 // ---- 波次阶段（spec 13.4） ----
 export interface WaveStage {

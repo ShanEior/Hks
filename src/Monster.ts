@@ -3,6 +3,14 @@ import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR } from './con
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
+/** 时间缩放因子，用于让敌怪随时间变强 */
+export interface TimeScalingFactors {
+  hpMult: number;
+  damageMult: number;
+  speedMult: number;
+  expMult: number;
+}
+
 /** 怪物颜色映射表（用于无纹理时的圆形占位 + 受击闪回） */
 const MONSTER_COLORS: Record<string, number> = {
   termite: 0xDDDDDD,
@@ -42,22 +50,27 @@ export class Monster {
   /** 接触玩家时触发（用于控制效果） */
   onPlayerContact: ((monster: Monster) => void) | null = null;
 
+  /** 记录应用的时间缩放因子，用于显示"经过强化的敌怪"效果 */
+  readonly timeScale: TimeScalingFactors;
+
   constructor(
     scene: Phaser.Scene,
     x: number, y: number,
     template: MonsterTemplate,
     targetX: number, targetY: number,
     attackRange: number,
+    timeScale?: TimeScalingFactors,
   ) {
     this.scene = scene;
     this.type = template.type;
-    this.hp = template.hp;
-    this.maxHp = template.hp;
-    this.speed = template.speed * SPEED_FACTOR;
-    this.damage = template.damage;
+    this.timeScale = timeScale ?? { hpMult: 1, damageMult: 1, speedMult: 1, expMult: 1 };
+    this.hp = Math.round(template.hp * this.timeScale.hpMult);
+    this.maxHp = this.hp;
+    this.speed = template.speed * SPEED_FACTOR * this.timeScale.speedMult;
+    this.damage = Math.round(template.damage * this.timeScale.damageMult);
     this.attackInterval = template.attackInterval;
     this.attackStructures = [...template.attackStructures];
-    this.expDrop = template.expDrop;
+    this.expDrop = Math.round(template.expDrop * this.timeScale.expMult);
     this.targetX = targetX;
     this.targetY = targetY;
     this.attackRange = attackRange;
