@@ -230,13 +230,13 @@ export class Monster {
     // ── 音效 + VFX：致命一击跳过命中反馈，由死亡反馈统一接管 ──
     if (!willDie) {
       SoundManager.hitMonster(this.sprite.x, this.sprite.y);
-      VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY);
+      VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY, this.type);
       this.onDamageFeedback?.(this, amount);
     }
 
     if (this.hp <= 0) {
       this.hp = 0;
-      SoundManager.killMonster(this.type);
+      SoundManager.killMonster(this.type, this.sprite.x);
       this.die(true);
       return true;
     }
@@ -251,7 +251,7 @@ export class Monster {
     if (this.idleTween) { this.idleTween.stop(); this.idleTween = null; }
 
     const color = MONSTER_COLORS[this.type] ?? 0xDDDDDD;
-    VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color);
+    VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color, this.type);
 
     // ── 3 阶段死亡动画 ──
     // 阶段 1 (0-60ms)：闪白定格

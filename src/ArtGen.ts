@@ -118,6 +118,17 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   genRepairCrate(scene);
   genSkillTextures(scene);
   genUIAllTextures(scene);
+  // Batch 3: GPU 粒子系统用 4×4 白色像素纹理
+  genPxWhite(scene);
+}
+
+/** Batch 3: 生成 4×4 白色像素纹理，供 ParticleEmitter 使用 */
+function genPxWhite(scene: Phaser.Scene): void {
+  const canvas = scene.textures.createCanvas('px_white', 4, 4);
+  const ctx = canvas!.getContext();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, 4, 4);
+  canvas!.refresh();
 }
 
 // ═══════════════════════════════════════════════

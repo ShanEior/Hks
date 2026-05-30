@@ -302,17 +302,18 @@ export class SoundManager {
     this.playNoise(0.04, 0.03, 600, undefined, undefined, undefined, 0.1, pan, pri);
   }
 
-  static killMonster(monsterType: MonsterType = 'termite'): void {
+  static killMonster(monsterType: MonsterType = 'termite', x = 0, _y = 0): void {
     if (!this.dedup('kill')) return;
     const mat = MONSTER_DEATH_AUDIO[monsterType];
     const pri = SOUND_CONFIG.voicePool.PRI_IMPORTANT;
+    const pan = this.worldPan(x);
     this.playImpact({
       thumpFreq: mat.thumpFreq, thumpVol: mat.volume,
       bodyFreq: mat.bodyFreq, bodyVol: mat.volume * 0.5, bodyType: 'sawtooth',
       crackHighpass: mat.crunchHighpass, crackVol: mat.volume * 0.7,
-      duration: mat.duration, priority: pri,
+      duration: mat.duration, priority: pri, pan,
     });
-    this.playNoise(0.18, 0.04, 600, 300, undefined, 2, 0.1, 0, pri);
+    this.playNoise(0.18, 0.04, 600, 300, undefined, 2, 0.1, pan, pri);
   }
 
   static autoAttack(x = 0, _y = 0): void {
@@ -522,44 +523,50 @@ export class SoundManager {
 
   /** Boss 出场预警 */
   static bossAlert(): void {
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
     for (let i = 0; i < 3; i++) {
       setTimeout(() => {
-        this.playTone(200, 0.2, 'square', 0.12, 400);
-        this.playTone(300, 0.15, 'square', 0.1, 500);
+        this.playTone(200, 0.2, 'square', 0.12, 400, undefined, undefined, undefined, undefined, undefined, pri);
+        this.playTone(300, 0.15, 'square', 0.1, 500, undefined, undefined, undefined, undefined, undefined, pri);
       }, i * 500);
     }
   }
 
   /** Boss 出场 */
   static bossAppear(): void {
-    this.playTone(120, 0.5, 'sawtooth', 0.15, 60);
-    setTimeout(() => this.playTone(200, 0.4, 'sawtooth', 0.12, 80), 200);
-    setTimeout(() => this.playTone(300, 0.3, 'sawtooth', 0.1, 100), 400);
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    this.playTone(120, 0.5, 'sawtooth', 0.15, 60, undefined, undefined, undefined, undefined, undefined, pri);
+    setTimeout(() => this.playTone(200, 0.4, 'sawtooth', 0.12, 80, undefined, undefined, undefined, undefined, undefined, pri), 200);
+    setTimeout(() => this.playTone(300, 0.3, 'sawtooth', 0.1, 100, undefined, undefined, undefined, undefined, undefined, pri), 400);
   }
 
   /** Boss 地震波 */
   static bossEarthquake(): void {
-    this.playTone(40, 0.6, 'sawtooth', 0.2, 20);
-    this.playNoise(0.5, 0.1);
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    this.playTone(40, 0.6, 'sawtooth', 0.2, 20, undefined, undefined, undefined, undefined, undefined, pri);
+    this.playNoise(0.5, 0.1, undefined, undefined, undefined, undefined, undefined, undefined, pri);
   }
 
   /** Boss 召唤 */
   static bossSummon(): void {
-    this.playTone(600, 0.2, 'sine', 0.08, 800);
-    this.playTone(800, 0.15, 'sine', 0.06, 1000);
-    this.playNoise(0.2, 0.05);
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    this.playTone(600, 0.2, 'sine', 0.08, 800, undefined, undefined, undefined, undefined, undefined, pri);
+    this.playTone(800, 0.15, 'sine', 0.06, 1000, undefined, undefined, undefined, undefined, undefined, pri);
+    this.playNoise(0.2, 0.05, undefined, undefined, undefined, undefined, undefined, undefined, pri);
   }
 
   /** Boss 受击 */
   static bossHit(): void {
-    this.playTone(100, 0.08, 'square', 0.08, 50);
-    this.playNoise(0.05, 0.04);
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    this.playTone(100, 0.08, 'square', 0.08, 50, undefined, undefined, undefined, undefined, undefined, pri);
+    this.playNoise(0.05, 0.04, undefined, undefined, undefined, undefined, undefined, undefined, pri);
   }
 
   /** Boss 死亡 */
   static bossDeath(): void {
-    this.playTone(80, 0.4, 'sawtooth', 0.18, 30);
-    setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.12, 60), 300);
-    setTimeout(() => this.playTone(500, 0.5, 'triangle', 0.15, 800), 600);
+    const pri = SOUND_CONFIG.voicePool.PRI_CRITICAL;
+    this.playTone(80, 0.4, 'sawtooth', 0.18, 30, undefined, undefined, undefined, undefined, undefined, pri);
+    setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.12, 60, undefined, undefined, undefined, undefined, undefined, pri), 300);
+    setTimeout(() => this.playTone(500, 0.5, 'triangle', 0.15, 800, undefined, undefined, undefined, undefined, undefined, pri), 600);
   }
 }

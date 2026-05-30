@@ -3,37 +3,37 @@
  * 命中反馈、死亡爆破、升级庆祝、碎屑粒子、屏幕震动
  */
 import Phaser from 'phaser';
-import { MAP_WIDTH, MAP_HEIGHT } from './config';
+import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier } from './config';
 
 export class VFX {
   // ═══════════════════════════════════
   // 粒子工具
   // ═══════════════════════════════════
 
-  /** 发射一组彩色粒子爆散 */
+  /** 发射一组彩色粒子爆散（GPU 批处理，单次 draw call） */
   static burst(
     scene: Phaser.Scene, x: number, y: number,
     count: number, colors: number[], speed = 120, size = 3, lifetime = 400,
   ): void {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const spd = speed * (0.5 + Math.random());
-      const c = colors[Math.floor(Math.random() * colors.length)];
-      const p = scene.add.circle(x, y, size, c, 1);
-      p.setDepth(40);
-      const cleanup = () => { if (p.active) p.destroy(); };
-      scene.tweens.add({
-        targets: p,
-        x: x + Math.cos(angle) * spd * (lifetime / 1000),
-        y: y + Math.sin(angle) * spd * (lifetime / 1000),
-        alpha: 0,
-        scale: 0.2,
-        duration: lifetime,
-        ease: 'Power2',
-        onComplete: cleanup,
-        onStop: cleanup,
-      });
-    }
+    // 确保粒子纹理存在
+    if (!scene.textures.exists('px_white')) return;
+
+    const emitter = scene.add.particles(x, y, 'px_white', {
+      speed: { min: speed * 0.3, max: speed },
+      scale: { start: size / 4, end: size / 4 * 0.2 },
+      alpha: { start: 1, end: 0 },
+      lifespan: lifetime,
+      tint: colors,
+      emitting: false,
+      gravityY: 80,
+    });
+    emitter.setDepth(40);
+    emitter.explode(count);
+
+    // 粒子全部消失后自动清理 emitter
+    scene.time.delayedCall(lifetime + 200, () => {
+      if (emitter && emitter.active) emitter.destroy();
+    });
   }
 
   /** 冲击波扩散圈 */
@@ -83,29 +83,69 @@ export class VFX {
     });
   }
 
+  /** 特殊标记浮动文字（击杀确认/暴击/Boss） */
+  static floatSpecial(
+    scene: Phaser.Scene, x: number, y: number,
+    tier: DamageNumberTier,
+  ): void {
+    const cfg = DAMAGE_NUMBER_CONFIG[tier];
+    let text = '';
+    if ('prefix' in cfg && cfg.prefix) text += cfg.prefix;
+    if ('suffix' in cfg && cfg.suffix) text += cfg.suffix;
+    if (!text) return;
+
+    const t = scene.add.text(x + (Math.random() - 0.5) * 12, y - 12, text, {
+      fontSize: cfg.size, color: cfg.color, fontFamily: 'monospace',
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(50);
+
+    // 弹入动画
+    t.setScale(0.3);
+    scene.tweens.add({
+      targets: t, scale: cfg.scale, duration: 150, ease: 'Back.easeOut',
+    });
+
+    const cleanup = () => { if (t.active) t.destroy(); };
+    scene.tweens.add({
+      targets: t, y: t.y - 28, alpha: 0, duration: 600, delay: 200, ease: 'Power2',
+      onComplete: cleanup, onStop: cleanup,
+    });
+  }
+
   // ═══════════════════════════════════
   // 战斗反馈
   // ═══════════════════════════════════
 
   /** 怪物受击反馈 */
-  static hitMonster(scene: Phaser.Scene, x: number, y: number, damage: number, _attackerX?: number, _attackerY?: number): void {
-    // 白碎屑
-    VFX.burst(scene, x, y, 3, [0xffffff, 0xcccccc], 60, 2, 200);
-    // 伤害数字（大伤害红色，偶数字号）
-    const color = damage >= 20 ? '#ff4444' : damage >= 10 ? '#ffaa44' : '#ffffff';
-    const size = damage >= 20 ? '16px' : '14px';
-    // 微小随机抖动（复古像素感）
+  static hitMonster(scene: Phaser.Scene, x: number, y: number, damage: number, _attackerX?: number, _attackerY?: number, monsterType?: MonsterType): void {
+    const elem = monsterType ? ELEMENT_COLORS[monsterType] : null;
+    const particleColors = elem ? elem.particles : [0xffffff, 0xcccccc];
+    const baseColor = elem ? elem.damageColor : '#ffffff';
+
+    // 元素色碎屑
+    VFX.burst(scene, x, y, 3, particleColors, 60, 2, 200);
+
+    // 伤害数字（按伤害值分层 + 元素底色）
+    const tier: DamageNumberTier = damage >= 30 ? 'heavy' : 'normal';
+    const style = DAMAGE_NUMBER_CONFIG[tier];
+    const color = damage >= 20 ? '#ff4444' : damage >= 10 ? '#ffaa44' : baseColor;
+    const size = style.size;
     VFX.floatText(scene, x + (Math.random() - 0.5) * 4, y, `${Math.round(damage)}`, color, size);
+
     // 微震
     if (damage >= 15) VFX.shake(scene, 0.002, 50);
   }
 
   /** 怪物死亡 */
-  static killMonster(scene: Phaser.Scene, x: number, y: number, color: number): void {
+  static killMonster(scene: Phaser.Scene, x: number, y: number, color: number, monsterType?: MonsterType): void {
+    const elem = monsterType ? ELEMENT_COLORS[monsterType] : null;
+    const burstColors = elem ? elem.particles : [color, 0xffffff, 0xffdd88];
+    const ringColor = elem ? elem.flash : color;
+
     // 主爆散
-    VFX.burst(scene, x, y, 10, [color, 0xffffff, 0xffdd88], 150, 3, 500);
+    VFX.burst(scene, x, y, 10, burstColors, 150, 3, 500);
     // 冲击波
-    VFX.shockwave(scene, x, y, 40, color, 350);
+    VFX.shockwave(scene, x, y, 40, ringColor, 350);
     // 微震
     VFX.shake(scene, 0.003, 60);
     // 白色闪光
@@ -117,6 +157,10 @@ export class VFX {
       onComplete: cleanup,
       onStop: cleanup,
     });
+    // 击杀确认文字
+    if (monsterType) {
+      VFX.floatSpecial(scene, x, y, 'kill');
+    }
   }
 
   /** 升级庆祝 */
