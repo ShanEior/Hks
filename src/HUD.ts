@@ -33,6 +33,12 @@ export class HUD {
   private expFill!: Phaser.GameObjects.Image;
   private expLabel!: Phaser.GameObjects.Text;
 
+  // 平滑过渡显示值（每帧 lerp 到实际值，避免血条/经验条跳变）
+  private displayStructRatios: Record<StructureType, number> = {
+    wood: 1, stone: 1, tile: 1, painting: 1
+  };
+  private displayExp = 0;
+
   // Boss 血条元素
   private bossHpBarBg: Phaser.GameObjects.Graphics | null = null;
   private bossHpBarFill: Phaser.GameObjects.Graphics | null = null;
@@ -150,7 +156,13 @@ export class HUD {
     for (const bar of this.structBars) {
       const s = building.getStructure(bar.type);
       if (!s) continue;
-      const ratio = s.currentHp / s.maxHp;
+      const actualRatio = s.currentHp / s.maxHp;
+      // 平滑血条 lerp
+      this.displayStructRatios[bar.type] += (actualRatio - this.displayStructRatios[bar.type]) * 0.08;
+      if (Math.abs(actualRatio - this.displayStructRatios[bar.type]) < 0.001) {
+        this.displayStructRatios[bar.type] = actualRatio;
+      }
+      const ratio = this.displayStructRatios[bar.type];
       const fullW = 130 * 2; // 物理 px（纹理 2×）
       const fullH = 16 * 2;
       bar.fill.setCrop(0, 0, Math.max(0, Math.floor(fullW * ratio)), fullH);
@@ -175,8 +187,16 @@ export class HUD {
       this.timerPanelBg.setAlpha(1);
     }
 
-    // 经验条
-    const expRatio = player.level > 0 ? player.exp / player.expToNext : 0;
+    // 经验条（平滑过渡）
+    const expTarget = player.level > 0 ? player.exp / player.expToNext : 0;
+    // 升级后 EXP 重置时直接跳变，避免缓慢回落
+    if (expTarget === 0 || expTarget < this.displayExp - 0.5) {
+      this.displayExp = expTarget;
+    } else {
+      this.displayExp += (expTarget - this.displayExp) * 0.10;
+      if (Math.abs(expTarget - this.displayExp) < 0.001) this.displayExp = expTarget;
+    }
+    const expRatio = this.displayExp;
     const fullW = (GAME_WIDTH - 24) * 2;
     const barHpx = 14 * 2;
     this.expFill.setCrop(0, 0, Math.max(0, Math.floor(fullW * expRatio)), barHpx);

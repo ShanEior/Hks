@@ -3,9 +3,34 @@
  * 命中反馈、死亡爆破、升级庆祝、碎屑粒子、屏幕震动
  */
 import Phaser from 'phaser';
-import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier } from './config';
+import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier, SHAKE_TRAUMA_CONFIG, COMBAT_FEEL_EXTRA } from './config';
 
 export class VFX {
+  // ═══════════════════════════════════
+  // 屏震创伤累积系统 (Nuclear Throne style)
+  // ═══════════════════════════════════
+
+  private static trauma = 0;
+  private static traumaScene: Phaser.Scene | null = null;
+
+  /** 每帧调用：衰减创伤并应用屏震 */
+  static updateTrauma(scene: Phaser.Scene, delta: number): void {
+    if (VFX.trauma <= 0) return;
+    VFX.traumaScene = scene;
+
+    // 衰减创伤 (Nuclear Throne: 0.9/frame at 30fps → ~0.95/frame at 60fps)
+    VFX.trauma *= Math.pow(SHAKE_TRAUMA_CONFIG.decayPerFrame, delta / 16.67);
+
+    if (VFX.trauma < SHAKE_TRAUMA_CONFIG.minTrauma) {
+      VFX.trauma = 0;
+      return;
+    }
+
+    // 以当前创伤值作为强度施加屏震
+    const intensity = VFX.trauma * SHAKE_TRAUMA_CONFIG.intensityScale;
+    scene.cameras.main.shake(16, Math.min(intensity, SHAKE_TRAUMA_CONFIG.maxTrauma));
+  }
+
   // ═══════════════════════════════════
   // 粒子工具
   // ═══════════════════════════════════
@@ -36,15 +61,23 @@ export class VFX {
     });
   }
 
-  /** 冲击波扩散圈 */
-  static shockwave(scene: Phaser.Scene, x: number, y: number, radius: number, color: number, duration = 300): void {
+  /** 冲击波扩散圈：可选 damage 参数，伤害越高环越大 */
+  static shockwave(scene: Phaser.Scene, x: number, y: number, radius: number, color: number, duration = 300, damage?: number): void {
+    // 根据伤害值动态缩放半径（伤害越高环越大）
+    let finalRadius = radius;
+    if (damage !== undefined) {
+      const scale = COMBAT_FEEL_EXTRA.shockwaveBaseScale +
+        Math.min(damage / COMBAT_FEEL_EXTRA.shockwaveMaxDamageRef, 0.7);
+      finalRadius = radius * scale;
+    }
+
     const ring = scene.add.circle(x, y, 5, color, 0);
     ring.setStrokeStyle(3, color, 0.8);
     ring.setDepth(35);
     const cleanup = () => { if (ring.active) ring.destroy(); };
     scene.tweens.add({
       targets: ring,
-      radius: radius,
+      radius: finalRadius,
       alpha: 0,
       duration,
       ease: 'Power2',
@@ -56,8 +89,13 @@ export class VFX {
     });
   }
 
-  /** 屏幕震动（强度随伤害递增） */
+  /** 屏幕震动（累积创伤 + 即时反馈） */
   static shake(scene: Phaser.Scene, intensity = 0.005, duration = 80): void {
+    // 添加到创伤累积器（多个命中叠加，持续屏震）
+    VFX.trauma += intensity;
+    VFX.trauma = Math.min(VFX.trauma, SHAKE_TRAUMA_CONFIG.maxTrauma);
+    VFX.traumaScene = scene;
+    // 同时施加即时微小震动，提供瞬间命中反馈
     scene.cameras.main.shake(duration, Math.min(intensity, 0.02));
   }
 

@@ -186,6 +186,9 @@ export class GameScene extends Phaser.Scene {
     // ── CombatFeel：计算 Hit Stop 后的有效 delta ──
     const effectiveDelta = this.combatFeel.update(delta, time);
 
+    // ── VFX 创伤屏震：每帧衰减并应用累积震动 ──
+    VFX.updateTrauma(this, delta);
+
     this.player.update(delta); // 玩家始终全速
     this.resolveCollision(this.player.sprite, 14); // 玩家环境碰撞
 
