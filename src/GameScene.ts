@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import {
   MAP_WIDTH, MAP_HEIGHT, GAME_WIDTH, GAME_HEIGHT, GAME_DURATION,
   PLAYER_CONFIG, BUILDING_CONFIG, MONSTER_TEMPLATES,
@@ -313,6 +313,14 @@ export class GameScene extends Phaser.Scene {
 
   private spawnSingleMonster(type: MonsterType): void {
     const template = MONSTER_TEMPLATES[type];
+    const elapsed = GAME_DURATION - this.gameTime;
+    // 随时间增强: 每30秒HP+15%,伤害+10%,速度+5%,最高3倍
+    const factor = 1 + Math.min(2, elapsed / 30 * 0.15);
+    const scaledTemplate = { ...template,
+      hp: Math.round(template.hp * factor),
+      damage: Math.round(template.damage * (1 + (factor - 1) * 0.7)),
+      speed: template.speed * (1 + (factor - 1) * 0.3),
+    };
     const angle = Math.random() * Math.PI * 2;
     const sx = MAP_WIDTH / 2 + Math.cos(angle) * SPAWN_DISTANCE;
     const sy = MAP_HEIGHT / 2 + Math.sin(angle) * SPAWN_DISTANCE;
@@ -322,7 +330,7 @@ export class GameScene extends Phaser.Scene {
     const scaling = calcTimeScaling(elapsed);
 
     const monster = new Monster(
-      this, sx, sy, template,
+      this, sx, sy, scaledTemplate,
       BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       BUILDING_CONFIG.attackRange,
       scaling,

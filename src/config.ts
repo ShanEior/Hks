@@ -198,10 +198,10 @@ export interface TimeScaling {
 }
 
 export const TIME_SCALING: TimeScaling = {
-  hpGrowthPerMin: 0.35,      // 5分钟时 ≈ 2.75x
-  damageGrowthPerMin: 0.20,  // 5分钟时 ≈ 2.0x
-  speedGrowthPerMin: 0.08,   // 5分钟时 ≈ 1.4x
-  expGrowthPerMin: 0.35,     // 和经验挂钩，5分钟时 ≈ 2.75x
+  hpGrowthPerMin: 0.6,      // 5分钟时 ≈ 4x
+  damageGrowthPerMin: 0.4,  // 5分钟时 ≈ 3x
+  speedGrowthPerMin: 0.15,   // 5分钟时 ≈ 1.75x
+  expGrowthPerMin: 0.5,     // 经验同步增长，5分钟时 ≈ 3.5x
 };
 
 /** 根据已过秒数计算当前缩放倍率 */
