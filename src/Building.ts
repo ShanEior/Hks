@@ -52,6 +52,7 @@ export class Building {
 
     // 优先使用 PNG 贴图，fallback 程序化纹理
     const texKey = scene.textures.exists('gj') ? 'gj' : 'building';
+    this.pngMode = texKey === 'gj';
     this.graphics = scene.add.image(x, y, texKey);
     this.graphics.setDepth(3);
   }
@@ -97,8 +98,12 @@ export class Building {
     }
   }
 
+  private pngMode = false;
+
   /** 根据最低血条百分比切换外观 */
   updateAppearance(): void {
+    // PNG 贴图模式不切换纹理，只通过 alpha 闪红反馈
+    if (this.pngMode) return;
     let minRatio = 1;
     for (const s of this.structures.values()) {
       minRatio = Math.min(minRatio, s.currentHp / s.maxHp);

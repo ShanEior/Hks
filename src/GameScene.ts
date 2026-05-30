@@ -74,6 +74,7 @@ export class GameScene extends Phaser.Scene {
   private expOrbs: ExpOrb[] = [];
   private repairCrates: RepairCrate[] = [];
   private collidables: {x:number,y:number,radius:number}[] = [];
+  private collidableRects: {x:number,y:number,w:number,h:number}[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -131,13 +132,15 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
 
     this.building = new Building(
-      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 180,
+      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 260,
       BUILDING_CONFIG.structures as any,
     );
-    this.building.graphics.setScale(1.5);
+    this.building.graphics.setScale(0.45);
     this.building.onFailure = () => this.endGame(false);
     // 古建碰撞体
-    this.collidables.push({ x: BUILDING_CONFIG.x, y: BUILDING_CONFIG.y - 180, radius: 180 });
+    // 古建碰撞 — 矩形下半部分（890*0.6≈534宽, 1176*0.6≈706高, 下半=353高）
+    const bw = 280, bh = 220;
+    this.collidableRects.push({ x: BUILDING_CONFIG.x - bw/2, y: BUILDING_CONFIG.y - 260 + 40, w: bw, h: bh });
 
     this.player = new Player(
       this, BUILDING_CONFIG.x,
@@ -270,6 +273,27 @@ export class GameScene extends Phaser.Scene {
         sprite.y += (dy / dist) * (min - dist);
       }
     }
+    for (const rect of this.collidableRects) {
+      const cx = Math.max(rect.x, Math.min(sprite.x, rect.x + rect.w));
+      const cy = Math.max(rect.y, Math.min(sprite.y, rect.y + rect.h));
+      const dx = sprite.x - cx, dy = sprite.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < r) {
+        if (dist < 0.01) {
+          // 在矩形内部，推向最近边
+          const dl = sprite.x - rect.x, dr = rect.x + rect.w - sprite.x;
+          const dt = sprite.y - rect.y, db = rect.y + rect.h - sprite.y;
+          const minD = Math.min(dl, dr, dt, db);
+          if (minD === dl) sprite.x = rect.x - r;
+          else if (minD === dr) sprite.x = rect.x + rect.w + r;
+          else if (minD === dt) sprite.y = rect.y - r;
+          else sprite.y = rect.y + rect.h + r;
+        } else {
+          sprite.x += (dx / dist) * (r - dist);
+          sprite.y += (dy / dist) * (r - dist);
+        }
+      }
+    }
   }
 
   // ── 背景 ──
@@ -391,23 +415,15 @@ export class GameScene extends Phaser.Scene {
 
   private spawnSingleMonster(type: MonsterType): void {
     const template = MONSTER_TEMPLATES[type];
-    const elapsed = GAME_DURATION - this.gameTime;
-    // 随时间增强: 每30秒HP+15%,伤害+10%,速度+5%,最高3倍
-    const factor = 1 + Math.min(2, elapsed / 30 * 0.15);
-    const scaledTemplate = { ...template,
-      hp: Math.round(template.hp * factor),
-      damage: Math.round(template.damage * (1 + (factor - 1) * 0.7)),
-      speed: template.speed * (1 + (factor - 1) * 0.3),
-    };
     const angle = Math.random() * Math.PI * 2;
     const sx = MAP_WIDTH / 2 + Math.cos(angle) * SPAWN_DISTANCE;
     const sy = MAP_HEIGHT / 2 + Math.sin(angle) * SPAWN_DISTANCE;
 
-    // 根据已过时间计算敌怪强化倍率
+    // 时间缩放 — 唯一来源
     const scaling = calcTimeScaling(GAME_DURATION - this.gameTime);
 
     const monster = new Monster(
-      this, sx, sy, scaledTemplate,
+      this, sx, sy, template,
       BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       BUILDING_CONFIG.attackRange,
       scaling,
@@ -543,6 +559,14 @@ export class GameScene extends Phaser.Scene {
 
     // 显示 Boss 血条
     this.hud.showBossHpBar(this.boss.maxHp);
+
+    // Boss 攻击回调
+    this.boss.onAttack = (b) => {
+      const structTypes: StructureType[] = ['wood', 'stone', 'tile', 'painting'];
+      for (const st of structTypes) {
+        this.building.damageStructure(st, b.damage);
+      }
+    };
 
     // Boss 召唤回调
     this.boss.onSummon = (count: number, type: string) => {
@@ -751,7 +775,8 @@ export class GameScene extends Phaser.Scene {
       this.player.level++;
       this.player.expToNext = BASE_EXP_TO_LEVEL + this.player.level * EXP_PER_LEVEL;
 
-      if (this.player.level === 1 || this.player.level % 5 === 0) {
+      // level 已 ++ 过，Lv.2 是第一次升级，每 5 级再选一次
+      if (this.player.level === 2 || this.player.level % 5 === 0) {
         this.pauseForLevelUp();
       } else {
         this.hud.showLevelNotify(this.player.level);
@@ -963,7 +988,7 @@ export class GameScene extends Phaser.Scene {
       if (this.boss && !this.boss.isDead) {
         SoundManager.autoAttack(this.player.x, this.player.y);
         this.player.applyAttackRecoil();
-        const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
+        const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(1.3);
         bolt.setDepth(12);
         let bossTargetDead = false;
         const bossTarget = {
@@ -983,7 +1008,7 @@ export class GameScene extends Phaser.Scene {
     }
     SoundManager.autoAttack(this.player.x, this.player.y);
     this.player.applyAttackRecoil();
-    const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
+    const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(2.5);
     bolt.setDepth(12);
     this.autoBolts.push({ graphic: bolt, target: nearest, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });
   }
