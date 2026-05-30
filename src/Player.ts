@@ -18,6 +18,8 @@ export class Player {
 
   /** 上次 X 坐标（用于判断朝向） */
   private lastX: number;
+  /** 独立追踪朝向，避免 scaleX 翻转与弹跳缩放的绝对值冲突 */
+  private facingRight = true;
 
   private keys: {
     W: Phaser.Input.Keyboard.Key;
@@ -94,19 +96,18 @@ export class Player {
     // 根据移动方向翻转精灵
     const dx = nx - this.lastX;
     if (Math.abs(dx) > 0.5) {
-      this.sprite.setFlipX(dx < 0);
+      this.facingRight = dx > 0;
     }
+    this.sprite.setFlipX(!this.facingRight);
     this.lastX = nx;
 
-    // 移动时轻微弹跳缩放（lerp 平滑过渡）
+    // 移动时轻微弹跳缩放（lerp 平滑过渡，使用独立朝向避免绝对值冲突）
     const isMoving = len > 0.1;
     const targetScale = isMoving ? 1.04 : 1.0;
     const currentScale = Math.abs(this.sprite.scaleX);
-    const newScale = currentScale + (targetScale - currentScale) * 0.12;
-    this.sprite.setScale(
-      this.sprite.flipX ? -newScale : newScale,
-      newScale,
-    );
+    const newAbsScale = currentScale + (targetScale - currentScale) * 0.12;
+    const signedScale = this.facingRight ? newAbsScale : -newAbsScale;
+    this.sprite.setScale(signedScale, newAbsScale);
   }
 
   get x(): number { return this.sprite.x; }

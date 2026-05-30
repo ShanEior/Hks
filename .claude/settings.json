@@ -1,0 +1,73 @@
+{
+  "mcpServers": {
+    "tavily": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@tavily\\mcp-server-tavily\\dist\\index.js"],
+      "description": "AI 网页搜索：实时搜索、内容提取、网站爬取、站点结构扫描"
+    },
+    "git": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@cyanheads\\git-mcp-server\\dist\\index.js"],
+      "description": "结构化 Git 操作：分支、提交、差异、变基、储藏、日志、标签、工作树"
+    },
+    "playwright": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@executeautomation\\playwright-mcp-server\\dist\\index.js"],
+      "description": "浏览器自动化：截图、移动端模拟(iOS/Android)、触摸事件、像素采样"
+    },
+    "chrome-devtools": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\chrome-devtools-mcp\\build\\src\\index.js"],
+      "description": "Chrome DevTools：Canvas FPS、内存堆栈、GPU 分析、网络面板"
+    },
+    "github": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@modelcontextprotocol\\server-github\\dist\\index.js"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      },
+      "description": "GitHub API：PR 审查、Issue 管理、代码搜索、仓库操作（需配置 GITHUB_PERSONAL_ACCESS_TOKEN）"
+    },
+    "memory": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@modelcontextprotocol\\server-memory\\dist\\index.js",
+        "--path",
+        "C:\\Users\\chenfeng\\.claude\\projects\\d--XiangMuLuoDi-HACKTHON1\\memory"
+      ],
+      "description": "知识图谱：跨会话持久化设计决策、调参记录、Bug 根因"
+    },
+    "filesystem": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js",
+        "D:\\XiangMuLuoDi\\HACKTHON1"
+      ],
+      "description": "结构化文件系统：项目根目录读写"
+    },
+    "sequential-thinking": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@modelcontextprotocol\\server-sequential-thinking\\dist\\index.js"],
+      "description": "顺序思维：复杂问题分解、多步推理、方案权衡"
+    },
+    "vision": {
+      "command": "node",
+      "args": ["C:\\Users\\chenfeng\\AppData\\Roaming\\npm\\node_modules\\@visionengine\\image-recognize\\dist\\index.js"],
+      "description": "视觉分析：截图内容识别、OCR 文字提取、视觉质量评估"
+    }
+  },
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"console.log('[dev-aaa] 文件已修改，请记得提交前自测')\""
+          }
+        ]
+      }
+    ]
+  }
+}

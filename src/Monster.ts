@@ -33,6 +33,11 @@ export class Monster {
   private lastAttackTime = 0;
   private idleTween: Phaser.Tweens.Tween | null = null;
 
+  // ── 击退 + 命中反应 ──
+  private knockbackVx = 0;
+  private knockbackVy = 0;
+  private hitStunTimer = 0;
+
   isDead = false;
 
   /** 攻击时触发 */
@@ -41,6 +46,8 @@ export class Monster {
   onDeath: ((monster: Monster) => void) | null = null;
   /** 接触玩家时触发（用于控制效果） */
   onPlayerContact: ((monster: Monster) => void) | null = null;
+  /** 受击反馈回调（由 GameScene 注入，连接 CombatFeel） */
+  onDamageFeedback: ((monster: Monster, damage: number) => void) | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -92,6 +99,37 @@ export class Monster {
   update(time: number, delta: number): void {
     if (this.isDead) return;
 
+    const dt = delta / 1000;
+
+    // ── 命中眩晕期间：仅应用击退，跳过正常 AI ──
+    if (this.hitStunTimer > 0) {
+      this.hitStunTimer -= delta;
+      // 击退衰减
+      const decay = Math.pow(0.85, dt * 60);
+      this.knockbackVx *= decay;
+      this.knockbackVy *= decay;
+      // 速度太小则归零
+      const kbSpeed = Math.sqrt(this.knockbackVx ** 2 + this.knockbackVy ** 2);
+      if (kbSpeed < 5) { this.knockbackVx = 0; this.knockbackVy = 0; }
+      // 应用击退位移
+      this.sprite.x += this.knockbackVx * dt;
+      this.sprite.y += this.knockbackVy * dt;
+      this.drawHpBar();
+      return;
+    }
+
+    // ── 残余击退衰减（无眩晕时也衰减，但不用等待眩晕结束） ──
+    if (Math.abs(this.knockbackVx) > 0.5 || Math.abs(this.knockbackVy) > 0.5) {
+      const decay = Math.pow(0.85, dt * 60);
+      this.knockbackVx *= decay;
+      this.knockbackVy *= decay;
+      const kbSpeed = Math.sqrt(this.knockbackVx ** 2 + this.knockbackVy ** 2);
+      if (kbSpeed < 5) { this.knockbackVx = 0; this.knockbackVy = 0; }
+      this.sprite.x += this.knockbackVx * dt;
+      this.sprite.y += this.knockbackVy * dt;
+    }
+
+    // ── 正常 AI 移动 ──
     const dist = Phaser.Math.Distance.Between(
       this.sprite.x, this.sprite.y,
       this.targetX, this.targetY,
@@ -102,7 +140,6 @@ export class Monster {
         this.targetY - this.sprite.y,
         this.targetX - this.sprite.x,
       );
-      const dt = delta / 1000;
       this.sprite.x += Math.cos(angle) * this.speed * dt;
       this.sprite.y += Math.sin(angle) * this.speed * dt;
     } else {
@@ -115,19 +152,67 @@ export class Monster {
     this.drawHpBar();
   }
 
-  takeDamage(amount: number): boolean {
+  takeDamage(amount: number, attackerX?: number, attackerY?: number): boolean {
     if (this.isDead) return false;
     this.hp -= amount;
-    SoundManager.hitMonster();
-    VFX.hitMonster(this.scene, this.x, this.y, amount);
 
-    // 受击闪白（tint 方式，像素艺术友好）
-    this.sprite.setTint(0xffffff);
-    this.scene.time.delayedCall(60, () => {
-      if (this.sprite.active && !this.isDead) {
-        this.sprite.clearTint();
-      }
+    // ── 击退 ──
+    const refX = attackerX ?? this.targetX;
+    const refY = attackerY ?? this.targetY;
+    const angle = Math.atan2(this.sprite.y - refY, this.sprite.x - refX);
+
+    // 选择击退等级（提取为 number 避免 as const 字面类型冲突）
+    const kbForce =
+      amount >= 60 ? 350 :
+      amount >= 30 ? 200 :
+      amount >= 15 ? 100 :
+      60; // KNOCKBACK_CONFIG.autoAttack.force
+    const kbStun =
+      amount >= 60 ? 150 :
+      amount >= 30 ? 100 :
+      amount >= 15 ? 50 :
+      40; // KNOCKBACK_CONFIG.autoAttack.stunMs
+
+    this.knockbackVx += Math.cos(angle) * kbForce;
+    this.knockbackVy += Math.sin(angle) * kbForce;
+    this.hitStunTimer = Math.max(this.hitStunTimer, kbStun);
+
+    // ── 挤压+拉伸（暂停待机 tween） ──
+    const origScaleX = this.sprite.scaleX;
+    const origScaleY = this.sprite.scaleY;
+    this.idleTween?.pause();
+    this.sprite.setScale(origScaleX * 0.75, origScaleY * 1.3);
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: origScaleX,
+      scaleY: origScaleY,
+      duration: 150,
+      ease: 'Back.easeOut',
+      overwrite: true,
+      onComplete: () => { if (!this.isDead) this.idleTween?.resume(); },
     });
+
+    // ── 受击闪白 ──
+    const flashDuration = amount >= 30 ? 180 : 120;
+    if (amount >= 40) {
+      // 重击：先红闪再白闪
+      this.sprite.setTint(0xff4444);
+      this.scene.time.delayedCall(40, () => {
+        if (this.sprite.active && !this.isDead) this.sprite.setTint(0xffffff);
+      });
+    } else {
+      this.sprite.setTint(0xffffff);
+    }
+    this.scene.time.delayedCall(flashDuration, () => {
+      if (this.sprite.active && !this.isDead) this.sprite.clearTint();
+    });
+
+    // ── 音效 + VFX ──
+    SoundManager.hitMonster();
+    VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY);
+
+    // ── 命中反馈回调 → CombatFeel ──
+    this.onDamageFeedback?.(this, amount);
 
     if (this.hp <= 0) {
       this.hp = 0;
@@ -148,8 +233,25 @@ export class Monster {
     const color = MONSTER_COLORS[this.type] ?? 0xDDDDDD;
     VFX.killMonster(this.scene, this.sprite.x, this.sprite.y, color);
 
-    this.sprite.destroy();
-    this.hpBar.destroy();
+    // ── 3 阶段死亡动画 ──
+    // 阶段 1 (0-60ms)：闪白定格
+    this.sprite.setTint(0xffffff);
+
+    // 阶段 2 (60-360ms)：膨胀 + 渐隐
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: this.sprite.scaleX * 1.3,
+      scaleY: this.sprite.scaleY * 1.3,
+      alpha: 0,
+      duration: 300,
+      delay: 60,
+      ease: 'Power2',
+      // 阶段 3 (360ms)：销毁
+      onComplete: () => {
+        if (this.sprite.active) this.sprite.destroy();
+        if (this.hpBar.active) this.hpBar.destroy();
+      },
+    });
   }
 
   /** 启动待机动画（Tween 驱动，无额外纹理开销） */

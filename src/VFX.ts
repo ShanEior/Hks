@@ -81,7 +81,7 @@ export class VFX {
   // ═══════════════════════════════════
 
   /** 怪物受击反馈 */
-  static hitMonster(scene: Phaser.Scene, x: number, y: number, damage: number): void {
+  static hitMonster(scene: Phaser.Scene, x: number, y: number, damage: number, _attackerX?: number, _attackerY?: number): void {
     // 白碎屑
     VFX.burst(scene, x, y, 3, [0xffffff, 0xcccccc], 60, 2, 200);
     // 伤害数字（大伤害红色，偶数字号）

@@ -6,6 +6,7 @@ import {
   EXP_ORB_CONFIG, PICKUP_RANGE,
   BASE_EXP_TO_LEVEL, EXP_PER_LEVEL, ALL_SKILL_IDS,
   SKILL_CONFIGS, WAVE_STAGES,
+  AUTO_ATTACK_CONFIG,
   MonsterType, SkillId, WaveStage,
 } from './config';
 import { Player } from './Player';
@@ -15,6 +16,7 @@ import { HUD } from './HUD';
 import { SkillManager } from './SkillManager';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
+import { CombatFeel } from './CombatFeel';
 import { generateAllTextures } from './ArtGen';
 import { preloadSprites, nthKey } from './SpriteLoader';
 
@@ -64,6 +66,7 @@ export class GameScene extends Phaser.Scene {
   private building!: Building;
   private hud!: HUD;
   private skillManager!: SkillManager;
+  private combatFeel!: CombatFeel;
   private monsters: Monster[] = [];
   private puddles: Puddle[] = [];
   private expOrbs: ExpOrb[] = [];
@@ -79,8 +82,6 @@ export class GameScene extends Phaser.Scene {
 
   // 自动普攻
   private autoAttackTimer = 0;
-  private readonly autoAttackCooldown = 0.7;
-  private readonly autoAttackDamage = 22;
   private autoBolts: AutoBolt[] = [];
 
   // 升级面板状态
@@ -127,6 +128,9 @@ export class GameScene extends Phaser.Scene {
 
     this.hud = new HUD(this);
 
+    // 命中反馈管线（创伤震动 + Hit Stop + 镜头冲击）
+    this.combatFeel = new CombatFeel(this);
+
     this.skillManager = new SkillManager(
       this, () => this.monsters, () => this.player, () => this.building,
     );
@@ -140,44 +144,44 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     if (this.isPaused) {
-      // 暂停期间仅更新 HUD（血量条）
       this.hud.update(this.player, this.building, this.gameTime);
       return;
     }
 
-    this.player.update(delta);
+    // ── CombatFeel：计算 Hit Stop 后的有效 delta ──
+    const effectiveDelta = this.combatFeel.update(delta, time);
 
-    // 刷怪（波次驱动）
+    this.player.update(delta); // 玩家始终全速
+
+    // 刷怪（使用有效 delta，Hit Stop 期间暂停生怪）
     const stage = this.getCurrentStage();
     if (stage) {
-      this.spawnTimer += delta;
+      this.spawnTimer += effectiveDelta;
       if (this.spawnTimer >= stage.spawnInterval) {
         this.spawnTimer -= stage.spawnInterval;
         this.spawnWave(stage);
       }
     }
 
-    // 怪物更新
+    // 怪物更新（使用有效 delta，Hit Stop 期间怪物几乎冻结）
     for (const m of this.monsters) {
-      m.update(time, delta);
+      m.update(time, effectiveDelta);
     }
 
     this.checkPlayerMonsterCollision();
     this.checkFreezeAura();
     this.monsters = this.monsters.filter(m => !m.isDead);
 
-    // 经验球更新
+    // 经验球更新（全速）
     this.updateExpOrbs(delta);
-    // 修补箱更新
+    // 修补箱更新（全速）
     this.updateRepairCrates(delta);
 
-    // 自动普攻
-    this.updateAutoAttack(delta);
+    // 自动普攻 + 技能（使用 effectiveDelta，Hit Stop 期间暂停）
+    this.updateAutoAttack(effectiveDelta);
+    this.skillManager.update(effectiveDelta, time);
 
-    // 技能更新
-    this.skillManager.update(delta, time);
-
-    // 水洼/灼烧
+    // 水洼/灼烧（全速，不影响玩家移动体验）
     this.updatePuddles(delta);
     this.building.updateBurn(delta);
 
@@ -331,6 +335,21 @@ export class GameScene extends Phaser.Scene {
 
     monster.onPlayerContact = (m) => {
       if (m.type === 'wind') this.player.applyKnockback(m.x, m.y, 250);
+    };
+
+    // 命中反馈 → CombatFeel（打击感管线）
+    monster.onDamageFeedback = (m, dmg) => {
+      // 根据伤害选择 Hit Stop 等级
+      let tier: 'light' | 'medium' | 'heavy' | 'ultra' = 'light';
+      if (dmg >= 60) tier = 'ultra';
+      else if (dmg >= 30) tier = 'heavy';
+      else if (dmg >= 15) tier = 'medium';
+      this.combatFeel.onHit({
+        damage: dmg,
+        worldX: m.x, worldY: m.y,
+        attackerX: this.player.x, attackerY: this.player.y,
+        tier,
+      });
     };
 
     monster.onDeath = (m) => {
@@ -620,8 +639,8 @@ export class GameScene extends Phaser.Scene {
   private updateAutoAttack(delta: number): void {
     const dt = delta / 1000;
     this.autoAttackTimer += dt;
-    if (this.autoAttackTimer >= this.autoAttackCooldown) {
-      this.autoAttackTimer -= this.autoAttackCooldown;
+    if (this.autoAttackTimer >= AUTO_ATTACK_CONFIG.cooldown) {
+      this.autoAttackTimer -= AUTO_ATTACK_CONFIG.cooldown;
       this.fireAutoBolt();
     }
 
@@ -653,7 +672,7 @@ export class GameScene extends Phaser.Scene {
     SoundManager.autoAttack();
     const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
     bolt.setDepth(12);
-    this.autoBolts.push({ graphic: bolt, target: nearest, speed: 350, damage: this.autoAttackDamage, lifetime: 2 });
+    this.autoBolts.push({ graphic: bolt, target: nearest, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });
   }
 
   // ── 水洼 ──

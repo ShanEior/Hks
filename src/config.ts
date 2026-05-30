@@ -258,3 +258,67 @@ export const STRUCT_BAR = { w: 160, h: 14, gap: 10 } as const;
 
 /** 升级卡片尺寸 */
 export const LEVELUP_CARD = { w: 230, h: 250 } as const;
+
+// ============================================================
+// 战斗手感 — 创伤值屏幕震动系统
+// ============================================================
+
+export const TRAUMA_CONFIG = {
+  decayPerSecond: 0.6,
+  exponent: 2.0,
+  maxOffset: 12,
+  maxRotation: 3,
+  horizontalDamping: 0.6, // 水平震动系数（小于 1 减少眩晕）
+
+  events: {
+    light:     0.15,
+    medium:    0.25,
+    heavy:     0.40,
+    ultra:     0.60,
+    building:  0.35,
+  },
+} as const;
+
+export type TraumaTier = keyof typeof TRAUMA_CONFIG.events;
+
+// ============================================================
+// 战斗手感 — 命中停顿（Hit Stop）
+// ============================================================
+
+export const HIT_STOP_CONFIG = {
+  light:   { freezeMs: 33,  shake: 'light'   as TraumaTier, flash: false },
+  medium:  { freezeMs: 66,  shake: 'medium'  as TraumaTier, flash: false },
+  heavy:   { freezeMs: 100, shake: 'heavy'   as TraumaTier, flash: true  },
+  ultra:   { freezeMs: 150, shake: 'ultra'   as TraumaTier, flash: true  },
+
+  cooldownMs: 150,
+} as const;
+
+export type HitStopTier = keyof typeof HIT_STOP_CONFIG & ('light' | 'medium' | 'heavy' | 'ultra');
+
+// ============================================================
+// 战斗手感 — 击退
+// ============================================================
+
+export const KNOCKBACK_CONFIG = {
+  light:      { force: 100, stunMs: 50  },
+  medium:     { force: 200, stunMs: 100 },
+  heavy:      { force: 350, stunMs: 150 },
+  autoAttack: { force: 60,  stunMs: 40  },
+  decayPerFrame: 0.85,
+  minDurationMs: 100,
+} as const;
+
+export type KnockbackTier = keyof typeof KNOCKBACK_CONFIG & ('light' | 'medium' | 'heavy' | 'autoAttack');
+
+// ============================================================
+// 自动攻击配置
+// ============================================================
+
+export const AUTO_ATTACK_CONFIG = {
+  damage: 22,
+  cooldown: 0.7,
+  boltSpeed: 350,
+  boltLifetime: 2,
+  boltRadius: 12,
+} as const;
