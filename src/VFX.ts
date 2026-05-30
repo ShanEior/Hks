@@ -152,34 +152,7 @@ export class VFX {
     });
   }
 
-  /** 特殊标记浮动文字（击杀确认/暴击/Boss） */
-  static floatSpecial(
-    scene: Phaser.Scene, x: number, y: number,
-    tier: DamageNumberTier,
-  ): void {
-    const cfg = DAMAGE_NUMBER_CONFIG[tier];
-    let text = '';
-    if ('prefix' in cfg && cfg.prefix) text += cfg.prefix;
-    if ('suffix' in cfg && cfg.suffix) text += cfg.suffix;
-    if (!text) return;
-
-    const t = scene.add.text(x + (Math.random() - 0.5) * 12, y - 12, text, {
-      fontSize: cfg.size, color: cfg.color, fontFamily: 'monospace',
-      stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(50);
-
-    // 弹入动画
-    t.setScale(0.3);
-    scene.tweens.add({
-      targets: t, scale: cfg.scale, duration: 150, ease: 'Back.easeOut',
-    });
-
-    const cleanup = () => { if (t.active) t.destroy(); };
-    scene.tweens.add({
-      targets: t, y: t.y - 28, alpha: 0, duration: 600, delay: 200, ease: 'Power2',
-      onComplete: cleanup, onStop: cleanup,
-    });
-  }
+  // floatSpecial 已移除 — 不再使用浮动击杀/暴击/Boss标记文字
 
   // ═══════════════════════════════════
   // 战斗反馈
