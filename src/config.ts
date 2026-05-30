@@ -108,7 +108,10 @@ export type SkillId =
   | 'stone_repair'
   | 'waterproof'
   | 'insect_control'
-  | 'painting_restore';
+  | 'painting_restore'
+  | 'repair_field'
+  | 'whirlwind_slash'
+  | 'chain_lightning';
 
 export interface SkillLevelConfig {
   level: number;
@@ -118,6 +121,14 @@ export interface SkillLevelConfig {
   range: number;            // 圆形半径 / 投射物宽度
   repairType: StructureType[];
   repairAmount: number;
+  shots?: number;           // 单次释放的投射物/落点数量
+  pulseCount?: number;      // 连续脉冲次数
+  pulseInterval?: number;   // 脉冲间隔（秒）
+  tickInterval?: number;    // 持续区域 tick 间隔（秒）
+  splashRadius?: number;    // 命中后的溅射半径
+  pierceCount?: number;     // 投射物最多命中数量
+  chainCount?: number;      // 追踪弹额外弹射次数
+  followPlayer?: boolean;   // 区域是否跟随玩家
   widthMultiplier?: number;
   bonusDamageVs?: MonsterType;
   bonusDamageMultiplier?: number;
@@ -137,6 +148,14 @@ export interface ActiveSkill {
   range: number;
   repairType: StructureType[];
   repairAmount: number;
+  shots?: number;
+  pulseCount?: number;
+  pulseInterval?: number;
+  tickInterval?: number;
+  splashRadius?: number;
+  pierceCount?: number;
+  chainCount?: number;
+  followPlayer?: boolean;
   widthMultiplier?: number;
   bonusDamageVs?: MonsterType;
   bonusDamageMultiplier?: number;
@@ -147,29 +166,44 @@ export interface ActiveSkill {
 
 export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
   wood_reinforce: [
-    { level: 1, name: '木构加固', cooldown: 4, damage: 35, range: 100, repairType: [], repairAmount: 0 },
-    { level: 2, name: '梁柱补强', cooldown: 4, damage: 55, range: 100, repairType: ['wood'], repairAmount: 2 },
-    { level: 3, name: '榫卯强化', cooldown: 3.5, damage: 80, range: 140, repairType: ['wood'], repairAmount: 4, widthMultiplier: 2 },
+    { level: 1, name: '木构加固', cooldown: 3.8, damage: 40, range: 120, repairType: [], repairAmount: 0, shots: 1, pierceCount: 3, widthMultiplier: 1.2 },
+    { level: 2, name: '梁柱补强', cooldown: 3.4, damage: 58, range: 150, repairType: ['wood'], repairAmount: 2, shots: 2, pierceCount: 5, widthMultiplier: 1.6 },
+    { level: 3, name: '榫卯强化', cooldown: 3.0, damage: 82, range: 180, repairType: ['wood'], repairAmount: 4, shots: 3, pierceCount: 8, widthMultiplier: 2.1, splashRadius: 28 },
   ],
   stone_repair: [
-    { level: 1, name: '石材修补', cooldown: 5, damage: 30, range: 160, repairType: [], repairAmount: 0 },
-    { level: 2, name: '石粉填补', cooldown: 5, damage: 48, range: 200, repairType: [], repairAmount: 0 },
-    { level: 3, name: '表层加固', cooldown: 4.5, damage: 70, range: 220, repairType: ['stone'], repairAmount: 3, knockbackForce: 300 },
+    { level: 1, name: '石材修补', cooldown: 5.2, damage: 24, range: 180, repairType: [], repairAmount: 0, pulseCount: 2, pulseInterval: 0.14 },
+    { level: 2, name: '石粉填补', cooldown: 4.8, damage: 32, range: 220, repairType: [], repairAmount: 0, pulseCount: 3, pulseInterval: 0.13 },
+    { level: 3, name: '表层加固', cooldown: 4.4, damage: 42, range: 260, repairType: ['stone'], repairAmount: 2, pulseCount: 4, pulseInterval: 0.12, knockbackForce: 280 },
   ],
   waterproof: [
-    { level: 1, name: '防水封护', cooldown: 6, damage: 25, range: 190, repairType: [], repairAmount: 0 },
-    { level: 2, name: '排水导流', cooldown: 6, damage: 40, range: 200, repairType: [], repairAmount: 0, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 2.5 },
-    { level: 3, name: '防渗保护层', cooldown: 5.5, damage: 45, range: 240, repairType: ['stone', 'tile'], repairAmount: 3, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 3 },
+    { level: 1, name: '防水封护', cooldown: 5.2, damage: 26, range: 220, repairType: [], repairAmount: 0, shots: 4, splashRadius: 40 },
+    { level: 2, name: '排水导流', cooldown: 4.8, damage: 34, range: 240, repairType: [], repairAmount: 0, shots: 6, splashRadius: 52, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 3 },
+    { level: 3, name: '防渗保护层', cooldown: 4.4, damage: 44, range: 270, repairType: ['stone', 'tile'], repairAmount: 2, shots: 8, splashRadius: 64, bonusDamageVs: 'acid_rain', bonusDamageMultiplier: 3.4 },
   ],
   insect_control: [
-    { level: 1, name: '防虫处理', cooldown: 5, damage: 12, range: 130, repairType: [], repairAmount: 0, zoneDuration: 3 },
-    { level: 2, name: '虫害清查', cooldown: 5, damage: 14, range: 140, repairType: [], repairAmount: 0, zoneDuration: 4.5, bonusDamageVs: 'termite', bonusDamageMultiplier: 2.5 },
-    { level: 3, name: '木构驱虫', cooldown: 4.5, damage: 18, range: 170, repairType: ['wood'], repairAmount: 2, zoneDuration: 5, bonusDamageVs: 'termite', bonusDamageMultiplier: 3 },
+    { level: 1, name: '防虫处理', cooldown: 5.0, damage: 9, range: 150, repairType: [], repairAmount: 0, zoneDuration: 4, tickInterval: 0.45, followPlayer: true, shots: 0 },
+    { level: 2, name: '虫害清查', cooldown: 4.7, damage: 12, range: 180, repairType: [], repairAmount: 0, zoneDuration: 5.5, tickInterval: 0.35, followPlayer: true, shots: 1, bonusDamageVs: 'termite', bonusDamageMultiplier: 2.8 },
+    { level: 3, name: '木构驱虫', cooldown: 4.3, damage: 15, range: 210, repairType: ['wood'], repairAmount: 1, zoneDuration: 7, tickInterval: 0.28, followPlayer: true, shots: 2, bonusDamageVs: 'termite', bonusDamageMultiplier: 3.4 },
   ],
   painting_restore: [
-    { level: 1, name: '彩绘修复', cooldown: 3.5, damage: 30, range: 0, repairType: [], repairAmount: 0 },
-    { level: 2, name: '颜料补绘', cooldown: 3, damage: 50, range: 70, repairType: [], repairAmount: 0 },
-    { level: 3, name: '壁画护色', cooldown: 2.5, damage: 70, range: 80, repairType: ['painting'], repairAmount: 3, projectileBounce: true },
+    { level: 1, name: '彩绘修复', cooldown: 3.2, damage: 24, range: 0, repairType: [], repairAmount: 0, shots: 2 },
+    { level: 2, name: '颜料补绘', cooldown: 2.8, damage: 34, range: 60, repairType: [], repairAmount: 0, shots: 3, splashRadius: 60 },
+    { level: 3, name: '壁画护色', cooldown: 2.4, damage: 46, range: 78, repairType: ['painting'], repairAmount: 2, shots: 4, splashRadius: 78, projectileBounce: true, chainCount: 2 },
+  ],
+  repair_field: [
+    { level: 1, name: '修复法阵', cooldown: 7, damage: 0, range: 145, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 3, zoneDuration: 4, tickInterval: 0.65, followPlayer: true, shots: 6 },
+    { level: 2, name: '生机回环', cooldown: 6.2, damage: 0, range: 170, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 5, zoneDuration: 5, tickInterval: 0.55, followPlayer: true, shots: 8 },
+    { level: 3, name: '结构复苏', cooldown: 5.4, damage: 0, range: 190, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 7, zoneDuration: 6, tickInterval: 0.42, followPlayer: true, shots: 10 },
+  ],
+  whirlwind_slash: [
+    { level: 1, name: '旋风斩', cooldown: 4.2, damage: 28, range: 250, repairType: [], repairAmount: 0, shots: 1, pierceCount: 4, widthMultiplier: 1.1 },
+    { level: 2, name: '烈风轮斩', cooldown: 3.8, damage: 40, range: 290, repairType: [], repairAmount: 0, shots: 2, pierceCount: 5, widthMultiplier: 1.2 },
+    { level: 3, name: '青岚风暴', cooldown: 3.3, damage: 54, range: 330, repairType: [], repairAmount: 0, shots: 3, pierceCount: 6, widthMultiplier: 1.3, knockbackForce: 220 },
+  ],
+  chain_lightning: [
+    { level: 1, name: '雷电链', cooldown: 4.1, damage: 34, range: 290, repairType: [], repairAmount: 0, chainCount: 3, shots: 1 },
+    { level: 2, name: '奔雷锁链', cooldown: 3.6, damage: 46, range: 330, repairType: [], repairAmount: 0, chainCount: 5, shots: 1 },
+    { level: 3, name: '九霄雷网', cooldown: 3.1, damage: 58, range: 360, repairType: [], repairAmount: 0, chainCount: 7, shots: 2 },
   ],
 };
 
@@ -185,6 +219,7 @@ export const EXP_ORB_CONFIG = {
 // ---- 全部技能 ID 列表（用于技能池生成） ----
 export const ALL_SKILL_IDS: SkillId[] = [
   'wood_reinforce', 'stone_repair', 'waterproof', 'insect_control', 'painting_restore',
+  'repair_field', 'whirlwind_slash', 'chain_lightning',
 ];
 
 // ---- 敌怪时间缩放 ----
@@ -441,6 +476,21 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'paint',
     primaryFreq: [1000, 1400], bodyFreq: [1500, 1800], bodyType: 'sine',
     noiseLowpass: 5000, noiseHighpass: 2000, crackFilter: 5000, crackQ: 2,
+  },
+  repair_field: {
+    theme: 'repair',
+    primaryFreq: [620, 820], bodyFreq: [220, 160], bodyType: 'sine',
+    noiseLowpass: 900, noiseHighpass: 120, crackFilter: 1800, crackQ: 1,
+  },
+  whirlwind_slash: {
+    theme: 'wind',
+    primaryFreq: [720, 300], bodyFreq: [180, 120], bodyType: 'triangle',
+    noiseLowpass: 2200, noiseHighpass: 700, crackFilter: 2600, crackQ: 2,
+  },
+  chain_lightning: {
+    theme: 'lightning',
+    primaryFreq: [1400, 500], bodyFreq: [2200, 900], bodyType: 'square',
+    noiseLowpass: 4200, noiseHighpass: 1200, crackFilter: 5200, crackQ: 4,
   },
 } as const;
 
