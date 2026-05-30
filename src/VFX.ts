@@ -265,7 +265,6 @@ export class VFX {
   /** 火焰死亡：向外爆裂 */
   static fireDeath(scene: Phaser.Scene, x: number, y: number, sprite: Phaser.GameObjects.Image): void {
     // 快速膨胀爆开
-    scene.cameras.main.flash(40, 255, 100, 20, false); // 短暂暖闪
     scene.tweens.add({
       targets: sprite, scaleX: 2.5, scaleY: 2.5, alpha: 0,
       duration: 200, delay: 40, ease: 'Power3',
