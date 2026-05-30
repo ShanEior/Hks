@@ -282,7 +282,7 @@ export class HUD {
   }
 
   showLevelNotify(level: number): void {
-    const msg = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 升级! Lv., {
+    const msg = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, '升级! Lv.' + level, {
       ...FONT.huge, color: '#FFD700',
     }).setOrigin(0.5, 0.5).setDepth(200);
 
