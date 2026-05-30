@@ -289,6 +289,41 @@ export class VFX {
     }
   }
 
+  /** 木梁命中：木屑爆散 + 琥珀冲击圈 */
+  static woodImpact(scene: Phaser.Scene, x: number, y: number, lv: number): void {
+    const count = lv >= 3 ? 10 : 6;
+    VFX.burst(scene, x, y, count, [0xc4884d, 0xdaa060, 0x8b6914, 0xffdd88], 120, 3, 320);
+    VFX.shockwave(scene, x, y, lv >= 3 ? 34 : 24, 0xc4884d, 220);
+  }
+
+  /** 水流命中：水花喷溅 + 冷色爆闪 */
+  static waterImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    VFX.burst(scene, x, y, lv >= 3 ? 12 : 8, [0x4488cc, 0x66bbee, 0xaaddff, 0xffffff], 110, 3, 420);
+    VFX.shockwave(scene, x, y, Math.max(18, radius), 0x66bbee, 260);
+    const flash = scene.add.circle(x, y, 6, 0xddeeff, 0.8);
+    flash.setDepth(38);
+    scene.tweens.add({
+      targets: flash,
+      scale: 3.5,
+      alpha: 0,
+      duration: 180,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  /** 药雾跳动：绿色脉冲 + 草药微粒 */
+  static insectTick(scene: Phaser.Scene, x: number, y: number, radius: number): void {
+    VFX.shockwave(scene, x, y, Math.max(18, radius), 0x66dd66, 180);
+    VFX.burst(scene, x, y, 4, [0x44cc44, 0x88cc44, 0xccee88], 70, 2, 260);
+  }
+
+  /** 颜料爆破：彩色溅射 + 环形炸开 */
+  static paintImpact(scene: Phaser.Scene, x: number, y: number, radius: number, lv: number): void {
+    const colors = [0xff4488, 0xff8800, 0xffee00, 0x44ff88, 0x4488ff, 0xcc44ff];
+    VFX.burst(scene, x, y, lv >= 3 ? 14 : 10, colors, 150, 4, 420);
+    VFX.shockwave(scene, x, y, Math.max(20, radius), 0xff66cc, 260);
+  }
+
   /** 普攻命中 */
   static boltHit(scene: Phaser.Scene, x: number, y: number): void {
     VFX.burst(scene, x, y, 3, [0x88ccff, 0xffffff, 0xaaddff], 50, 2, 200);

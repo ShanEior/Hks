@@ -1,4 +1,4 @@
-﻿import Phaser from 'phaser';
+import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, StructureType, SkillId, SKILL_CONFIGS, FONT, PALETTE, STRUCT_BAR, LEVELUP_CARD, MonsterType } from './config';
 import { Player } from './Player';
 import { Building } from './Building';
@@ -578,6 +578,12 @@ export class HUD {
     const descLines = [
       `CD ${cfg.cooldown}s，伤害 ${cfg.damage}`,
       cfg.range > 0 ? `范围 ${cfg.range}` : '',
+      cfg.shots ? `数量 ${cfg.shots}` : '',
+      cfg.pulseCount ? `脉冲 ${cfg.pulseCount} 次` : '',
+      cfg.tickInterval ? `每 ${cfg.tickInterval}s 触发` : '',
+      cfg.splashRadius ? `爆炸/溅射 ${cfg.splashRadius}` : '',
+      cfg.pierceCount ? `穿透 ${cfg.pierceCount}` : '',
+      cfg.chainCount ? `弹射 ${cfg.chainCount}` : '',
       cfg.repairAmount > 0 ? `回复${cfg.repairType.join('/')} ${cfg.repairAmount} 点` : '',
     ].filter(Boolean).join('，');
     const desc = this.scene.add.text(cx, cy, descLines, {

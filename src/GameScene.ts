@@ -856,58 +856,67 @@ export class GameScene extends Phaser.Scene {
 
     switch (skillId) {
       case 'wood_reinforce':
-        lines.push(`向前方发射木梁冲击波`);
-        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
-        if (cfg.widthMultiplier) lines.push(`冲击波宽度 ×${cfg.widthMultiplier}`);
+        lines.push(`朝最近敌群连续射出木梁，穿透前排`);
+        lines.push(`单梁 ${cfg.damage}  CD ${cfg.cooldown}s  射程 ${cfg.range}`);
+        if (cfg.shots) lines.push(`每次发射 ${cfg.shots} 根木梁`);
+        if (cfg.pierceCount) lines.push(`每根最多穿透 ${cfg.pierceCount} 个敌人`);
+        if (cfg.widthMultiplier) lines.push(`木梁宽度 ×${cfg.widthMultiplier}`);
+        if (cfg.splashRadius) lines.push(`命中后震裂周围 半径${cfg.splashRadius}`);
         if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
         if (prevCfg) {
-          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  CD ${cfg.cooldown}s`);
+          lines.push(`↑ 单梁伤害 +${cfg.damage - prevCfg.damage}  数量 ${cfg.shots ?? 1}`);
           if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中回血');
         }
         break;
 
       case 'stone_repair':
-        lines.push(`释放圆形震波，范围内全伤`);
-        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        lines.push(`连续释放环形震波，反复震退近身怪`);
+        lines.push(`每段 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        if (cfg.pulseCount) lines.push(`连续脉冲 ${cfg.pulseCount} 次`);
         if (cfg.knockbackForce) lines.push('附带击退效果，推开近身怪物');
         if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
         if (prevCfg) {
-          lines.push(`↑ 范围 +${cfg.range - prevCfg.range}`);
+          lines.push(`↑ 脉冲数 ${cfg.pulseCount ?? 1}  范围 +${cfg.range - prevCfg.range}`);
           if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中回血+击退');
         }
         break;
 
       case 'waterproof':
-        lines.push(`释放水纹护罩，对酸雨怪特攻`);
-        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s  范围 ${cfg.range}`);
+        lines.push(`召唤水幕锁定敌群，连点多目标`);
+        lines.push(`单次 ${cfg.damage}  CD ${cfg.cooldown}s  搜敌范围 ${cfg.range}`);
+        if (cfg.shots) lines.push(`每次打击 ${cfg.shots} 个目标`);
+        if (cfg.splashRadius) lines.push(`命中溅射 半径${cfg.splashRadius}`);
         if (cfg.bonusDamageVs) lines.push(`对${monsterNames[cfg.bonusDamageVs]}伤害 ×${cfg.bonusDamageMultiplier}`);
         if (cfg.repairAmount > 0) lines.push(`命中回复${cfg.repairType.map(t => structNames[t]).join('+')}各 ${cfg.repairAmount} HP`);
         if (prevCfg) {
-          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  范围 +${cfg.range - prevCfg.range}`);
+          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  目标数 ${cfg.shots ?? 1}`);
           if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：命中酸雨怪大回血');
         }
         break;
 
       case 'insect_control':
-        lines.push(`在脚下释放持续药雾区域`);
-        lines.push(`每秒 ${cfg.damage} 伤害  CD ${cfg.cooldown}s  范围 ${cfg.range}  持续 ${cfg.zoneDuration}s`);
+        lines.push(`生成跟随玩家的药雾圈，持续绞杀近身怪`);
+        lines.push(`每跳 ${cfg.damage} 伤害  CD ${cfg.cooldown}s  范围 ${cfg.range}  持续 ${cfg.zoneDuration}s`);
+        if (cfg.tickInterval) lines.push(`药雾每 ${cfg.tickInterval}s 触发一次`);
+        if (cfg.shots) lines.push(`每次额外喷射 ${cfg.shots} 枚药雾孢子`);
         if (cfg.bonusDamageVs) lines.push(`对${monsterNames[cfg.bonusDamageVs]}伤害 ×${cfg.bonusDamageMultiplier}`);
         if (cfg.repairAmount > 0) lines.push(`区域内每秒回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
         if (prevCfg) {
-          lines.push(`↑ 持续 +${(cfg.zoneDuration ?? 0) - (prevCfg.zoneDuration ?? 0)}s`);
+          lines.push(`↑ 持续 +${(cfg.zoneDuration ?? 0) - (prevCfg.zoneDuration ?? 0)}s  Tick更快`);
           if (cfg.repairAmount > 0 && prevCfg.repairAmount === 0) lines.push('↑ 新增强：雾中持续回血');
         }
         break;
 
       case 'painting_restore':
-        lines.push(`追踪最近敌人的颜料弹`);
-        lines.push(`伤害 ${cfg.damage}  CD ${cfg.cooldown}s`);
-        if (cfg.range > 0) lines.push(`命中后小范围爆炸 半径${cfg.range}`);
-        if (cfg.projectileBounce) lines.push('命中后弹射至第二目标');
+        lines.push(`发射多枚追踪颜料弹，命中后绽开彩爆`);
+        lines.push(`单弹 ${cfg.damage}  CD ${cfg.cooldown}s`);
+        if (cfg.shots) lines.push(`每次发射 ${cfg.shots} 枚颜料弹`);
+        if (cfg.splashRadius || cfg.range > 0) lines.push(`命中爆炸 半径${cfg.splashRadius ?? cfg.range}`);
+        if (cfg.chainCount) lines.push(`命中后额外弹射 ${cfg.chainCount} 次`);
         if (cfg.repairAmount > 0) lines.push(`命中回复${structNames[cfg.repairType[0]]}结构 ${cfg.repairAmount} HP`);
         if (prevCfg) {
-          lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  CD ${cfg.cooldown}s`);
-          if (cfg.projectileBounce && !prevCfg.projectileBounce) lines.push('↑ 新增强：弹射攻击');
+          lines.push(`↑ 单弹伤害 +${cfg.damage - prevCfg.damage}  数量 ${cfg.shots ?? 1}`);
+          if (cfg.chainCount && !(prevCfg.chainCount && prevCfg.chainCount > 0)) lines.push('↑ 新增强：弹射攻击');
         }
         break;
     }
