@@ -345,7 +345,6 @@ export class GameScene extends Phaser.Scene {
     monster.onDeath = (m) => {
       this.killCount++;
       this.killCount++;
-      this.player.exp += m.expDrop;
       this.spawnExpOrb(m.x, m.y, m.expDrop);
       // 15% 概率掉落修补箱
       if (Math.random() < 0.15) {
@@ -461,7 +460,12 @@ export class GameScene extends Phaser.Scene {
       this.player.exp -= this.player.expToNext;
       this.player.level++;
       this.player.expToNext = BASE_EXP_TO_LEVEL + this.player.level * EXP_PER_LEVEL;
-      this.pauseForLevelUp();
+
+      if (this.player.level === 1 || this.player.level % 5 === 0) {
+        this.pauseForLevelUp();
+      } else {
+        this.hud.showLevelNotify(this.player.level);
+      }
     }
   }
 

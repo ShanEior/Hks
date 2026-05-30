@@ -281,6 +281,21 @@ export class HUD {
     });
   }
 
+  showLevelNotify(level: number): void {
+    const msg = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 升级! Lv., {
+      ...FONT.huge, color: '#FFD700',
+    }).setOrigin(0.5, 0.5).setDepth(200);
+
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x000000, 0.5);
+    bg.fillRoundedRect(GAME_WIDTH / 2 - 140, GAME_HEIGHT / 2 - 110, 280, 60, 12);
+    bg.setDepth(199);
+
+    this.scene.time.delayedCall(1200, () => {
+      msg.destroy(); bg.destroy();
+    });
+  }
+
   hideLevelUpPanel(): void {
     for (const el of this.levelUpElements) el.destroy();
     this.levelUpElements = [];
