@@ -8,6 +8,7 @@ const PREFIX: Record<string, string> = {
   trees: 'tree', bamboo: 'bamboo', mountain: 'mtn',
   ground: 'gnd', plants: 'plant', ground_tex: 'gtex',
   atlas: 'atlas', grass_tiles: 'grass',
+  fx_ghost: 'fxghost', fx_crack: 'fxcrack', fx_particle: 'fxpart',
 };
 
 const MANIFEST: Record<string, string[]> = {
@@ -56,9 +57,17 @@ const MANIFEST: Record<string, string[]> = {
     'CommonResourcePoints_Atlas_512x512',
   ],
   grass_tiles: ['grass_large_0','grass_large_1','grass_large_2'],
+  fx_ghost: ['幽灵_0','幽灵_1','幽灵_2','幽灵_3','幽灵_4'],
+  fx_crack: ['TableCrack'],
+  fx_particle: [
+    'Goldcoin_0','Mood_0','Mood_1',
+    'UI_night_addup_0','UI_night_addup_1','UI_night_addup_2','UI_night_addup_3',
+    'UI_night_addup_4','UI_night_addup_5','UI_night_addup_6','UI_night_addup_7',
+  ],
 };
 
 const BASE = 'assets/sprites';
+const FX_BASE = 'assets/sprites/fx'; // FX 素材在子目录
 
 function mkey(cat: string, name: string): string {
   return `${PREFIX[cat]}_${name}`;
@@ -66,8 +75,13 @@ function mkey(cat: string, name: string): string {
 
 export function preloadSprites(scene: Phaser.Scene): void {
   for (const [cat, names] of Object.entries(MANIFEST)) {
+    // FX 素材用不同路径
+    const base = cat.startsWith('fx_') ? FX_BASE : BASE;
+    const folder = cat.startsWith('fx_')
+      ? { fx_ghost: 'Ghost_Shared_Atlas', fx_crack: 'TableCrack_Atlas', fx_particle: 'Work_Atlas' }[cat] || cat
+      : cat;
     for (const name of names) {
-      scene.load.image(mkey(cat, name), `${BASE}/${cat}/${name}.png`);
+      scene.load.image(mkey(cat, name), `${base}/${folder}/${name}.png`);
     }
   }
 }

@@ -38,6 +38,7 @@ interface Zone {
   bonusDamageVs?: MonsterType;
   bonusDamageMultiplier?: number;
   graphic: Phaser.GameObjects.Graphics;
+  isInsectZone?: boolean; // 防虫处理标记
 }
 
 export class SkillManager {
@@ -266,6 +267,7 @@ export class SkillManager {
       bonusDamageVs: skill.bonusDamageVs,
       bonusDamageMultiplier: skill.bonusDamageMultiplier,
       graphic: g,
+      isInsectZone: true,
     });
 
     // 区域淡出销毁
@@ -436,8 +438,28 @@ export class SkillManager {
               dmg *= (z.bonusDamageMultiplier ?? 2);
             }
             m.takeDamage(dmg);
-            // 回血（每秒 tick 也回血）
             this.applyRepair(z.repairType, z.repairAmount, m.type);
+          }
+        }
+        // 防虫处理药雾：幽灵出现再消失
+        if (z.isInsectZone) {
+          for (let i = 0; i < 4; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * z.radius * 0.7;
+            const gx = z.x + Math.cos(a) * d;
+            const gy = z.y + Math.sin(a) * d;
+            const ghostIdx = Math.floor(Math.random() * 5);
+            const ghostKey = 'ghost_' + ghostIdx;
+            if (!this.scene.textures.exists(ghostKey)) continue;
+            const ghost = this.scene.add.image(gx, gy, ghostKey).setDepth(18)
+              .setAlpha(0.6 + Math.random() * 0.3)
+              .setScale(0.5 + Math.random() * 0.5);
+            this.scene.tweens.add({
+              targets: ghost, alpha: 0, y: ghost.y - 20 + Math.random() * 10,
+              x: ghost.x + (Math.random() - 0.5) * 30,
+              duration: 800 + Math.random() * 600, ease: 'Sine.easeOut',
+              onComplete: () => ghost.destroy(),
+            });
           }
         }
       }
