@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, StructureType, SkillId, SKILL_CONFIGS, FONT, PALETTE, STRUCT_BAR, LEVELUP_CARD, MonsterType } from './config';
 import { Player } from './Player';
 import { Building } from './Building';
@@ -82,6 +82,7 @@ export class HUD {
 
   // ── 倒计时（右上，不再溢出） ──
   private timerPanelBg!: Phaser.GameObjects.Image;
+  private killCountText!: Phaser.GameObjects.Text;
 
   private createTimer(): void {
     // 计时面板 80px 格宽 = 160 物理px，贴在右边缘留 8px margin
@@ -96,6 +97,11 @@ export class HUD {
     this.timerText = this.scene.add.text(panelCenterX + 2, py + 14, '5:00',
       { ...FONT.large, color: '#FFFFFF' })
       .setOrigin(0.5).setScrollFactor(0).setDepth(102);
+
+    this.killCountText = this.scene.add.text(GAME_WIDTH - 12, 50, '击杀: 0', {
+      ...FONT.body,
+      color: '#FFD700',
+    }).setOrigin(1, 0).setDepth(90);
   }
 
   // ── 经验条（底部全宽，金色像素风格） ──
@@ -128,7 +134,7 @@ export class HUD {
   }
 
   // ── 每帧刷新 ──
-  update(player: Player, building: Building, gameTime: number): void {
+  update(player: Player, building: Building, gameTime: number, killCount: number): void {
     // 古建结构血条（左侧竖排）
     for (const bar of this.structBars) {
       const s = building.getStructure(bar.type);

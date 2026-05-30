@@ -1,8 +1,8 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import {
   MAP_WIDTH, MAP_HEIGHT, GAME_WIDTH, GAME_HEIGHT, GAME_DURATION,
   PLAYER_CONFIG, BUILDING_CONFIG, MONSTER_TEMPLATES,
-  SPAWN_DISTANCE, INITIAL_SPAWN_INTERVAL,
+  SPAWN_DISTANCE, INITIAL_SPAWN_INTERVAL, MAX_MONSTERS,
   EXP_ORB_CONFIG, PICKUP_RANGE,
   BASE_EXP_TO_LEVEL, EXP_PER_LEVEL, ALL_SKILL_IDS,
   SKILL_CONFIGS, WAVE_STAGES,
@@ -71,10 +71,11 @@ export class GameScene extends Phaser.Scene {
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
+  private killCount = 0;
+  private invincibleTimer = 0;
   private spawnInterval = INITIAL_SPAWN_INTERVAL;
   private isGameOver = false;
   private isPaused = false;
-  private killCount = 0;
   private seenMonsterTypes = new Set<MonsterType>();
 
   // 自动普攻
@@ -150,6 +151,7 @@ export class GameScene extends Phaser.Scene {
     // 刷怪（波次驱动）
     const stage = this.getCurrentStage();
     if (stage) {
+    this.invincibleTimer = Math.max(0, this.invincibleTimer - delta);
       this.spawnTimer += delta;
       if (this.spawnTimer >= stage.spawnInterval) {
         this.spawnTimer -= stage.spawnInterval;
@@ -295,6 +297,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnWave(stage: WaveStage): void {
+    if (this.monsters.length >= MAX_MONSTERS) return;
     const totalW = stage.monsters.reduce((s, m) => s + m.weight, 0);
     for (let i = 0; i < stage.countPerWave; i++) {
       let r = Math.random() * totalW;
@@ -334,6 +337,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     monster.onDeath = (m) => {
+      this.killCount++;
       this.killCount++;
       this.player.exp += m.expDrop;
       this.spawnExpOrb(m.x, m.y, m.expDrop);

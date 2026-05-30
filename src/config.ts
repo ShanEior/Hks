@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // 山西古建保卫战 — 全局常量配置
 // ============================================================
 
@@ -56,35 +56,35 @@ export interface MonsterTemplate {
 export const MONSTER_TEMPLATES: Record<MonsterType, MonsterTemplate> = {
   termite: {
     type: 'termite', name: '白蚁怪',
-    hp: 20, speed: 2.8, damage: 3,
+    hp: 8, speed: 1.5, damage: 2,
     attackInterval: 1000,
     attackStructures: ['wood'],
     color: 0xDDDDDD, radius: 8, expDrop: 1,
   },
   wind: {
     type: 'wind', name: '风蚀怪',
-    hp: 35, speed: 3.2, damage: 5,
+    hp: 12, speed: 2.0, damage: 3,
     attackInterval: 1200,
     attackStructures: ['stone', 'painting'],
     color: 0xDDCC88, radius: 10, expDrop: 2,
   },
   acid_rain: {
     type: 'acid_rain', name: '酸雨怪',
-    hp: 45, speed: 1.8, damage: 6,
+    hp: 15, speed: 1.2, damage: 3,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
     color: 0x44CC44, radius: 11, expDrop: 3,
   },
   fire: {
     type: 'fire', name: '火焰怪',
-    hp: 50, speed: 2.4, damage: 8,
+    hp: 18, speed: 1.8, damage: 4,
     attackInterval: 1500,
     attackStructures: ['wood', 'painting'],
     color: 0xFF6633, radius: 12, expDrop: 4,
   },
   freeze_thaw: {
     type: 'freeze_thaw', name: '冻融怪',
-    hp: 80, speed: 1.4, damage: 10,
+    hp: 25, speed: 1.0, damage: 5,
     attackInterval: 2000,
     attackStructures: ['stone', 'tile'],
     color: 0x6699FF, radius: 14, expDrop: 5,
@@ -93,12 +93,14 @@ export const MONSTER_TEMPLATES: Record<MonsterType, MonsterTemplate> = {
 
 // ---- 怪物生成 ----
 export const SPAWN_DISTANCE = 700; // 从地图中心算起的生成距离
-export const INITIAL_SPAWN_INTERVAL = 2000; // ms
+export const INITIAL_SPAWN_INTERVAL = 2000;
+export const MAX_MONSTERS = 80; // ms
 
 // ---- 经验 ----
 export const BASE_EXP_TO_LEVEL = 10;
 export const EXP_PER_LEVEL = 5; // ExpToNext = BASE + Level * EXP_PER_LEVEL
-export const PICKUP_RANGE = 90; // 经验球自动吸附范围 (spec 1.5 * 60)
+export const PICKUP_RANGE = 120;
+export const INVINCIBILITY_DURATION = 300; // ms (0.3s) // 经验球自动吸附范围 (spec 1.5 * 60)
 
 // ---- 技能 ----
 export type SkillId =
@@ -195,18 +197,12 @@ export interface WaveStage {
 }
 
 export const WAVE_STAGES: WaveStage[] = [
-  // 0-30s 教学期：仅白蚁，极慢
-  { timeStart: 0,  timeEnd: 45,  spawnInterval: 4000, monsters: [{type:'termite',weight:100}], countPerWave: 1 },
-  // 45-90s 加入风蚀
-  { timeStart: 45, timeEnd: 90,  spawnInterval: 2500, monsters: [{type:'termite',weight:85},{type:'wind',weight:15}], countPerWave: 3 },
-  // 90-150s 加入酸雨
-  { timeStart: 90, timeEnd: 150, spawnInterval: 2000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 4 },
-  // 150-210s 加入火焰
-  { timeStart: 150,timeEnd: 210, spawnInterval: 1700, monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 5 },
-  // 210-270s 加入冻融，压力明显
-  { timeStart: 210,timeEnd: 270, spawnInterval: 1400, monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 6 },
-  // 270-300s 全力输出
-  { timeStart: 270,timeEnd: 300, spawnInterval: 1100, monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 8 },
+  { timeStart: 0,  timeEnd: 30,  spawnInterval: 1500, monsters: [{type:'termite',weight:100}], countPerWave: 6 },
+  { timeStart: 30, timeEnd: 60,  spawnInterval: 1200, monsters: [{type:'termite',weight:80},{type:'wind',weight:20}], countPerWave: 10 },
+  { timeStart: 60, timeEnd: 120, spawnInterval: 1000, monsters: [{type:'termite',weight:60},{type:'wind',weight:25},{type:'acid_rain',weight:15}], countPerWave: 15 },
+  { timeStart: 120,timeEnd: 180, spawnInterval: 800,  monsters: [{type:'termite',weight:45},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15}], countPerWave: 20 },
+  { timeStart: 180,timeEnd: 240, spawnInterval: 600,  monsters: [{type:'termite',weight:35},{type:'wind',weight:20},{type:'acid_rain',weight:20},{type:'fire',weight:15},{type:'freeze_thaw',weight:10}], countPerWave: 25 },
+  { timeStart: 240,timeEnd: 300, spawnInterval: 500,  monsters: [{type:'termite',weight:30},{type:'wind',weight:18},{type:'acid_rain',weight:18},{type:'fire',weight:18},{type:'freeze_thaw',weight:16}], countPerWave: 30 },
 ];
 
 // ---- 刷怪权重（Phase 2 简单权重，后续改为波次驱动） ----
