@@ -68,6 +68,18 @@ export class Player {
     this.knockbackVy += Math.sin(angle) * force;
   }
 
+  /** 攻击时轻微后坐力（2-4px，60ms 弹回） */
+  applyAttackRecoil(): void {
+    const recoil = this.facingRight ? -3 : 3;
+    this.sprite.x += recoil;
+    this.scene.tweens.add({
+      targets: this.sprite,
+      x: this.sprite.x - recoil,
+      duration: 60,
+      ease: 'Sine.easeOut',
+    });
+  }
+
   update(delta: number): void {
     const dt = delta / 1000;
 

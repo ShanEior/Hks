@@ -670,6 +670,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (!nearest) return;
     SoundManager.autoAttack();
+    this.player.applyAttackRecoil();
     const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
     bolt.setDepth(12);
     this.autoBolts.push({ graphic: bolt, target: nearest, speed: AUTO_ATTACK_CONFIG.boltSpeed, damage: AUTO_ATTACK_CONFIG.damage, lifetime: AUTO_ATTACK_CONFIG.boltLifetime });

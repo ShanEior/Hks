@@ -62,7 +62,8 @@ export class Building {
     s.currentHp = Math.max(0, s.currentHp - amount);
     SoundManager.buildingHit();
     VFX.buildingHit(this.scene, this.x, this.y, type);
-    this.flashDamage();
+    this.flashDamage(amount);
+    this.shakeSprite();
 
     if (s.currentHp <= 0 && this.onFailure) {
       this.onFailure();
@@ -112,12 +113,32 @@ export class Building {
     }
   }
 
-  private flashDamage(): void {
-    this.graphics.setAlpha(0.4);
+  private flashDamage(damage: number): void {
+    // 比例反馈：伤害越大闪越狠
+    const severity = Math.min(damage / 20, 1);
+    this.graphics.setAlpha(1 - severity * 0.6);
+    if (severity > 0.5) this.graphics.setTint(0xff4444);
     this.scene.time.delayedCall(120, () => {
-      if (this.graphics.active) this.graphics.setAlpha(1);
+      if (this.graphics.active) {
+        this.graphics.setAlpha(1);
+        this.graphics.clearTint();
+      }
     });
     this.updateAppearance();
+  }
+
+  /** 古建被击中时短暂抖动（不是全局摇晃） */
+  private shakeSprite(): void {
+    const ox = this.graphics.x;
+    this.scene.tweens.add({
+      targets: this.graphics,
+      x: ox + 3,
+      duration: 30,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
+      onComplete: () => { this.graphics.x = ox; },
+    });
   }
 
   private flashHeal(): void {

@@ -105,25 +105,6 @@ export class CombatFeel {
     return delta;
   }
 
-  /** 玩家主动攻击时的微量后坐力 */
-  onPlayerAttack(): void {
-    // 后坐力通过 Player.ts 处理，这里只做视觉标记
-  }
-
-  /** 古建被击中时抖动 */
-  onBuildingHit(sprite: Phaser.GameObjects.Image, _damage: number): void {
-    const ox = sprite.x;
-    this.scene.tweens.add({
-      targets: sprite,
-      x: ox + 3,
-      duration: 30,
-      yoyo: true,
-      repeat: 2,
-      ease: 'Sine.easeInOut',
-      onComplete: () => { sprite.x = ox; },
-    });
-  }
-
   // ═══════════════════════════════════
   // 查询
   // ═══════════════════════════════════
