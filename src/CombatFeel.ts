@@ -5,7 +5,7 @@
  * 采用命中点局部反馈策略，不拖拽全局摄像机。
  */
 import Phaser from 'phaser';
-import { HIT_STOP_CONFIG, HitStopTier, IMPACT_FLASH_CONFIG } from './config';
+import { HIT_STOP_CONFIG, HitStopTier, IMPACT_FLASH_CONFIG, COMBAT_FEEL_EXTRA } from './config';
 import { VFX } from './VFX';
 
 export interface HitEvent {
@@ -36,25 +36,26 @@ export class CombatFeel {
     const cfg = HIT_STOP_CONFIG[event.tier];
     const now = this.scene.time.now;
 
-    // Hit Stop + 冷却
-    if (now - this.lastHitStopTime >= HIT_STOP_CONFIG.cooldownMs) {
+    // Hit Stop + 冷却（同一窗口内命中闪/镜头冲击也只触发一次）
+    const canActivate = now - this.lastHitStopTime >= HIT_STOP_CONFIG.cooldownMs;
+    if (canActivate) {
       this.hitStopRemaining = Math.max(this.hitStopRemaining, cfg.freezeMs);
       this.lastHitStopTime = now;
-    }
 
-    // ── 命中点径向光晕（替代全屏闪白） ──
-    this.spawnImpactFlash(event);
+      // ── 命中点径向光晕（替代全屏闪白） ──
+      this.spawnImpactFlash(event);
 
-    // ── 镜头冲击（仅重击/ultra） ──
-    if (event.tier === 'heavy' || event.tier === 'ultra') {
-      const zoomIn = event.tier === 'ultra' ? 1.04 : 1.025;
-      const recoverMs = event.tier === 'ultra' ? 250 : 180;
-      this.scene.cameras.main.zoomTo(zoomIn, 30, 'Power1', true);
-      this.scene.time.delayedCall(40, () => {
-        if (this.scene.cameras.main) {
-          this.scene.cameras.main.zoomTo(1.0, recoverMs, 'Power2', true);
-        }
-      });
+      // ── 镜头冲击（仅重击/ultra） ──
+      if (event.tier === 'heavy' || event.tier === 'ultra') {
+        const zoomIn = event.tier === 'ultra' ? 1.04 : 1.025;
+        const recoverMs = event.tier === 'ultra' ? 250 : 180;
+        this.scene.cameras.main.zoomTo(zoomIn, 30, 'Power1', true);
+        this.scene.time.delayedCall(40, () => {
+          if (this.scene.cameras.main) {
+            this.scene.cameras.main.zoomTo(1.0, recoverMs, 'Power2', true);
+          }
+        });
+      }
     }
   }
 
@@ -99,7 +100,7 @@ export class CombatFeel {
       if (this.hitStopRemaining <= 0) {
         this.hitStopRemaining = 0;
       }
-      return 0.05;
+      return COMBAT_FEEL_EXTRA.minEffectiveDelta;
     }
 
     return delta;

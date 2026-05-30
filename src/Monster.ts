@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR } from './config';
+import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG } from './config';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
@@ -167,6 +167,9 @@ export class Monster {
 
   takeDamage(amount: number, attackerX?: number, attackerY?: number): boolean {
     if (this.isDead) return false;
+
+    // 判定是否为致命一击（在扣血之前检查，避免命中与死亡反馈重叠）
+    const willDie = this.hp - amount <= 0;
     this.hp -= amount;
 
     // ── 击退 ──
@@ -174,17 +177,21 @@ export class Monster {
     const refY = attackerY ?? this.targetY;
     const angle = Math.atan2(this.sprite.y - refY, this.sprite.x - refX);
 
-    // 选择击退等级（提取为 number 避免 as const 字面类型冲突）
-    const kbForce =
-      amount >= 60 ? 350 :
-      amount >= 30 ? 200 :
-      amount >= 15 ? 100 :
-      60; // KNOCKBACK_CONFIG.autoAttack.force
-    const kbStun =
-      amount >= 60 ? 150 :
-      amount >= 30 ? 100 :
-      amount >= 15 ? 50 :
-      40; // KNOCKBACK_CONFIG.autoAttack.stunMs
+    // 根据伤害量匹配击退等级
+    let kbForce: number, kbStun: number;
+    if (amount >= 60) {
+      kbForce = KNOCKBACK_CONFIG.heavy.force;
+      kbStun = KNOCKBACK_CONFIG.heavy.stunMs;
+    } else if (amount >= 30) {
+      kbForce = KNOCKBACK_CONFIG.medium.force;
+      kbStun = KNOCKBACK_CONFIG.medium.stunMs;
+    } else if (amount >= 15) {
+      kbForce = KNOCKBACK_CONFIG.light.force;
+      kbStun = KNOCKBACK_CONFIG.light.stunMs;
+    } else {
+      kbForce = KNOCKBACK_CONFIG.autoAttack.force;
+      kbStun = KNOCKBACK_CONFIG.autoAttack.stunMs;
+    }
 
     this.knockbackVx += Math.cos(angle) * kbForce;
     this.knockbackVy += Math.sin(angle) * kbForce;
@@ -220,23 +227,23 @@ export class Monster {
       if (this.sprite.active && !this.isDead) this.sprite.clearTint();
     });
 
-    // ── 音效 + VFX ──
-    SoundManager.hitMonster(this.sprite.x, this.sprite.y);
-    VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY);
-
-    // ── 命中反馈回调 → CombatFeel ──
-    this.onDamageFeedback?.(this, amount);
+    // ── 音效 + VFX：致命一击跳过命中反馈，由死亡反馈统一接管 ──
+    if (!willDie) {
+      SoundManager.hitMonster(this.sprite.x, this.sprite.y);
+      VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY);
+      this.onDamageFeedback?.(this, amount);
+    }
 
     if (this.hp <= 0) {
       this.hp = 0;
       SoundManager.killMonster(this.type);
-      this.die();
+      this.die(true);
       return true;
     }
     return false;
   }
 
-  private die(): void {
+  private die(isFatalBlow = false): void {
     this.isDead = true;
     this.onDeath?.(this);
 
@@ -250,11 +257,12 @@ export class Monster {
     // 阶段 1 (0-60ms)：闪白定格
     this.sprite.setTint(0xffffff);
 
-    // 阶段 2 (60-360ms)：膨胀 + 渐隐
+    // 阶段 2 (60-360ms)：膨胀 + 渐隐（致命一击放大到 5x，强化爆破感）
+    const deathScale = isFatalBlow ? 5 : 1.3;
     this.scene.tweens.add({
       targets: this.sprite,
-      scaleX: this.sprite.scaleX * 1.3,
-      scaleY: this.sprite.scaleY * 1.3,
+      scaleX: this.sprite.scaleX * deathScale,
+      scaleY: this.sprite.scaleY * deathScale,
       alpha: 0,
       duration: 300,
       delay: 60,

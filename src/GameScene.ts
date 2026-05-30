@@ -229,7 +229,7 @@ export class GameScene extends Phaser.Scene {
 
     // Boss 更新
     if (this.boss && this.boss.isActive && !this.boss.isDead) {
-      this.boss.update(time, delta);
+      this.boss.update(time, effectiveDelta);
       const distToBuilding = Phaser.Math.Distance.Between(
         this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       );

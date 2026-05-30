@@ -21,6 +21,7 @@ export class VFX {
       const c = colors[Math.floor(Math.random() * colors.length)];
       const p = scene.add.circle(x, y, size, c, 1);
       p.setDepth(40);
+      const cleanup = () => { if (p.active) p.destroy(); };
       scene.tweens.add({
         targets: p,
         x: x + Math.cos(angle) * spd * (lifetime / 1000),
@@ -29,7 +30,8 @@ export class VFX {
         scale: 0.2,
         duration: lifetime,
         ease: 'Power2',
-        onComplete: () => p.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
   }
@@ -39,6 +41,7 @@ export class VFX {
     const ring = scene.add.circle(x, y, 5, color, 0);
     ring.setStrokeStyle(3, color, 0.8);
     ring.setDepth(35);
+    const cleanup = () => { if (ring.active) ring.destroy(); };
     scene.tweens.add({
       targets: ring,
       radius: radius,
@@ -48,7 +51,8 @@ export class VFX {
       onUpdate: () => {
         ring.setStrokeStyle(2, color, ring.alpha * 0.8);
       },
-      onComplete: () => ring.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
   }
 
@@ -71,9 +75,11 @@ export class VFX {
       fontSize: size, color, fontFamily: 'monospace',
       stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(50);
+    const cleanup = () => { if (t.active) t.destroy(); };
     scene.tweens.add({
       targets: t, y: t.y - 36, alpha: 0, duration: 700, ease: 'Power2',
-      onComplete: () => t.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
   }
 
@@ -105,9 +111,11 @@ export class VFX {
     // 白色闪光
     const flash = scene.add.circle(x, y, 8, 0xffffff, 1);
     flash.setDepth(39);
+    const cleanup = () => { if (flash.active) flash.destroy(); };
     scene.tweens.add({
       targets: flash, scale: 4, alpha: 0, duration: 150,
-      onComplete: () => flash.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
   }
 
@@ -121,6 +129,7 @@ export class VFX {
       const ty = y + Math.sin(angle) * dist - 30 * Math.random();
       const p = scene.add.circle(x, y, 3, 0xffdd44, 1);
       p.setDepth(45);
+      const cleanup = () => { if (p.active) p.destroy(); };
       scene.tweens.add({
         targets: p,
         x: tx,
@@ -130,7 +139,8 @@ export class VFX {
         duration: 800,
         delay: i * 30,
         ease: 'Power2',
-        onComplete: () => p.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // 冲击波
@@ -152,9 +162,11 @@ export class VFX {
     // 发射闪光
     const flash = scene.add.circle(x, y, 6, 0xffffff, 0.9);
     flash.setDepth(21);
+    const cleanup = () => { if (flash.active) flash.destroy(); };
     scene.tweens.add({
       targets: flash, scale: 3, alpha: 0, duration: 200,
-      onComplete: () => flash.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
     // Lv3 额外金色强化光
     if (lv >= 3) {
@@ -170,6 +182,7 @@ export class VFX {
       const ring = scene.add.circle(x, y, 4, 0, 0);
       ring.setStrokeStyle(3 - r * 0.8, ringColors[r], 1 - r * 0.25);
       ring.setDepth(35);
+      const cleanup = () => { if (ring.active) ring.destroy(); };
       scene.tweens.add({
         targets: ring,
         radius: radius * (0.7 + r * 0.2),
@@ -177,7 +190,8 @@ export class VFX {
         duration: 350 + r * 100,
         delay: r * 50,
         ease: 'Power3',
-        onComplete: () => ring.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // 碎石爆散
@@ -190,6 +204,7 @@ export class VFX {
         const rock = scene.add.rectangle(x, y, 6, 6, 0x777777, 1);
         rock.setDepth(36);
         rock.setRotation(Math.random() * Math.PI);
+        const cleanup = () => { if (rock.active) rock.destroy(); };
         scene.tweens.add({
           targets: rock,
           x: x + Math.cos(a) * 120,
@@ -197,7 +212,8 @@ export class VFX {
           alpha: 0, rotation: rock.rotation + Math.PI * 2,
           duration: 600,
           ease: 'Power2',
-          onComplete: () => rock.destroy(),
+          onComplete: cleanup,
+          onStop: cleanup,
         });
       }
     }
@@ -210,6 +226,7 @@ export class VFX {
       const ring = scene.add.circle(x, y, 6, 0, 0);
       ring.setStrokeStyle(3 - r * 0.4, 0x4488cc, 0.8 - r * 0.12);
       ring.setDepth(35);
+      const cleanup = () => { if (ring.active) ring.destroy(); };
       scene.tweens.add({
         targets: ring,
         radius: radius * (0.5 + r * 0.15),
@@ -217,7 +234,8 @@ export class VFX {
         duration: 450 + r * 120,
         delay: r * 40,
         ease: 'Sine.easeOut',
-        onComplete: () => ring.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // 水珠喷溅
@@ -225,9 +243,11 @@ export class VFX {
     // 中心水柱闪光
     const pillar = scene.add.rectangle(x, y, 8, 4, 0xddeeff, 0.6);
     pillar.setDepth(36);
+    const cleanup = () => { if (pillar.active) pillar.destroy(); };
     scene.tweens.add({
       targets: pillar, scaleY: 4, scaleX: 0.3, alpha: 0, duration: 300,
-      onComplete: () => pillar.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
   }
 
@@ -239,6 +259,7 @@ export class VFX {
       const d = Math.random() * radius * 0.85;
       const p = scene.add.circle(x + Math.cos(a) * d * 0.2, y + Math.sin(a) * d * 0.2, 5, 0x44cc44, 0.35);
       p.setDepth(18);
+      const cleanup = () => { if (p.active) p.destroy(); };
       scene.tweens.add({
         targets: p,
         x: x + Math.cos(a) * d,
@@ -246,7 +267,8 @@ export class VFX {
         alpha: 0, scale: 2.5,
         duration: 1200 + Math.random() * 600,
         ease: 'Sine.easeOut',
-        onComplete: () => p.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // 草药碎屑
@@ -254,10 +276,12 @@ export class VFX {
       for (let i = 0; i < 8; i++) {
         const s = scene.add.rectangle(x + (Math.random() - 0.5) * 40, y - 20, 3, 3, 0x88cc44, 0.7);
         s.setDepth(19);
+        const cleanup = () => { if (s.active) s.destroy(); };
         scene.tweens.add({
           targets: s, y: s.y + 30 + Math.random() * 20, x: s.x + (Math.random() - 0.5) * 30,
           alpha: 0, rotation: Math.random() * 3, duration: 1500,
-          onComplete: () => s.destroy(),
+          onComplete: cleanup,
+          onStop: cleanup,
         });
       }
     }
@@ -273,18 +297,23 @@ export class VFX {
       const ring = scene.add.circle(x, y, 4, 0, 0);
       ring.setStrokeStyle(2, colors[r * 2], 0.8);
       ring.setDepth(35);
+      const cleanup = () => { if (ring.active) ring.destroy(); };
       scene.tweens.add({
         targets: ring, radius: 50 + r * 15, alpha: 0, duration: 300 + r * 60,
-        ease: 'Power2', onComplete: () => ring.destroy(),
+        ease: 'Power2',
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // Lv3 弹射标记
     if (lv >= 3) {
       const star = scene.add.star(x, y, 5, 6, 10, 0xffdd44, 1);
       star.setDepth(37);
+      const cleanup = () => { if (star.active) star.destroy(); };
       scene.tweens.add({
         targets: star, scale: 2, alpha: 0, rotation: Math.PI, duration: 400,
-        onComplete: () => star.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
   }
@@ -294,9 +323,11 @@ export class VFX {
     VFX.burst(scene, x, y, 3, [0x88ccff, 0xffffff, 0xaaddff], 50, 2, 200);
     const spark = scene.add.circle(x, y, 3, 0xffffff, 0.9);
     spark.setDepth(40);
+    const cleanup = () => { if (spark.active) spark.destroy(); };
     scene.tweens.add({
       targets: spark, scale: 3, alpha: 0, duration: 150,
-      onComplete: () => spark.destroy(),
+      onComplete: cleanup,
+      onStop: cleanup,
     });
   }
 
@@ -330,6 +361,7 @@ export class VFX {
       const ring = scene.add.circle(x, y, 5, 0, 0);
       ring.setStrokeStyle(4 - r, 0xAA44FF, 0.9 - r * 0.18);
       ring.setDepth(38);
+      const cleanup = () => { if (ring.active) ring.destroy(); };
       scene.tweens.add({
         targets: ring,
         radius: 150 + r * 30,
@@ -337,7 +369,8 @@ export class VFX {
         duration: 700 + r * 150,
         delay: r * 80,
         ease: 'Power3',
-        onComplete: () => ring.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
     // 紫色粒子爆散
@@ -367,13 +400,15 @@ export class VFX {
     const goldRing = scene.add.circle(x, y, 10, 0, 0);
     goldRing.setStrokeStyle(4, 0xFFD700, 0.9);
     goldRing.setDepth(38);
+    const cleanupGold = () => { if (goldRing.active) goldRing.destroy(); };
     scene.tweens.add({
       targets: goldRing,
       radius: 300,
       alpha: 0,
       duration: 1200,
       ease: 'Power2',
-      onComplete: () => goldRing.destroy(),
+      onComplete: cleanupGold,
+      onStop: cleanupGold,
     });
     // 二次金色粒子
     VFX.burst(scene, x, y, 30, [0xFFD700, 0xFFCC44, 0xFFFFFF], 200, 4, 800);
@@ -421,9 +456,11 @@ export class VFX {
     for (let i = 0; i < 6; i++) {
       const p = scene.add.circle(x + (Math.random() - 0.5) * 60, y + (Math.random() - 0.5) * 40, 2, 0x44ff88, 0.8);
       p.setDepth(42);
+      const cleanup = () => { if (p.active) p.destroy(); };
       scene.tweens.add({
         targets: p, y: p.y - 20, alpha: 0, duration: 600,
-        onComplete: () => p.destroy(),
+        onComplete: cleanup,
+        onStop: cleanup,
       });
     }
   }
