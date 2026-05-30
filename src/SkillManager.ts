@@ -170,20 +170,20 @@ export class SkillManager {
 
   // ── 技能释放调度 ──
   private castSkill(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    // ── 统一释放反馈（Cast Burst）：角色微缩 + 微闪 + 微震 ──
-    player.sprite.setScale(1.06, 1.06);
+    // ── 统一释放反馈（Cast Burst）：角色微缩 + 微闪 + 轻震 ──
+    player.sprite.setScale(1.04, 1.04);
     this.scene.tweens.add({
       targets: player.sprite, scaleX: 1, scaleY: 1,
       duration: 50, ease: 'Back.easeOut',
     });
-    const flashRing = this.scene.add.circle(player.x, player.y, 4, 0xffffff, 0.7);
+    const flashRing = this.scene.add.circle(player.x, player.y, 3, 0xffffff, 0.35);
     flashRing.setDepth(25);
     const flashCleanup = () => { if (flashRing.active) flashRing.destroy(); };
     this.scene.tweens.add({
-      targets: flashRing, radius: 14, alpha: 0, duration: 100,
+      targets: flashRing, radius: 8, alpha: 0, duration: 80,
       onComplete: flashCleanup, onStop: flashCleanup,
     });
-    VFX.shake(this.scene, 0.003, 40);
+    VFX.shake(this.scene, 0.001, 30);
 
     switch (skill.id) {
       case 'wood_reinforce':
@@ -314,7 +314,7 @@ export class SkillManager {
         if (skill.bonusDamageVs && target instanceof Monster && target.type === skill.bonusDamageVs) {
           damage *= skill.bonusDamageMultiplier ?? 2;
         }
-        target.takeDamage(damage);
+        target.takeDamage(damage, undefined, undefined, true);
         SoundManager.skillWaterHit(skill.level, hitX, hitY);
         this.applyRepair(skill.repairType, skill.repairAmount);
         this.damageSplash(
@@ -432,7 +432,7 @@ export class SkillManager {
         while (current && hops <= (skill.chainCount ?? 3)) {
           VFX.lightningArc(this.scene, fromX, fromY, current.x, current.y, hops === 0, skill.level);
           VFX.lightningImpact(this.scene, current.x, current.y, skill.level);
-          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08));
+          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08), undefined, undefined, true);
           SoundManager.skillLightningHit(skill.level, current.x, current.y);
           hitSet.add(current);
           fromX = current.x;
@@ -600,7 +600,7 @@ export class SkillManager {
               if (z.bonusDamageVs && m.type === z.bonusDamageVs) {
                 dmg *= (z.bonusDamageMultiplier ?? 2);
               }
-              m.takeDamage(dmg);
+              m.takeDamage(dmg, undefined, undefined, true);
               SoundManager.skillInsectHit(z.level, m.x, m.y);
               this.applyRepair(z.repairType, z.repairAmount);
             }
@@ -615,7 +615,7 @@ export class SkillManager {
               if (z.bonusDamageVs && target instanceof Monster && target.type === z.bonusDamageVs) {
                 sporeDamage *= z.bonusDamageMultiplier ?? 2;
               }
-              target.takeDamage(sporeDamage);
+              target.takeDamage(sporeDamage, undefined, undefined, true);
               SoundManager.skillInsectHit(z.level, target.x, target.y);
               VFX.insectSpore(this.scene, target.x, target.y);
             }
@@ -639,7 +639,7 @@ export class SkillManager {
       if (m.isDead) continue;
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
-        m.takeDamage(damage);
+        m.takeDamage(damage, undefined, undefined, true);
         this.applyRepair(repairType, repairAmount);
       }
     }
@@ -663,7 +663,7 @@ export class SkillManager {
       if (m.isDead || m === primary) continue;
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
-        m.takeDamage(damage);
+        m.takeDamage(damage, undefined, undefined, true);
         this.applyRepair(repairType, repairAmount);
       }
     }
@@ -719,7 +719,7 @@ export class SkillManager {
     const hitX = target.x;
     const hitY = target.y;
     p.hitTargets?.add(target);
-    target.takeDamage(p.damage);
+    target.takeDamage(p.damage, undefined, undefined, true);
     this.applyRepair(p.repairType, p.repairAmount);
 
     if (p.splashRadius) {

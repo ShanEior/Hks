@@ -208,12 +208,12 @@ export class VFX {
     VFX.shockwave(scene, x, y, 40, ringColor, 350);
     // 微震
     VFX.shake(scene, 0.003, 60);
-    // 白色闪光
-    const flash = scene.add.circle(x, y, 8, 0xffffff, 1);
+    // 白色闪光（淡）
+    const flash = scene.add.circle(x, y, 6, 0xffffff, 0.6);
     flash.setDepth(39);
     const cleanup = () => { if (flash.active) flash.destroy(); };
     scene.tweens.add({
-      targets: flash, scale: 4, alpha: 0, duration: 150,
+      targets: flash, scale: 2.5, alpha: 0, duration: 120,
       onComplete: cleanup,
       onStop: cleanup,
     });
@@ -223,7 +223,7 @@ export class VFX {
     }
   }
 
-  /** 升级庆祝 */
+  /** 升级庆祝 — 仅金色粒子螺旋上升 + 轻震，摒弃全屏闪 */
   static levelUp(scene: Phaser.Scene, x: number, y: number): void {
     // 金色粒子螺旋上升
     for (let i = 0; i < 20; i++) {
@@ -247,14 +247,8 @@ export class VFX {
         onStop: cleanup,
       });
     }
-    // 冲击波
-    VFX.shockwave(scene, x, y, 80, 0xffdd44, 500);
-    // 双重金色冲击波（替代全屏白闪）
-    VFX.shockwave(scene, x, y, 40, 0xffdd44, 300);
-    scene.time.delayedCall(60, () => {
-      VFX.shockwave(scene, x, y, 100, 0xffdd44, 500);
-    });
-    VFX.shake(scene, 0.004, 100);
+    // 单一金色扩散圈（柔和）
+    VFX.shockwave(scene, x, y, 60, 0xffdd44, 400);
   }
 
   // ═══════════════════════════════════

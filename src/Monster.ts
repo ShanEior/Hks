@@ -165,7 +165,7 @@ export class Monster {
     this.drawHpBar();
   }
 
-  takeDamage(amount: number, attackerX?: number, attackerY?: number): boolean {
+  takeDamage(amount: number, attackerX?: number, attackerY?: number, skipGenericSound?: boolean): boolean {
     if (this.isDead) return false;
 
     // 判定是否为致命一击（在扣血之前检查，避免命中与死亡反馈重叠）
@@ -212,8 +212,8 @@ export class Monster {
       onComplete: () => { if (!this.isDead) this.idleTween?.resume(); },
     });
 
-    // ── 受击闪白 ──
-    const flashDuration = amount >= 30 ? 180 : 120;
+    // ── 受击闪白（减半时长，降低视觉疲劳） ──
+    const flashDuration = amount >= 30 ? 100 : 60;
     if (amount >= 40) {
       // 重击：先红闪再白闪
       this.sprite.setTint(0xff4444);
@@ -228,8 +228,11 @@ export class Monster {
     });
 
     // ── 音效 + VFX：致命一击跳过命中反馈，由死亡反馈统一接管 ──
+    // 技能命中时跳过通用音效（SkillManager 已播放技能专属命中音）
     if (!willDie) {
-      SoundManager.hitMonster(this.sprite.x, this.sprite.y);
+      if (!skipGenericSound) {
+        SoundManager.hitMonster(this.sprite.x, this.sprite.y);
+      }
       VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY, this.type);
       this.onDamageFeedback?.(this, amount);
     }
