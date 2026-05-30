@@ -334,8 +334,9 @@ export class HUD {
 
     const depth = 350;
     const cx = GAME_WIDTH / 2, cy = GAME_HEIGHT / 2;
-    const w = 620, h = 320;
-    const illW = 200, illH = 200; // 插画区域
+    const w = 720, h = 400;
+    const illW = 160, illH = 160;
+    const padding = 24;
     const leftX = cx - w / 2, topY = cy - h / 2;
 
     // 半透明遮罩
@@ -343,7 +344,7 @@ export class HUD {
       .setScrollFactor(0).setDepth(depth).setInteractive();
     this.popupElements.push(overlay);
 
-    // 像素面板
+    // 像素面板背景
     const gridW = Math.ceil(w / 2), gridH = Math.ceil(h / 2);
     const panelKey = `monster_popup_${monsterType}`;
     genOrnatePanel(this.scene, panelKey, gridW, gridH, info.dangerColor, '#1A1410');
@@ -351,52 +352,62 @@ export class HUD {
       .setScrollFactor(0).setDepth(depth + 1);
     this.popupElements.push(panel);
 
-    // ═══ 左侧：插画 ═══
-    const illX = leftX + illW / 2 + 15, illY = cy;
-    if (this.scene.textures.exists(info.illusKey)) {
-      // 插画背景框
-      const illBg = this.scene.add.rectangle(illX, illY, illW + 8, illH + 8, 0x0a0806, 0.8)
+    // ═══ 左侧：怪物图标 ═══
+    const illX = leftX + padding + illW / 2, illY = topY + padding + illH / 2 + 20;
+    if (this.scene.textures.exists(monsterType)) {
+      const illBg = this.scene.add.rectangle(illX, illY, illW + 12, illH + 12, 0x0a0806, 0.8)
         .setScrollFactor(0).setDepth(depth + 2);
       this.popupElements.push(illBg);
-      const ill = this.scene.add.image(illX, illY, info.illusKey)
-        .setScrollFactor(0).setDepth(depth + 3);
-      // 缩放适配 200x200
-      const tex = this.scene.textures.get(info.illusKey);
-      if (tex) {
-        const sw = tex.source[0].width, sh = tex.source[0].height;
-        const scale = Math.min(illW / sw, illH / sh);
-        ill.setDisplaySize(sw * scale, sh * scale);
-      }
+      const ill = this.scene.add.image(illX, illY, monsterType)
+        .setScrollFactor(0).setDepth(depth + 3)
+        .setDisplaySize(illW, illH);
       this.popupElements.push(ill);
     }
 
     // ═══ 右侧：标题 + 描述 ═══
-    const rightX = leftX + illW + 40;
-    const rightW = w - illW - 60;
+    const rightX = leftX + illW + padding * 2;
+    const rightW = w - illW - padding * 3;
+    const textTop = topY + padding + 14;
+    const textMaxH = h - padding * 2 - 40;
 
     // 怪物名称
-    const title = this.scene.add.text(rightX, topY + 20, info.name, {
-      ...FONT.title, color: info.dangerColor, stroke: '#000', strokeThickness: 3,
+    const title = this.scene.add.text(rightX, textTop, info.name, {
+      fontSize: '24px', fontFamily: 'monospace', color: info.dangerColor,
+      stroke: '#000', strokeThickness: 4,
     }).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(title);
 
     // 分隔线
+    const sepY = textTop + 36;
     const sepG = this.scene.add.graphics();
     sepG.fillStyle(0x5C3A1E, 0.6);
-    sepG.fillRect(rightX, topY + 50, rightW, 1);
+    sepG.fillRect(rightX, sepY, rightW, 1);
     sepG.setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(sepG);
 
-    // 描述文字
-    const desc = this.scene.add.text(rightX, topY + 58, info.desc, {
-      ...FONT.small, color: PALETTE.PARCHMENT, lineSpacing: 4,
+    // 描述文字 — 自动缩放字号防溢出
+    let fontSize = 14;
+    const maxCharsPerLine = Math.floor(rightW / (fontSize * 0.6));
+    const lines = info.desc.split('\n');
+    let totalLines = 0;
+    for (const line of lines) {
+      totalLines += Math.ceil(line.length / Math.max(1, maxCharsPerLine));
+    }
+    const neededH = totalLines * (fontSize + 6);
+    if (neededH > textMaxH) {
+      fontSize = Math.max(10, Math.floor(fontSize * textMaxH / neededH));
+    }
+
+    const desc = this.scene.add.text(rightX, sepY + 12, info.desc, {
+      fontSize: `${fontSize}px`, fontFamily: 'monospace',
+      color: PALETTE.PARCHMENT, lineSpacing: 4,
       wordWrap: { width: rightW },
     }).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(desc);
 
-    // ── 关闭提示 ──
-    const closeHint = this.scene.add.text(cx, cy + h / 2 - 24, '点击任意处关闭', {
-      ...FONT.small, color: '#666666',
+    // ── 底部关闭提示 ──
+    const closeHint = this.scene.add.text(cx, cy + h / 2 - 18, '— 点击任意处关闭 —', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#666666',
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(closeHint);
