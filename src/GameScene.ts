@@ -110,14 +110,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // 东方夜雀食堂 PNG 纹理
-    this.load.image('png_earth', 'assets/earth.png');
-    for(let i=1;i<=9;i++)this.load.image('grass'+i,'assets/精灵-000'+i+'.png');
-    this.load.image('illus_termite','assets/monster_termite.png');
-    this.load.image('illus_wind','assets/monster_wind.png');
-    this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
-    this.load.image('illus_fire','assets/monster_fire.png');
-    this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
+    this.load.image('bg', 'assets/bg.png');
     preloadSprites(this);
   }
 
@@ -254,8 +247,10 @@ export class GameScene extends Phaser.Scene {
 
   // ── 背景 ──
   private drawBackground(): void {
-    const tex = this.textures.get('background');
-    if (tex) {
+    // 优先使用 PNG 背景图
+    if (this.textures.exists('bg')) {
+      this.add.image(MAP_WIDTH / 2, MAP_HEIGHT / 2, 'bg').setDepth(0);
+    } else if (this.textures.exists('background')) {
       this.add.image(MAP_WIDTH / 2, MAP_HEIGHT / 2, 'background').setDepth(0);
     } else {
       const bg = this.add.graphics();
