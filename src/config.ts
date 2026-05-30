@@ -458,7 +458,7 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'wood',
     primaryFreq: [200, 80], bodyFreq: [150, 100], bodyType: 'triangle',
     noiseLowpass: 300, noiseHighpass: 150, crackFilter: 1200, crackQ: 2,
-    travel: { archetype: 'whoosh', startFreq: 2000, endFreq: 400, duration: 0.5, volume: 0.04 },
+    travel: { archetype: 'whoosh', startFreq: 2000, endFreq: 400, duration: 0.7, volume: 0.08 },
   },
   stone_repair: {
     theme: 'stone',
@@ -469,7 +469,7 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'water',
     primaryFreq: [800, 600], bodyFreq: [200, 150], bodyType: 'sine',
     noiseLowpass: 600, noiseHighpass: 200, crackFilter: 1500, crackQ: 1,
-    travel: { archetype: 'hiss', startFreq: 4000, endFreq: 1200, duration: 0.35, volume: 0.03 },
+    travel: { archetype: 'hiss', startFreq: 4000, endFreq: 1200, duration: 0.5, volume: 0.06 },
   },
   insect_control: {
     theme: 'insect',
@@ -480,7 +480,7 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'paint',
     primaryFreq: [1000, 1400], bodyFreq: [1500, 1800], bodyType: 'sine',
     noiseLowpass: 5000, noiseHighpass: 2000, crackFilter: 5000, crackQ: 2,
-    travel: { archetype: 'buzz', startFreq: 600, endFreq: 200, duration: 0.45, volume: 0.04 },
+    travel: { archetype: 'buzz', startFreq: 600, endFreq: 200, duration: 0.6, volume: 0.08 },
   },
   repair_field: {
     theme: 'repair',
@@ -491,13 +491,13 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'wind',
     primaryFreq: [720, 300], bodyFreq: [180, 120], bodyType: 'triangle',
     noiseLowpass: 2200, noiseHighpass: 700, crackFilter: 2600, crackQ: 2,
-    travel: { archetype: 'whoosh', startFreq: 3000, endFreq: 600, duration: 0.35, volume: 0.05 },
+    travel: { archetype: 'whoosh', startFreq: 3000, endFreq: 600, duration: 0.55, volume: 0.10 },
   },
   chain_lightning: {
     theme: 'lightning',
     primaryFreq: [1400, 500], bodyFreq: [2200, 900], bodyType: 'square',
     noiseLowpass: 4200, noiseHighpass: 1200, crackFilter: 5200, crackQ: 4,
-    travel: { archetype: 'crackle', startFreq: 800, endFreq: 2000, duration: 0.15, volume: 0.05 },
+    travel: { archetype: 'crackle', startFreq: 800, endFreq: 2000, duration: 0.25, volume: 0.10 },
   },
 } as const;
 

@@ -189,7 +189,6 @@ export class SkillManager {
     switch (skill.id) {
       case 'wood_reinforce':
         SoundManager.skillWood(skill.level, player.x, player.y);
-        SoundManager.skillWoodTravel(player.x, player.y);
         VFX.skillWood(this.scene, player.x, player.y, 0, skill.level);
         this.castWoodReinforce(skill, player, monsters);
         break;
@@ -200,7 +199,6 @@ export class SkillManager {
         break;
       case 'waterproof':
         SoundManager.skillWater(skill.level, player.x, player.y);
-        SoundManager.skillWaterTravel(player.x, player.y);
         VFX.skillWater(this.scene, player.x, player.y, skill.range, skill.level);
         this.castWaterproof(skill, player, monsters);
         break;
@@ -211,7 +209,6 @@ export class SkillManager {
         break;
       case 'painting_restore':
         SoundManager.skillPaint(skill.level, player.x, player.y);
-        SoundManager.skillPaintTravel(player.x, player.y);
         VFX.skillPaint(this.scene, player.x, player.y, skill.level);
         this.castPaintingRestore(skill, player, monsters);
         break;
@@ -222,13 +219,11 @@ export class SkillManager {
         break;
       case 'whirlwind_slash':
         SoundManager.skillWhirlwind(skill.level, player.x, player.y);
-        SoundManager.skillWhirlwindTravel(player.x, player.y);
         VFX.skillWhirlwind(this.scene, player.x, player.y, skill.level);
         this.castWhirlwindSlash(skill, player, monsters);
         break;
       case 'chain_lightning':
         SoundManager.skillLightning(skill.level, player.x, player.y);
-        SoundManager.skillLightningTravel(player.x, player.y);
         VFX.skillLightningCast(this.scene, player.x, player.y, skill.level);
         this.castChainLightning(skill, player, monsters);
         break;
@@ -279,6 +274,8 @@ export class SkillManager {
         effectType: 'wood',
       });
     }
+    // Travel 音效延迟 60ms 启动（避开 Cast 音覆盖）
+    this.scene.time.delayedCall(60, () => SoundManager.skillWoodTravel(player.x, player.y));
   }
 
   // ── 石材修补：圆形震波 ──
@@ -334,6 +331,8 @@ export class SkillManager {
         VFX.waterImpact(this.scene, hitX, hitY, skill.splashRadius ?? 26, skill.level);
       });
     });
+    // Travel 音效延迟 60ms 启动（避开 Cast 音覆盖）
+    this.scene.time.delayedCall(60, () => SoundManager.skillWaterTravel(player.x, player.y));
   }
 
   // ── 防虫处理：跟随玩家的持续药雾 ──
@@ -427,6 +426,8 @@ export class SkillManager {
         effectType: 'whirlwind',
       });
     }
+    // Travel 音效延迟 60ms 启动（避开 Cast 音覆盖）
+    this.scene.time.delayedCall(60, () => SoundManager.skillWhirlwindTravel(player.x, player.y));
   }
 
   // ── 雷电链：锁定最近敌人并连续弹射 ──
@@ -506,6 +507,8 @@ export class SkillManager {
         bounceUsed: false,
       });
     }
+    // Travel 音效延迟 60ms 启动（避开 Cast 音覆盖）
+    this.scene.time.delayedCall(60, () => SoundManager.skillPaintTravel(player.x, player.y));
   }
 
   // ── 投射物更新 ──
