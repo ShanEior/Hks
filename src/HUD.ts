@@ -477,11 +477,11 @@ export class HUD {
 
     // ═══ 左侧：怪物图标 ═══
     const illX = leftX + padding + illW / 2, illY = topY + padding + illH / 2 + 20;
-    if (this.scene.textures.exists(monsterType)) {
+    if (this.scene.textures.exists(info.illusKey)) {
       const illBg = this.scene.add.rectangle(illX, illY, illW + 12, illH + 12, 0x0a0806, 0.8)
         .setScrollFactor(0).setDepth(depth + 2);
       this.popupElements.push(illBg);
-      const ill = this.scene.add.image(illX, illY, monsterType)
+      const ill = this.scene.add.image(illX, illY, info.illusKey)
         .setScrollFactor(0).setDepth(depth + 3)
         .setDisplaySize(illW, illH);
       this.popupElements.push(ill);
