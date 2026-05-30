@@ -303,41 +303,27 @@ export class HUD {
   // ── 怪物首次遭遇科普弹窗（详细：灾害背景 + 游戏影响） ──
   showMonsterPopup(monsterType: MonsterType, onClose?: () => void): void {
     const data: Record<MonsterType, {
-      name: string; icon: string;
-      lore: string;        // 现实灾害背景
-      attackTarget: string; // 攻击目标（游戏内）
-      effect: string;       // 特殊效果（游戏内）
-      dangerColor: string;  // 威胁色
+      name: string; desc: string; dangerColor: string; illusKey: string;
     }> = {
       termite: {
-        name: '白蚁怪', icon: 'termite', dangerColor: '#DDDDDD',
-        lore: '白蚁蛀蚀是木构古建最普遍的病害。它们钻进梁、柱、斗拱内部，将木材蛀成空壳，表面完好而内部已朽，往往发现时已造成不可逆的结构损伤。',
-        attackTarget: '攻击古建木质结构，快速啃噬',
-        effect: '数量多、速度快，优先围攻古建',
+        name: '白蚁怪', dangerColor: '#DDDDDD', illusKey: 'illus_termite',
+        desc: '白蚁蛀蚀是木构古建最普遍的病害。它们钻进梁、柱、斗拱内部，将木材蛀成空壳，表面完好而内部已朽。\n\n▸ 攻击木质结构，快速啃噬\n▸ 数量多、速度快，优先围攻古建',
       },
       wind: {
-        name: '风蚀怪', icon: 'wind', dangerColor: '#DDCC88',
-        lore: '风沙侵蚀对露天石质文物威胁极大。携带沙粒的强风不断打磨石刻表面，使雕刻纹饰逐渐模糊消失。云冈石窟的许多佛像因千年风蚀已面目模糊。',
-        attackTarget: '攻击石质结构 + 彩绘壁画',
-        effect: '接触玩家时造成击退，干扰走位',
+        name: '风蚀怪', dangerColor: '#DDCC88', illusKey: 'illus_wind',
+        desc: '风沙侵蚀对露天石质文物威胁极大。携带沙粒的强风不断打磨石刻表面，使雕刻纹饰逐渐模糊消失。\n\n▸ 攻击石质结构 + 彩绘壁画\n▸ 接触玩家时造成击退',
       },
       acid_rain: {
-        name: '酸雨怪', icon: 'acid_rain', dangerColor: '#44CC44',
-        lore: '酸雨渗入砖瓦缝隙后加速化学风化，冬季结冰还会胀裂墙体。雨水沿裂缝渗入内部木构件，造成腐朽霉变。山西多处古建屋顶常年受酸雨侵蚀。',
-        attackTarget: '攻击石质结构 + 砖瓦结构',
-        effect: '攻击时在地面留下腐蚀水洼，踩中减速',
+        name: '酸雨怪', dangerColor: '#44CC44', illusKey: 'illus_acid_rain',
+        desc: '酸雨渗入砖瓦缝隙后加速化学风化，冬季结冰还会胀裂墙体。雨水沿裂缝渗入内部木构件，造成腐朽霉变。\n\n▸ 攻击石质结构 + 砖瓦结构\n▸ 攻击时留下腐蚀水洼，踩中减速',
       },
       fire: {
-        name: '火焰怪', icon: 'fire', dangerColor: '#FF6633',
-        lore: '火灾可在数小时内摧毁一座千年古建。木构架遇火即燃，彩绘壁画在高温下颜料起泡剥落。历史上许多名寺因雷击或香火不慎化为灰烬。',
-        attackTarget: '攻击木质结构 + 彩绘壁画',
-        effect: '攻击后造成灼烧，目标结构持续掉血 2 秒',
+        name: '火焰怪', dangerColor: '#FF6633', illusKey: 'illus_fire',
+        desc: '火灾可在数小时内摧毁一座千年古建。木构架遇火即燃，彩绘壁画在高温下颜料起泡剥落。\n\n▸ 攻击木质结构 + 彩绘壁画\n▸ 造成灼烧，目标结构持续掉血',
       },
       freeze_thaw: {
-        name: '冻融怪', icon: 'freeze_thaw', dangerColor: '#6699FF',
-        lore: '水渗入砖石裂隙后结冰膨胀，产生巨大张力使裂缝扩大。反复冻融循环是山西砖石古建冬季面临的头号威胁，可导致墙体大面积崩裂。',
-        attackTarget: '攻击石质结构 + 砖瓦结构',
-        effect: '中后期出现，血厚攻高，靠近玩家时减速',
+        name: '冻融怪', dangerColor: '#6699FF', illusKey: 'illus_freeze_thaw',
+        desc: '水渗入砖石裂隙后结冰膨胀，产生巨大张力使裂缝扩大。反复冻融循环是砖石古建冬季的头号威胁。\n\n▸ 攻击石质结构 + 砖瓦结构\n▸ 血厚攻高，靠近玩家时减速',
       },
     };
     const info = data[monsterType];
@@ -347,94 +333,66 @@ export class HUD {
     this.popupElements = [];
 
     const depth = 350;
-    const cx = GAME_WIDTH / 2;
-    const cy = GAME_HEIGHT / 2 - 10;
-    const w = 500, h = 380;
-    const gridW = Math.ceil(w / 2), gridH = Math.ceil(h / 2);
+    const cx = GAME_WIDTH / 2, cy = GAME_HEIGHT / 2;
+    const w = 620, h = 320;
+    const illW = 200, illH = 200; // 插画区域
+    const leftX = cx - w / 2, topY = cy - h / 2;
 
     // 半透明遮罩
-    const overlay = this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.45)
+    const overlay = this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5)
       .setScrollFactor(0).setDepth(depth).setInteractive();
     this.popupElements.push(overlay);
 
     // 像素面板
+    const gridW = Math.ceil(w / 2), gridH = Math.ceil(h / 2);
     const panelKey = `monster_popup_${monsterType}`;
-    genOrnatePanel(this.scene, panelKey, gridW, gridH, info.dangerColor, '#1E1810');
+    genOrnatePanel(this.scene, panelKey, gridW, gridH, info.dangerColor, '#1A1410');
     const panel = this.scene.add.image(cx, cy, panelKey)
       .setScrollFactor(0).setDepth(depth + 1);
     this.popupElements.push(panel);
 
-    const topY = cy - h / 2;
-
-    // ── 怪物图标 + 名称 ──
-    if (this.scene.textures.exists(info.icon)) {
-      const icon = this.scene.add.image(cx - w / 2 + 30, topY + 36, info.icon).setDisplaySize(40, 40);
-      icon.setScrollFactor(0).setDepth(depth + 2);
-      this.popupElements.push(icon);
+    // ═══ 左侧：插画 ═══
+    const illX = leftX + illW / 2 + 15, illY = cy;
+    if (this.scene.textures.exists(info.illusKey)) {
+      // 插画背景框
+      const illBg = this.scene.add.rectangle(illX, illY, illW + 8, illH + 8, 0x0a0806, 0.8)
+        .setScrollFactor(0).setDepth(depth + 2);
+      this.popupElements.push(illBg);
+      const ill = this.scene.add.image(illX, illY, info.illusKey)
+        .setScrollFactor(0).setDepth(depth + 3);
+      // 缩放适配 200x200
+      const tex = this.scene.textures.get(info.illusKey);
+      if (tex) {
+        const sw = tex.source[0].width, sh = tex.source[0].height;
+        const scale = Math.min(illW / sw, illH / sh);
+        ill.setDisplaySize(sw * scale, sh * scale);
+      }
+      this.popupElements.push(ill);
     }
-    const title = this.scene.add.text(cx, topY + 32, `${info.name} 出现！`, {
-      ...FONT.title, color: info.dangerColor,
-      stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
+
+    // ═══ 右侧：标题 + 描述 ═══
+    const rightX = leftX + illW + 40;
+    const rightW = w - illW - 60;
+
+    // 怪物名称
+    const title = this.scene.add.text(rightX, topY + 20, info.name, {
+      ...FONT.title, color: info.dangerColor, stroke: '#000', strokeThickness: 3,
+    }).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(title);
 
-    // ── 分隔线 ──
-    const sepY1 = topY + 62;
-    const sep1 = this.scene.add.graphics();
-    sep1.fillStyle(0x5C3A1E, 0.6);
-    sep1.fillRect(cx - w / 2 + 30, sepY1, w - 60, 1);
-    sep1.setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(sep1);
+    // 分隔线
+    const sepG = this.scene.add.graphics();
+    sepG.fillStyle(0x5C3A1E, 0.6);
+    sepG.fillRect(rightX, topY + 50, rightW, 1);
+    sepG.setScrollFactor(0).setDepth(depth + 2);
+    this.popupElements.push(sepG);
 
-    // ── 灾害背景 ──
-    const loreLabel = this.scene.add.text(cx - w / 2 + 30, sepY1 + 10, '【灾害背景】', {
-      ...FONT.body, color: '#8A8A80',
-      stroke: '#000000', strokeThickness: 2,
+    // 描述文字
+    const desc = this.scene.add.text(rightX, topY + 58, info.desc, {
+      ...FONT.small, color: PALETTE.PARCHMENT, lineSpacing: 4,
+      wordWrap: { width: rightW },
     }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(loreLabel);
-
-    // 手动 CJK 换行（确保不超出面板）
-    const wrapWidth = w - 80;
-    const wrappedLore = this.wrapCJK(info.lore, FONT.small.fontSize, wrapWidth);
-    const loreText = this.scene.add.text(cx - w / 2 + 30, sepY1 + 34, wrappedLore, {
-      ...FONT.small, color: PALETTE.PARCHMENT,
-      lineSpacing: 5,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(loreText);
-
-    // ── 游戏内影响 ──
-    const sepY2 = sepY1 + 110;
-    const sep2 = this.scene.add.graphics();
-    sep2.fillStyle(0x5C3A1E, 0.4);
-    sep2.fillRect(cx - w / 2 + 30, sepY2, w - 60, 1);
-    sep2.setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(sep2);
-
-    const gameLabel = this.scene.add.text(cx - w / 2 + 30, sepY2 + 8, '【游戏影响】', {
-      ...FONT.body, color: '#E04040',
-      stroke: '#000000', strokeThickness: 2,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(gameLabel);
-
-    // 攻击目标
-    const atkIcon = this.scene.add.text(cx - w / 2 + 30, sepY2 + 36, '▸', {
-      ...FONT.small, color: info.dangerColor,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(atkIcon);
-    const atkText = this.scene.add.text(cx - w / 2 + 46, sepY2 + 36, info.attackTarget, {
-      ...FONT.small, color: PALETTE.PARCHMENT,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(atkText);
-
-    // 特殊效果
-    const efxIcon = this.scene.add.text(cx - w / 2 + 30, sepY2 + 58, '▸', {
-      ...FONT.small, color: info.dangerColor,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(efxIcon);
-    const efxText = this.scene.add.text(cx - w / 2 + 46, sepY2 + 58, info.effect, {
-      ...FONT.small, color: PALETTE.PARCHMENT,
-    }).setScrollFactor(0).setDepth(depth + 2);
-    this.popupElements.push(efxText);
+    this.popupElements.push(desc);
 
     // ── 关闭提示 ──
     const closeHint = this.scene.add.text(cx, cy + h / 2 - 24, '点击任意处关闭', {

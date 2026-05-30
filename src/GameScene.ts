@@ -101,6 +101,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // 东方夜雀食堂 PNG 纹理
+    this.load.image('png_earth', 'assets/earth.png');
+    for(let i=1;i<=9;i++)this.load.image('grass'+i,'assets/精灵-000'+i+'.png');
+    this.load.image('illus_termite','assets/monster_termite.png');
+    this.load.image('illus_wind','assets/monster_wind.png');
+    this.load.image('illus_acid_rain','assets/monster_acid_rain.png');
+    this.load.image('illus_fire','assets/monster_fire.png');
+    this.load.image('illus_freeze_thaw','assets/monster_freeze_thaw.png');
     preloadSprites(this);
   }
 
@@ -110,7 +118,6 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.drawBackground();
-    this.placeEnvironmentSprites();
 
     this.building = new Building(
       this, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
@@ -822,9 +829,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── 调试 ──
+  private debugMonsterIndex = 0;
+
   private setupDebugControls(): void {
     const kb = this.input.keyboard;
     if (!kb) return;
+
+    // Q: 快速升级
     kb.on('keydown-Q', () => { this.player.exp += this.player.expToNext; });
+
+    // 空格: 秒杀全屏怪物
+    kb.on('keydown-SPACE', () => {
+      for (const m of this.monsters) {
+        if (!m.isDead) m.takeDamage(9999);
+      }
+    });
+
+    // R: 循环显示下一个怪物科普弹窗
+    const allTypes: MonsterType[] = ['termite', 'wind', 'acid_rain', 'fire', 'freeze_thaw'];
+    kb.on('keydown-R', () => {
+      const type = allTypes[this.debugMonsterIndex % allTypes.length];
+      this.debugMonsterIndex++;
+      this.isPaused = true;
+      this.hud.showMonsterPopup(type, () => { this.isPaused = false; });
+    });
   }
 }

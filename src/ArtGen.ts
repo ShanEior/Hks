@@ -103,7 +103,7 @@ const PAL = {
 // ═══════════════════════════════════════════════
 
 export function generateAllTextures(scene: Phaser.Scene): void {
-  genBackground(scene);
+  genBackgroundPNG(scene);
   genPlayer(scene);
   genTermite(scene);
   genWind(scene);
@@ -1557,4 +1557,38 @@ function genUIAllTextures(scene: Phaser.Scene): void {
   genIconTimer(scene); genIconClose(scene); genIconDiamond(scene); genIconExp(scene);
   genMenuBg(scene); genPillar(scene); genTitleBanner(scene);
   genHPBarMonster(scene);
+}
+
+function genBackgroundPNG(scene: Phaser.Scene) {
+  const W=960,H=540;
+  const {canvas,ctx}=makeCanvas(W*PX,H*PX);
+  function im(k:string):HTMLImageElement|null{const t=scene.textures.get(k);return t?.source[0]?.image as HTMLImageElement||null;}
+
+  // earth.png 铺底
+  const iE=im('png_earth');
+  if(iE){const ew=iE.width,eh=iE.height;
+    for(let y=0;y<H*PX;y+=eh)for(let x=0;x<W*PX;x+=ew)ctx.drawImage(iE,x,y);}
+  else{ctx.fillStyle='#bca36f';ctx.fillRect(0,0,W*PX,H*PX);}
+
+  // 9张草地随机散布（不重叠）
+  const hash=(x:number,y:number):number=>((x*374761393+y*668265263)^0x5bf03635)>>>0;
+  const placed:{x:number,y:number,r:number}[]=[];
+  for(let i=1;i<=9;i++){
+    const g=im('grass'+i);if(!g)continue;
+    const gw=g.width,gh=g.height,gr=Math.max(gw,gh)/2;
+    for(let j=0;j<5;j++){
+      let nx=0,ny=0,attempts=0,ok=false;
+      do{
+        nx=hash(i,j*100+attempts)%(W*PX-gw);ny=hash(j*100+attempts,i)%(H*PX-gh);attempts++;
+        ok=placed.every(p=>Math.hypot(p.x-nx,p.y-ny)>p.r+gr+20);
+      }while(!ok&&attempts<50);
+      if(!ok)continue;
+      placed.push({x:nx+gw/2,y:ny+gh/2,r:gr});
+      const flip=hash(j,i*2)%2===0,rot=hash(j,i*3)%4;
+      ctx.save();ctx.translate(nx+gw/2,ny+gh/2);ctx.rotate(rot*Math.PI/2);
+      if(flip)ctx.scale(-1,1);ctx.drawImage(g,-gw/2,-gh/2);ctx.restore();
+    }
+  }
+
+  addTex(scene,'background',canvas);
 }
