@@ -1025,184 +1025,342 @@ function genCalamityCore(scene: Phaser.Scene) {
 }
 
 // ═══════════════════════════════════════════════
-// 古建寺庙：5 段受损状态  96×56 像素格（=192×112 物理px）
+// 古建寺庙：歇山顶木构大殿  120×72 像素格（=240×144 物理px）
+// 5 段受损状态，精细像素风
 // ═══════════════════════════════════════════════
 
 function genBuilding(scene: Phaser.Scene) {
   const states = [
     { key: 'building_100', damage: 0 },
-    { key: 'building_75', damage: 1 },
-    { key: 'building_50', damage: 2 },
-    { key: 'building_25', damage: 3 },
-    { key: 'building_0', damage: 4 },
+    { key: 'building_75',  damage: 1 },
+    { key: 'building_50',  damage: 2 },
+    { key: 'building_25',  damage: 3 },
+    { key: 'building_0',   damage: 4 },
   ];
 
   for (const st of states) {
-    const W = 96, H = 56;
+    const W = 120, H = 72;
     const { canvas, ctx } = makeCanvas(W * PX, H * PX);
-    const dm = st.damage; // 0=完好, 4=废墟
+    const dm = st.damage;
+    const cx = W / 2;
 
-    // ═══ 台基 ═══
-    const baseY = H - 6;
-    pxRect(ctx, 4, baseY, W - 8, 6, dm >= 3 ? PAL.darkGray : PAL.midGray);
-    // 台阶纹路（三层）
-    if (dm < 3) {
-      pxHLine(ctx, 8, baseY + 1, W - 16, PAL.lightGray);
-      pxHLine(ctx, 6, baseY + 3, W - 12, PAL.lightGray);
+    // ── 调色板 ──
+    const roofMain  = dm >= 2 ? '#7A2010' : '#A03020'; // 屋面朱红
+    const roofDark  = dm >= 2 ? '#5A1008' : '#802018'; // 屋面暗
+    const roofLight = dm >= 2 ? '#9A4030' : '#C05040'; // 屋面亮
+    const roofRidge = '#4A1008'; // 脊黑
+    const ridgeGold = dm < 1 ? '#FFCC44' : dm === 1 ? '#CC9930' : '#886620'; // 脊饰金
+    const wallBase  = '#D4B896'; // 土黄墙
+    const wallShade = '#C0A080'; // 墙暗
+    const pillar    = dm >= 3 ? '#8B3A1A' : '#A04020'; // 朱红柱
+    const pillarH   = dm >= 3 ? '#A05030' : '#C06040'; // 柱高光
+    const dougongD  = '#5A3030'; // 斗拱暗
+    const dougongL  = '#7A4040'; // 斗拱亮
+    const stoneG    = '#9A8E7E'; // 台基石
+    const stoneGL   = '#B0A494'; // 台基石亮
+    const stoneGD   = '#7A6E5E'; // 台基石暗
+    const doorD     = '#3A2010'; // 门深
+    const doorL     = '#6A4020'; // 门框
+    const goldAcc   = dm < 2 ? '#FFD700' : '#B8960A'; // 金饰
+
+    // ═══ 1. 台基（须弥座风格） ═══
+    const baseY = H - 8;
+    // 主体
+    pxRect(ctx, 6, baseY, W - 12, 8, stoneG);
+    // 上枋（亮线）
+    pxHLine(ctx, 8, baseY, W - 16, stoneGL);
+    // 束腰（中间暗线）
+    pxHLine(ctx, 10, baseY + 4, W - 20, stoneGD);
+    // 下枋
+    pxHLine(ctx, 10, baseY + 7, W - 20, stoneGD);
+    // 台阶（中央三段）
+    for (let s = 0; s < 3; s++) {
+      const sw = 20 - s * 3;
+      const sy = baseY + 2 + s * 2;
+      const sx = cx - sw / 2;
+      pxRect(ctx, sx, sy, sw, 2, stoneGL);
+      if (s > 0) pxHLine(ctx, sx + 2, sy + 1, sw - 4, stoneGD);
     }
-    if (dm >= 4) {
-      // 台基碎裂
-      for (let i = 0; i < 12; i++) {
-        px(ctx, 10 + Math.floor(Math.random() * (W - 20)), baseY + Math.floor(Math.random() * 4), PAL.deepBrown);
+    // 台阶两侧垂带
+    pxVLine(ctx, cx - 12, baseY - 2, 8, stoneGD);
+    pxVLine(ctx, cx + 11, baseY - 2, 8, stoneGD);
+    // 台基损坏
+    if (dm >= 3) {
+      for (let i = 0; i < (dm === 4 ? 15 : 8); i++) {
+        const rx = 8 + Math.floor(Math.random() * (W - 16));
+        const ry = baseY + Math.floor(Math.random() * 8);
+        px(ctx, rx, ry, '#3A2A1A');
       }
     }
 
-    // ═══ 外墙 ═══
-    const wallTop = 20, wallBot = baseY;
-    const wallLeft = 10, wallRight = W - 10;
+    // ═══ 2. 木柱（5 根，带柱础+柱头） ═══
+    const wallTop = baseY - 32;
+    const wallBot = baseY;
+    const pillarX = [18, 36, cx, 84, 102];
+    const pillarW = 4;
 
-    if (dm < 4) {
-      // 主墙面
-      pxRect(ctx, wallLeft, wallTop, wallRight - wallLeft, wallBot - wallTop, PAL.warmBrown);
-      // 墙面纹理横线（模拟木板拼接）
-      for (let wy2 = wallTop + 6; wy2 < wallBot - 2; wy2 += 8) {
-        pxHLine(ctx, wallLeft + 2, wy2, wallRight - wallLeft - 4, PAL.midBrown);
-      }
-    } else {
-      // 废墟：残垣
-      pxRect(ctx, wallLeft, wallBot - 12, 16, 8, PAL.warmBrown);
-      pxRect(ctx, W - 26, wallBot - 10, 16, 6, PAL.warmBrown);
-    }
-
-    // 外墙裂缝（dm>=2）
-    if (dm >= 2) {
-      const crackCount = dm === 4 ? 10 : dm * 3;
-      for (let i = 0; i < crackCount; i++) {
-        const cx2 = wallLeft + 4 + Math.floor(Math.random() * (wallRight - wallLeft - 8));
-        const cy2 = wallTop + 2 + Math.floor(Math.random() * (wallBot - wallTop - 6));
-        px(ctx, cx2, cy2, PAL.darkBrown);
-        if (dm >= 3) {
-          px(ctx, Math.min(cx2 + 1, wallRight - 4), cy2, PAL.darkBrown);
-        }
-      }
-    }
-
-    // ═══ 木柱 ═══
-    const pillars = [18, 32, 48, 64, 78];
-    for (const pX of pillars) {
-      if (dm >= 3 && pX === 48) continue;         // 中柱断裂
-      if (dm >= 4 && (pX === 18 || pX === 78)) continue;
+    for (const px2 of pillarX) {
+      if (dm >= 3 && px2 === cx) continue;
+      if (dm >= 4 && (px2 === 18 || px2 === 102)) continue;
+      // 柱础石
+      pxRect(ctx, px2 - 3, wallBot - 3, pillarW + 2, 3, stoneGL);
+      px(ctx, px2 - 2, wallBot - 4, stoneG);
+      px(ctx, px2 + 1, wallBot - 4, stoneG);
       // 柱身
-      pxRect(ctx, pX, wallTop - 2, 3, wallBot - wallTop + 2, PAL.goldBrown);
-      // 柱高光（左边缘）
-      pxVLine(ctx, pX, wallTop - 2, wallBot - wallTop + 2, PAL.creamGold);
-      // 柱础
-      pxRect(ctx, pX - 1, wallBot - 2, 5, 3, PAL.lightGray);
+      pxRect(ctx, px2 - 1, wallTop + 2, pillarW, wallBot - wallTop - 5, pillar);
+      // 柱身高光（左侧 1px）
+      pxVLine(ctx, px2, wallTop + 2, wallBot - wallTop - 5, pillarH);
+      // 柱头（栌斗简化）
+      pxRect(ctx, px2 - 2, wallTop, 6, 3, dougongD);
+      px(ctx, px2 - 1, wallTop + 1, dougongL);
+      px(ctx, px2 + 2, wallTop + 1, dougongL);
     }
     // 断裂柱
     if (dm >= 3) {
-      pxRect(ctx, 48, wallTop - 2, 3, 8, PAL.goldBrown);
-      // 断裂面
-      pxHLine(ctx, 47, wallTop + 5, 5, PAL.creamGold);
+      pxRect(ctx, cx - 2, wallTop + 2, 5, 10, pillar);
+      pxVLine(ctx, cx, wallTop + 2, 10, pillarH);
+      pxHLine(ctx, cx - 3, wallTop + 11, 8, '#FFCC88'); // 断口
     }
 
-    // ═══ 斗拱层 ═══
-    const dougongY = wallTop - 8;
-    if (dm < 3) {
-      pxRect(ctx, 6, dougongY, W - 12, 4, PAL.midBrown);
-      for (let dx = 12; dx < W - 12; dx += 10) {
-        pxRect(ctx, dx, dougongY - 3, 4, 5, PAL.warmBrown);
-        pxRect(ctx, dx + 1, dougongY - 4, 2, 6, PAL.goldBrown);
-      }
-    } else if (dm < 4) {
-      // 部分斗拱损坏
-      pxRect(ctx, 6, dougongY, 28, 4, PAL.midBrown);
-      pxRect(ctx, W - 34, dougongY, 28, 4, PAL.midBrown);
-    }
-
-    // ═══ 屋顶（歇山顶 + 飞檐） ═══
-    const roofBaseY = dm >= 3 ? dougongY + 2 : dougongY;
+    // ═══ 3. 外墙（土黄色，砖缝纹理） ═══
     if (dm < 4) {
-      const roofColor = dm >= 2 ? PAL.darkRed : PAL.warmRed;
-      const roofDark = dm >= 2 ? '#6B2010' : '#8B3A1A';
-
-      // 主屋面（宽大）
-      pxRect(ctx, 3, roofBaseY - 3, W - 6, 6, roofColor);
-      pxRect(ctx, 5, roofBaseY - 5, W - 10, 5, roofDark);
-      // 屋面纹理瓦垄
-      for (let tx = 6; tx < W - 6; tx += 3) {
-        pxVLine(ctx, tx, roofBaseY - 4, 5, PAL.orangeBrown);
+      // 主墙面（柱间填充）
+      pxRect(ctx, pillarX[0] + 3, wallTop + 4, pillarX[1] - pillarX[0] - 4, wallBot - wallTop - 7, wallBase);
+      pxRect(ctx, pillarX[1] + 3, wallTop + 4, pillarX[2] - pillarX[1] - 4, wallBot - wallTop - 7, wallBase);
+      pxRect(ctx, pillarX[2] + 3, wallTop + 4, pillarX[3] - pillarX[2] - 4, wallBot - wallTop - 7, wallBase);
+      pxRect(ctx, pillarX[3] + 3, wallTop + 4, pillarX[4] - pillarX[3] - 4, wallBot - wallTop - 7, wallBase);
+      // 砖缝纹理（较稀疏）
+      for (let wy = wallTop + 8; wy < wallBot - 4; wy += 6) {
+        for (let wx = pillarX[0] + 4; wx < pillarX[4] - 1; wx += 8) {
+          if (wx > pillarX[1] - 1 && wx < pillarX[1] + 5) continue;
+          if (wx > pillarX[2] - 1 && wx < pillarX[2] + 5) continue;
+          if (wx > pillarX[3] - 1 && wx < pillarX[3] + 5) continue;
+          px(ctx, wx, wy, wallShade);
+        }
       }
+    } else {
+      // 废墟残墙
+      pxRect(ctx, pillarX[0] + 2, wallBot - 16, 14, 10, wallBase);
+      pxRect(ctx, pillarX[3] + 2, wallBot - 12, 13, 8, wallBase);
+    }
+    // 裂缝
+    if (dm >= 2) {
+      const cracks = dm === 4 ? 14 : dm * 4;
+      for (let i = 0; i < cracks; i++) {
+        const rx = pillarX[0] + 6 + Math.floor(Math.random() * (pillarX[4] - pillarX[0] - 10));
+        const ry = wallTop + 6 + Math.floor(Math.random() * (wallBot - wallTop - 12));
+        px(ctx, rx, ry, '#5A3A20');
+        if (dm >= 3 && Math.random() > 0.4) px(ctx, rx + 1, ry, '#5A3A20');
+      }
+    }
 
-      // 飞檐翘角（左右）
+    // ═══ 4. 斗拱层（双排） ═══
+    const dougongY = wallTop - 10;
+    if (dm < 3) {
+      // 下层斗拱横枋
+      pxRect(ctx, 6, dougongY + 6, W - 12, 3, dougongD);
+      pxHLine(ctx, 6, dougongY + 7, W - 12, dougongL);
+      // 斗拱单元
+      for (let dx = 10; dx < W - 10; dx += 12) {
+        // 坐斗
+        pxRect(ctx, dx, dougongY + 3, 8, 4, dougongL);
+        pxRect(ctx, dx + 1, dougongY + 4, 6, 2, dougongD);
+        // 升斗（上层小斗）
+        pxRect(ctx, dx + 1, dougongY, 6, 4, dougongL);
+        pxRect(ctx, dx + 2, dougongY + 1, 4, 2, dougongD);
+      }
+      // 上层横枋
+      pxRect(ctx, 8, dougongY - 2, W - 16, 2, dougongL);
+    } else if (dm < 4) {
+      // 部分斗拱损毁
+      pxRect(ctx, 6, dougongY + 4, 36, 5, dougongD);
+      pxRect(ctx, W - 42, dougongY + 4, 36, 5, dougongD);
+    }
+
+    // ═══ 5. 屋顶（重檐歇山顶） ═══
+    const roofBaseY = dm >= 3 ? dougongY : dougongY - 4;
+    if (dm < 4) {
+      // ── 下檐 ──
+      const lowerEaveY = roofBaseY;
+      pxRect(ctx, 6, lowerEaveY - 2, W - 12, 3, roofDark);
+      pxHLine(ctx, 8, lowerEaveY - 3, W - 16, roofMain);
+      // 飞檐翘角
       if (dm < 2) {
-        px(ctx, 1, roofBaseY - 5, roofColor);
-        px(ctx, 1, roofBaseY - 6, PAL.orangeBrown);
-        px(ctx, W - 2, roofBaseY - 5, roofColor);
-        px(ctx, W - 2, roofBaseY - 6, PAL.orangeBrown);
+        px(ctx, 3, lowerEaveY - 4, roofMain);
+        px(ctx, 4, lowerEaveY - 5, roofLight);
+        px(ctx, W - 4, lowerEaveY - 4, roofMain);
+        px(ctx, W - 5, lowerEaveY - 5, roofLight);
       }
       // 檐下阴影
-      pxHLine(ctx, 4, roofBaseY + 2, W - 8, PAL.deepBrown);
+      pxHLine(ctx, 8, lowerEaveY + 1, W - 16, '#1A0808');
 
-      // 正脊（顶部横脊）
-      pxRect(ctx, W / 2 - 14, roofBaseY - 7, 28, 3, PAL.darkRed);
-      // 脊饰（金色鸱吻）
+      // ── 上檐（主屋面，更高） ──
+      const upperEaveY = lowerEaveY - 8;
+      // 屋面大面
+      pxRect(ctx, 10, upperEaveY - 3, W - 20, 4, roofMain);
+      pxRect(ctx, 11, upperEaveY - 5, W - 22, 3, roofDark);
+      // 瓦垄竖线（密排）
+      if (dm < 3) {
+        for (let tx = 12; tx < W - 12; tx += 3) {
+          pxVLine(ctx, tx, upperEaveY - 5, 5, PAL.orangeBrown);
+        }
+      }
+      // 屋面高光横线
+      pxHLine(ctx, 12, upperEaveY - 4, W - 24, roofLight);
+      // 飞檐
+      if (dm < 2) {
+        px(ctx, 6, upperEaveY - 6, roofMain);
+        px(ctx, 7, upperEaveY - 7, roofLight);
+        px(ctx, W - 7, upperEaveY - 6, roofMain);
+        px(ctx, W - 8, upperEaveY - 7, roofLight);
+      }
+
+      // ── 正脊（顶部横脊，两端鸱吻） ──
+      const ridgeY = upperEaveY - 6;
+      pxRect(ctx, cx - 22, ridgeY - 1, 44, 3, roofRidge);
+      pxHLine(ctx, cx - 20, ridgeY, 40, roofDark);
+      // 鸱吻（左右两端）
       if (dm < 1) {
-        pxRect(ctx, W / 2 - 4, roofBaseY - 10, 8, 4, PAL.gold);
-        px(ctx, W / 2, roofBaseY - 12, PAL.gold);
-        px(ctx, W / 2 - 1, roofBaseY - 11, PAL.lightGold);
-        px(ctx, W / 2 + 1, roofBaseY - 11, PAL.lightGold);
+        // 左鸱吻
+        pxRect(ctx, cx - 24, ridgeY - 5, 4, 6, ridgeGold);
+        px(ctx, cx - 23, ridgeY - 7, ridgeGold);
+        px(ctx, cx - 22, ridgeY - 6, '#FFE080');
+        // 右鸱吻
+        pxRect(ctx, cx + 20, ridgeY - 5, 4, 6, ridgeGold);
+        px(ctx, cx + 22, ridgeY - 7, ridgeGold);
+        px(ctx, cx + 21, ridgeY - 6, '#FFE080');
       } else if (dm === 1) {
-        pxRect(ctx, W / 2 - 3, roofBaseY - 9, 6, 3, PAL.gold);
+        pxRect(ctx, cx - 22, ridgeY - 4, 4, 5, ridgeGold);
+        pxRect(ctx, cx + 18, ridgeY - 4, 4, 5, ridgeGold);
+      }
+      // 脊中宝顶
+      if (dm < 1) {
+        px(ctx, cx, ridgeY - 2, ridgeGold);
+        px(ctx, cx + 1, ridgeY - 2, ridgeGold);
+        px(ctx, cx, ridgeY - 4, '#FFE080');
+        px(ctx, cx + 1, ridgeY - 4, '#FFE080');
+      }
+
+      // ── 垂脊（四角斜向下） ──
+      const cornerColors = dm < 2 ? [roofDark, roofMain, roofLight] : [roofDark, roofDark];
+      for (const [sx, sy, dir] of [[10, upperEaveY-7, -1], [W-11, upperEaveY-7, 1]]) {
+        for (let i = 0; i < 5; i++) {
+          const rx = sx + dir * i;
+          const ry = sy + i;
+          if (rx > 8 && rx < W - 8 && ry > 0) {
+            px(ctx, rx, ry, cornerColors[Math.min(i, cornerColors.length - 1)]);
+          }
+        }
       }
     } else {
       // 废墟屋顶碎片
-      pxRect(ctx, 6, roofBaseY + 4, 16, 4, PAL.darkRed);
-      pxRect(ctx, W - 22, roofBaseY + 5, 14, 3, PAL.darkRed);
+      pxRect(ctx, 8, roofBaseY + 6, 22, 4, roofDark);
+      pxRect(ctx, W - 30, roofBaseY + 7, 20, 3, roofDark);
+      pxRect(ctx, cx - 8, roofBaseY + 10, 16, 2, roofDark);
     }
 
-    // ═══ 大门 ═══
-    const doorY = wallTop + 8;
+    // ═══ 6. 大门（双扇板门 + 门簪 + 门槛） ═══
+    const doorTop = wallTop + 6;
+    const doorBot = wallBot - 2;
+    const doorW = 24, doorX = cx - doorW / 2;
     if (dm < 3) {
-      pxRect(ctx, W / 2 - 10, doorY, 20, wallBot - doorY, PAL.darkBrown);
-      // 门框
-      pxRect(ctx, W / 2 - 11, doorY - 1, 22, 2, PAL.goldBrown);
-      // 门缝
-      pxVLine(ctx, W / 2, doorY + 2, wallBot - doorY - 2, PAL.gold);
+      // 门洞
+      pxRect(ctx, doorX, doorTop, doorW, doorBot - doorTop, doorD);
+      // 门框（左右+上）
+      pxVLine(ctx, doorX - 1, doorTop - 2, doorBot - doorTop + 4, doorL);
+      pxVLine(ctx, doorX + doorW, doorTop - 2, doorBot - doorTop + 4, doorL);
+      pxHLine(ctx, doorX - 1, doorTop - 2, doorW + 2, doorL);
+      // 中缝（金色）
+      pxVLine(ctx, cx, doorTop + 2, doorBot - doorTop - 2, goldAcc);
+      // 门钉（左右各 3 枚）
+      for (let row = 0; row < 3; row++) {
+        const ry = doorTop + 6 + row * 8;
+        px(ctx, cx - 4, ry, goldAcc);
+        px(ctx, cx + 3, ry, goldAcc);
+      }
       // 门环
-      pxRect(ctx, W / 2 - 4, doorY + 10, 3, 3, PAL.gold);
-      pxRect(ctx, W / 2 + 1, doorY + 10, 3, 3, PAL.gold);
+      pxRect(ctx, cx - 5, doorTop + 16, 3, 3, goldAcc);
+      pxRect(ctx, cx + 2, doorTop + 16, 3, 3, goldAcc);
+      // 门槛
+      pxHLine(ctx, doorX + 1, doorBot - 2, doorW - 2, doorL);
     } else if (dm < 4) {
-      pxRect(ctx, W / 2 - 6, doorY + 4, 12, wallBot - doorY - 4, PAL.darkBrown);
+      // 半损门
+      pxRect(ctx, doorX + 2, doorTop + 6, 16, doorBot - doorTop - 6, doorD);
+      pxVLine(ctx, cx, doorTop + 8, doorBot - doorTop - 8, doorL);
     }
 
-    // ═══ 窗户 ═══
-    if (dm < 4) {
-      [W / 2 - 28, W / 2 + 22].forEach((wX, wi) => {
-        if (dm >= 3 && wi === 1) return; // 右窗损坏
-        pxRect(ctx, wX, doorY + 2, 7, 8, '#2E1703');
-        // 直棂窗格
-        for (let lx = 0; lx < 3; lx++) {
-          pxVLine(ctx, wX + 1 + lx * 2, doorY + 2, 8, PAL.goldBrown);
-        }
-        pxHLine(ctx, wX, doorY + 5, 7, PAL.goldBrown);
-      });
+    // ═══ 7. 直棂窗（左右各一） ═══
+    const winW = 12, winH = 14;
+    const winTop = doorTop + 2;
+    const winX = [cx - doorW / 2 - winW - 6, cx + doorW / 2 + 6];
+    for (const wx2 of winX) {
+      if (dm >= 4) continue;
+      if (dm >= 3 && wx2 === winX[1]) continue;
+      // 窗框
+      pxRect(ctx, wx2, winTop, winW, winH, '#2E1703');
+      pxVLine(ctx, wx2, winTop, winH, '#6A4A30');
+      pxVLine(ctx, wx2 + winW - 1, winTop, winH, '#6A4A30');
+      // 直棂（竖条）
+      for (let lx = 0; lx < 5; lx++) {
+        pxVLine(ctx, wx2 + 2 + lx * 2, winTop + 2, winH - 4, pillar);
+      }
+      // 横棂
+      pxHLine(ctx, wx2 + 1, winTop + winH / 2, winW - 2, pillar);
     }
 
-    // ═══ 废墟杂草（dm≥4） ═══
-    if (dm >= 4) {
-      for (let i = 0; i < 16; i++) {
-        const gx = 4 + Math.floor(Math.random() * (W - 8));
-        const gy = baseY - 4 + Math.floor(Math.random() * 6);
-        px(ctx, gx, gy, PAL.midGreen);
-        if (Math.random() > 0.5) px(ctx, gx, gy - 1, PAL.leafGreen);
+    // ═══ 8. 匾额（门上） ═══
+    if (dm < 2) {
+      const plaqueW = 22, plaqueH = 6;
+      const plaqueX = cx - plaqueW / 2, plaqueY = doorTop - 8;
+      pxRect(ctx, plaqueX, plaqueY, plaqueW, plaqueH, '#2A1A08');
+      pxHLine(ctx, plaqueX, plaqueY, plaqueW, goldAcc);
+      pxHLine(ctx, plaqueX, plaqueY + plaqueH - 1, plaqueW, goldAcc);
+      pxVLine(ctx, plaqueX, plaqueY, plaqueH, goldAcc);
+      pxVLine(ctx, plaqueX + plaqueW - 1, plaqueY, plaqueH, goldAcc);
+      // 匾额文字（像素点示意）
+      for (let ci = 0; ci < 4; ci++) {
+        const charX = plaqueX + 3 + ci * 5;
+        pxRect(ctx, charX, plaqueY + 2, 3, 3, goldAcc);
+        px(ctx, charX + 1, plaqueY + 2, '#FFE080');
       }
     }
 
-    // 注册纹理
-    if (dm === 0) {
-      addTex(scene, 'building', canvas);
+    // ═══ 9. 香炉（门前） ═══
+    if (dm < 3) {
+      const lx2 = cx, ly2 = baseY - 1;
+      pxRect(ctx, lx2 - 3, ly2 - 4, 6, 5, stoneGD);
+      pxRect(ctx, lx2 - 2, ly2 - 5, 4, 1, stoneGL);
+      // 三足
+      px(ctx, lx2 - 2, ly2, stoneGD);
+      px(ctx, lx2 + 1, ly2, stoneGD);
+      // 香烟
+      if (dm < 2) {
+        for (let s = 0; s < 2; s++) {
+          for (let j = 0; j < 4; j++) {
+            px(ctx, lx2 - 1 + s * 2 + (j % 2), ly2 - 7 - j * 2, '#CCCCCC');
+          }
+        }
+      }
     }
+
+    // ═══ 10. 废墟杂草 + 碎石 ═══
+    if (dm >= 4) {
+      for (let i = 0; i < 22; i++) {
+        const gx = 4 + Math.floor(Math.random() * (W - 8));
+        const gy = baseY - 6 + Math.floor(Math.random() * 10);
+        px(ctx, gx, gy, PAL.midGreen);
+        if (Math.random() > 0.4) px(ctx, gx, gy - 1, PAL.leafGreen);
+      }
+      // 散落瓦砾
+      for (let i = 0; i < 10; i++) {
+        const rx = 8 + Math.floor(Math.random() * (W - 16));
+        const ry = baseY - 14 + Math.floor(Math.random() * 18);
+        px(ctx, rx, ry, '#8A4A3A');
+      }
+    }
+
+    // 注册
+    if (dm === 0) addTex(scene, 'building', canvas);
     addTex(scene, st.key, canvas);
   }
 }
