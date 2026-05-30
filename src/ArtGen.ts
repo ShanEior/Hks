@@ -523,87 +523,169 @@ function genPlayer(scene: Phaser.Scene) {
   const W = 32, H = 48;
   const { canvas, ctx } = makeCanvas(W * PX, H * PX);
 
-  // ── 斗笠（大而圆润） ──
-  // 笠底暗面
-  pxRect(ctx, 7, 12, 18, 2, PAL.darkBrown);
-  // 笠身（三层锥形）
-  pxRect(ctx, 6, 10, 20, 3, PAL.midBrown);
-  pxRect(ctx, 4, 8, 24, 3, PAL.warmBrown);
-  pxRect(ctx, 2, 6, 28, 3, PAL.goldBrown);
-  // 笠顶
-  px(ctx, 14, 4, PAL.lightBrown);
-  px(ctx, 15, 4, PAL.creamGold);
-  px(ctx, 14, 5, PAL.goldBrown);
-  px(ctx, 15, 5, PAL.lightBrown);
-  // 笠沿装饰线
-  pxHLine(ctx, 4, 13, 24, PAL.lightBrown);
-  pxHLine(ctx, 5, 14, 22, PAL.creamGold);
+  // ═══ 斗笠（编织纹理 + 锥形层次 + 阴影） ═══
+  // 笠下阴影（面部暗区）
+  pxRect(ctx, 8, 12, 16, 3, '#1A1008');
+  // 笠身三层渐变锥
+  pxRect(ctx, 7, 10, 18, 3, '#3E2818');
+  pxRect(ctx, 5, 8, 22, 3, '#5A3A22');
+  pxRect(ctx, 3, 6, 26, 3, '#7A5030');
+  // 编织横纹
+  for (let ly = 8; ly < 13; ly += 2) {
+    for (let lx = 3; lx < 29; lx += 4) {
+      px(ctx, lx, ly, ly % 4 === 0 ? '#8B6038' : '#6B4A2A');
+      if (lx + 1 < 29) px(ctx, lx + 1, ly, '#5A3A22');
+    }
+  }
+  // 笠顶圆钮
+  pxRect(ctx, 14, 2, 4, 2, '#8B6914');
+  px(ctx, 15, 1, '#B8956E');
+  pxRect(ctx, 13, 4, 6, 2, '#9B7540');
+  px(ctx, 14, 3, '#C8A060');
+  // 笠沿
+  pxHLine(ctx, 2, 12, 28, '#3E2210');
+  pxHLine(ctx, 3, 13, 26, '#5A3A22');
+  // 笠沿左右翘角
+  px(ctx, 1, 11, '#6B4A2A'); px(ctx, 30, 11, '#4A2A18');
+  // 系带垂下
+  pxVLine(ctx, 10, 14, 6, '#8B6914');
+  pxVLine(ctx, 22, 14, 6, '#8B6914');
+  px(ctx, 10, 19, '#B8956E'); px(ctx, 22, 19, '#B8956E');
 
-  // ── 头部（圆脸） ──
+  // ═══ 头部（精细五官 + 阴影） ═══
+  // 脸
   pxRect(ctx, 10, 14, 12, 9, PAL.skin);
-  pxRect(ctx, 9, 16, 14, 5, PAL.skinShadow);
-  // 脸颊红晕
-  px(ctx, 9, 19, '#FFBBAA');
-  px(ctx, 21, 19, '#FFBBAA');
-  // 眼睛（大圆眼 + 高光）
-  pxRect(ctx, 12, 16, 3, 3, PAL.inkBlack);
-  px(ctx, 12, 16, PAL.pureWhite);   // 高光
-  pxRect(ctx, 17, 16, 3, 3, PAL.inkBlack);
-  px(ctx, 17, 16, PAL.pureWhite);   // 高光
-  // 小嘴
-  px(ctx, 15, 21, PAL.skinDark);
-  // 眉毛（短横线）
-  pxRect(ctx, 11, 15, 3, 1, PAL.inkBlack);
-  pxRect(ctx, 18, 15, 3, 1, PAL.inkBlack);
+  // 脸侧阴影
+  px(ctx, 9, 16, PAL.skinShadow); px(ctx, 9, 18, PAL.skinShadow);
+  px(ctx, 21, 16, '#E8C8A8'); px(ctx, 21, 18, '#E8C8A8');
+  // 额头高光
+  pxHLine(ctx, 12, 15, 8, '#FFE8D0');
+  // 眉毛
+  pxRect(ctx, 11, 16, 4, 1, '#3A2A1A');
+  pxRect(ctx, 17, 16, 4, 1, '#3A2A1A');
+  // 眼睛（大眼 + 双层高光）
+  pxRect(ctx, 11, 17, 4, 3, PAL.inkBlack);
+  px(ctx, 11, 17, PAL.pureWhite);
+  px(ctx, 13, 18, PAL.pureWhite);
+  pxRect(ctx, 17, 17, 4, 3, PAL.inkBlack);
+  px(ctx, 17, 17, PAL.pureWhite);
+  px(ctx, 19, 18, PAL.pureWhite);
+  // 鼻子（小点）
+  px(ctx, 15, 19, PAL.skinDark);
+  // 脸腮红晕
+  px(ctx, 10, 20, '#FFCCBB'); px(ctx, 21, 20, '#FFCCBB');
+  // 嘴（微笑弧线）
+  px(ctx, 14, 21, PAL.skinDark); px(ctx, 16, 21, PAL.skinDark);
+  px(ctx, 15, 22, '#CC8866');
+  // 下巴
+  pxHLine(ctx, 13, 22, 6, '#FFE0CC');
 
-  // ── 身体（蓝袍交领） ──
-  // 领口
-  pxRect(ctx, 13, 23, 6, 2, PAL.blueClothL);
+  // ═══ 衣领 + 围巾 ═══
+  // 内衬领
+  pxRect(ctx, 12, 22, 8, 3, '#E8D8C0');
+  px(ctx, 11, 23, '#D0C0A8');
+  // 交领右衽
+  pxVLine(ctx, 15, 23, 5, '#4455BB');
+  px(ctx, 13, 23, '#5566CC'); px(ctx, 14, 24, '#5566CC');
+  px(ctx, 18, 23, '#3344AA');
+
+  // ═══ 蓝袍主体 ═══
   // 袍身
-  pxRect(ctx, 9, 25, 14, 13, PAL.blueCloth);
-  pxRect(ctx, 8, 26, 16, 10, '#2A4AA0');  // 暗面（左侧）
-  // 交领右衽 — 斜线装饰
-  px(ctx, 13, 25, '#4455BB');
-  px(ctx, 12, 26, '#4455BB');
-  px(ctx, 11, 27, '#4455BB');
-  // 袍摆
+  pxRect(ctx, 9, 24, 14, 14, PAL.blueCloth);
+  // 右侧暗面
+  pxRect(ctx, 19, 25, 5, 12, '#2A4AA0');
+  // 左侧亮面
+  pxVLine(ctx, 10, 25, 12, '#4477DD');
+  // 中间高光带
+  pxVLine(ctx, 13, 27, 8, '#5577CC');
+  // 袍面褶皱
+  pxVLine(ctx, 11, 27, 7, '#3355AA');
+  pxVLine(ctx, 17, 26, 8, '#2244AA');
+  // 袍摆边
   pxHLine(ctx, 9, 37, 14, '#224499');
-  // 袖口（左右宽袖）
-  pxRect(ctx, 6, 25, 4, 7, PAL.blueClothL);
-  pxRect(ctx, 22, 25, 4, 7, PAL.blueClothL);
-  // 袖口边
-  pxHLine(ctx, 6, 31, 4, PAL.gold);
+  pxHLine(ctx, 10, 38, 12, '#3355AA');
+  // 袍侧开衩
+  px(ctx, 8, 35, '#1A3A80'); px(ctx, 22, 35, '#1A3A80');
 
-  // ── 腰带 ──
-  pxHLine(ctx, 10, 32, 12, PAL.gold);
-  pxHLine(ctx, 11, 33, 10, PAL.lightGold);
-  // 带扣
-  pxRect(ctx, 14, 31, 4, 3, PAL.warmBrown);
+  // ═══ 宽袖（左右） ═══
+  // 左袖
+  pxRect(ctx, 5, 24, 5, 9, '#3A6ED8');
+  px(ctx, 4, 25, '#4477DD'); px(ctx, 4, 28, '#4477DD');
+  // 袖口收边
+  pxHLine(ctx, 5, 32, 5, PAL.gold);
+  pxHLine(ctx, 6, 33, 3, PAL.lightGold);
+  // 右袖
+  pxRect(ctx, 22, 24, 5, 9, '#2A5AC0');
+  px(ctx, 26, 25, '#3355AA');
+  pxHLine(ctx, 22, 32, 5, PAL.gold);
+
+  // ═══ 腰带 ═══
+  pxRect(ctx, 10, 33, 12, 3, '#B8960A');
+  pxHLine(ctx, 10, 34, 12, '#FFD700');
+  pxHLine(ctx, 11, 35, 10, '#C8A020');
+  // 带扣（方形玉扣）
+  pxRect(ctx, 13, 32, 6, 3, '#5A3A20');
+  pxRect(ctx, 14, 32, 4, 2, '#8B6914');
   px(ctx, 15, 32, PAL.gold);
+  // 腰带垂带
+  pxVLine(ctx, 18, 36, 4, '#B8960A');
+  px(ctx, 18, 38, '#8B6914');
 
-  // ── 手臂 ──
-  pxRect(ctx, 5, 27, 3, 5, PAL.skin);
-  pxRect(ctx, 24, 27, 3, 5, PAL.skin);
-  // 左手（自然下垂）
-  pxRect(ctx, 4, 31, 3, 3, PAL.skin);
+  // ═══ 手臂 + 手 ═══
+  // 左臂
+  pxRect(ctx, 4, 26, 3, 6, PAL.skin);
+  px(ctx, 3, 27, PAL.skinShadow);
+  // 左手
+  pxRect(ctx, 3, 31, 4, 3, PAL.skin);
+  px(ctx, 2, 32, PAL.skinShadow);
+  // 右臂
+  pxRect(ctx, 23, 26, 3, 6, PAL.skin);
+  // 右手握笔
+  pxRect(ctx, 24, 26, 3, 4, PAL.skin);
+  // 毛笔杆
+  pxRect(ctx, 25, 19, 2, 10, '#6B4A20');
+  px(ctx, 25, 19, '#8B6914');
+  // 笔头（黑色笔锋）
+  pxRect(ctx, 24, 27, 3, 4, PAL.penTip);
+  px(ctx, 25, 30, PAL.penTip);
+  px(ctx, 24, 28, '#444444');
+  // 笔杆悬挂绳
+  px(ctx, 27, 18, '#CC9966'); px(ctx, 27, 19, '#CC9966');
 
-  // ── 右手握毛笔 ──
-  pxRect(ctx, 25, 26, 3, 3, PAL.skin);
-  // 笔杆
-  pxRect(ctx, 26, 21, 2, 8, PAL.penBrown);
-  // 笔尖
-  pxRect(ctx, 25, 28, 3, 3, PAL.penTip);
-  px(ctx, 26, 29, PAL.penTip);
+  // ═══ 腿 ═══
+  // 左腿
+  pxRect(ctx, 11, 39, 5, 6, '#3A2818');
+  px(ctx, 11, 39, '#4A3828');
+  // 右腿
+  pxRect(ctx, 17, 39, 5, 6, '#3A2818');
+  px(ctx, 18, 39, '#4A3828');
+  // 腿间阴影
+  pxVLine(ctx, 16, 39, 6, '#2A1A10');
 
-  // ── 腿 ──
-  pxRect(ctx, 11, 38, 4, 6, PAL.deepBrown);
-  pxRect(ctx, 17, 38, 4, 6, PAL.deepBrown);
-  // 鞋（圆头布鞋）
-  pxRect(ctx, 9, 43, 7, 3, PAL.inkBlack);
-  pxRect(ctx, 16, 43, 7, 3, PAL.inkBlack);
+  // ═══ 布鞋 ═══
+  // 左鞋
+  pxRect(ctx, 9, 44, 8, 2, '#1A1008');
+  pxRect(ctx, 10, 43, 6, 2, '#2A1A10');
+  px(ctx, 9, 43, '#3A2818');
+  // 鞋面高光
+  px(ctx, 11, 43, '#4A3828');
   // 鞋底白边
-  pxHLine(ctx, 9, 45, 7, '#BBBBBB');
-  pxHLine(ctx, 16, 45, 7, '#BBBBBB');
+  pxHLine(ctx, 9, 45, 8, '#AAAAAA');
+  pxHLine(ctx, 9, 46, 8, '#888888');
+  // 右鞋
+  pxRect(ctx, 16, 44, 8, 2, '#1A1008');
+  pxRect(ctx, 17, 43, 6, 2, '#2A1A10');
+  px(ctx, 16, 43, '#3A2818');
+  px(ctx, 18, 43, '#4A3828');
+  pxHLine(ctx, 16, 45, 8, '#AAAAAA');
+  pxHLine(ctx, 16, 46, 8, '#888888');
+
+  // ═══ 腰挂工具袋 ═══
+  pxRect(ctx, 8, 34, 3, 4, '#5A3A20');
+  pxRect(ctx, 8, 34, 2, 3, '#7A5A30');
+  px(ctx, 7, 35, '#3A2010');
+  // 小刷子插袋
+  pxVLine(ctx, 8, 36, 3, '#C8A060');
 
   addTex(scene, 'player', canvas);
 }

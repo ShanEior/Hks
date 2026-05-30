@@ -74,6 +74,7 @@ export class GameScene extends Phaser.Scene {
   private expOrbs: ExpOrb[] = [];
   private repairCrates: RepairCrate[] = [];
   private collidables: {x:number,y:number,radius:number}[] = [];
+  private collidableRects: {x:number,y:number,w:number,h:number}[] = [];
 
   private gameTime = GAME_DURATION;
   private spawnTimer = 0;
@@ -131,13 +132,15 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
 
     this.building = new Building(
-      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 180,
+      this, BUILDING_CONFIG.x, BUILDING_CONFIG.y - 260,
       BUILDING_CONFIG.structures as any,
     );
-    this.building.graphics.setScale(1.5);
+    this.building.graphics.setScale(0.45);
     this.building.onFailure = () => this.endGame(false);
     // 古建碰撞体
-    this.collidables.push({ x: BUILDING_CONFIG.x, y: BUILDING_CONFIG.y - 180, radius: 180 });
+    // 古建碰撞 — 矩形下半部分（890*0.6≈534宽, 1176*0.6≈706高, 下半=353高）
+    const bw = 280, bh = 220;
+    this.collidableRects.push({ x: BUILDING_CONFIG.x - bw/2, y: BUILDING_CONFIG.y - 260 + 40, w: bw, h: bh });
 
     this.player = new Player(
       this, BUILDING_CONFIG.x,
@@ -268,6 +271,27 @@ export class GameScene extends Phaser.Scene {
       if (dist < min && dist > 0.01) {
         sprite.x += (dx / dist) * (min - dist);
         sprite.y += (dy / dist) * (min - dist);
+      }
+    }
+    for (const rect of this.collidableRects) {
+      const cx = Math.max(rect.x, Math.min(sprite.x, rect.x + rect.w));
+      const cy = Math.max(rect.y, Math.min(sprite.y, rect.y + rect.h));
+      const dx = sprite.x - cx, dy = sprite.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < r) {
+        if (dist < 0.01) {
+          // 在矩形内部，推向最近边
+          const dl = sprite.x - rect.x, dr = rect.x + rect.w - sprite.x;
+          const dt = sprite.y - rect.y, db = rect.y + rect.h - sprite.y;
+          const minD = Math.min(dl, dr, dt, db);
+          if (minD === dl) sprite.x = rect.x - r;
+          else if (minD === dr) sprite.x = rect.x + rect.w + r;
+          else if (minD === dt) sprite.y = rect.y - r;
+          else sprite.y = rect.y + rect.h + r;
+        } else {
+          sprite.x += (dx / dist) * (r - dist);
+          sprite.y += (dy / dist) * (r - dist);
+        }
       }
     }
   }
