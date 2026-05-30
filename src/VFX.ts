@@ -219,16 +219,6 @@ export class VFX {
     VFX.shockwave(scene, x, y, 40, ringColor, 350);
     // 微震
     VFX.shake(scene, 0.003, 60);
-    // 白色闪光（淡）
-    const flash = scene.add.circle(x, y, 6, 0xffffff, 0.6);
-    flash.setDepth(39);
-    const cleanup = () => { if (flash.active) flash.destroy(); };
-    scene.tweens.add({
-      targets: flash, scale: 2.5, alpha: 0, duration: 120,
-      onComplete: cleanup,
-      onStop: cleanup,
-    });
-    // 击杀确认文字已移除（视觉过载，仅保留视觉+音效反馈）
   }
 
   /** 升级庆祝 — 角色头顶金光柱 + "Level X" 漂浮文字 + 金色粒子 */

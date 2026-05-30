@@ -253,13 +253,13 @@ export class Monster {
     if (this.hp <= 0) {
       this.hp = 0;
       SoundManager.killMonster(this.type, this.sprite.x);
-      this.die(true);
+      this.die();
       return true;
     }
     return false;
   }
 
-  private die(isFatalBlow = false): void {
+  private die(): void {
     this.isDead = true;
     this.onDeath?.(this);
 
@@ -273,12 +273,11 @@ export class Monster {
     // 阶段 1 (0-60ms)：闪白定格
     this.sprite.setTint(0xffffff);
 
-    // 阶段 2 (60-360ms)：膨胀 + 渐隐（致命一击放大到 5x，强化爆破感）
-    const deathScale = isFatalBlow ? 5 : 1.3;
+    // 阶段 2 (60-360ms)：膨胀 + 渐隐
     this.scene.tweens.add({
       targets: this.sprite,
-      scaleX: this.sprite.scaleX * deathScale,
-      scaleY: this.sprite.scaleY * deathScale,
+      scaleX: this.sprite.scaleX * 1.3,
+      scaleY: this.sprite.scaleY * 1.3,
       alpha: 0,
       duration: 300,
       delay: 60,
