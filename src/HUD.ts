@@ -289,11 +289,14 @@ export class HUD {
   ): void {
     this.hideLevelUpPanel();
 
-    const cardW = LEVELUP_CARD.w, cardH = LEVELUP_CARD.h;
-    const cardGap = 24;
+    const cardGap = 20;
+    const maxPanelW = GAME_WIDTH - 120;
+    const fitCardW = Math.floor((maxPanelW - cardGap * (options.length - 1)) / Math.max(options.length, 1));
+    const cardW = Math.min(LEVELUP_CARD.w, fitCardW);
+    const cardH = LEVELUP_CARD.h;
     const totalW = cardW * options.length + cardGap * (options.length - 1);
     const startX = (GAME_WIDTH - totalW) / 2;
-    const centerY = GAME_HEIGHT / 2 - 20;
+    const centerY = GAME_HEIGHT / 2 - 8;
     const depth = 300;
     const cardGridW = Math.ceil(cardW / 2);
     const cardGridH = Math.ceil(cardH / 2);
@@ -326,39 +329,52 @@ export class HUD {
       // 类型徽章（像素小标签）
       const tag = opt.isUpgrade ? '技能升级' : '获得技能';
       const tagColor = opt.isUpgrade ? PALETTE.BRIGHT_GOLD : PALETTE.JADE_GREEN;
-      const tagBg = this.scene.add.rectangle(cx, centerY - cardH / 2 + 18, 60, 14, 0x1A1410, 0.8)
+      const tagBg = this.scene.add.rectangle(cx, centerY - cardH / 2 + 22, 82, 18, 0x1A1410, 0.82)
         .setScrollFactor(0).setDepth(depth + 2).setStrokeStyle(1, Phaser.Display.Color.HexStringToColor(tagColor).color);
       this.levelUpElements.push(tagBg);
-      const tagText = this.scene.add.text(cx, centerY - cardH / 2 + 18, tag, {
+      const tagText = this.scene.add.text(cx, centerY - cardH / 2 + 22, tag, {
         ...FONT.tiny, color: tagColor,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 3);
       this.levelUpElements.push(tagText);
 
       // 技能名
-      const nameText = this.scene.add.text(cx, centerY - 32, opt.name, {
+      const nameText = this.scene.add.text(cx, centerY - cardH / 2 + 54, opt.name, {
         ...FONT.large, color: '#FFFFFF',
         stroke: '#000', strokeThickness: 3,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
+        wordWrap: { width: cardW - 34 }, align: 'center',
+      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(depth + 2);
       this.levelUpElements.push(nameText);
 
       // 等级
-      const lvText = this.scene.add.text(cx, centerY - 10, `Lv.${opt.level}`, {
+      const lvText = this.scene.add.text(cx, centerY - cardH / 2 + 88, `Lv.${opt.level}`, {
         ...FONT.body, color: PALETTE.BRIGHT_GOLD,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
       this.levelUpElements.push(lvText);
 
+      const descTop = centerY - cardH / 2 + 108;
+      const descBoxH = cardH - 162;
+      const descBg = this.scene.add.rectangle(cx, descTop + descBoxH / 2, cardW - 24, descBoxH, 0x1A1410, 0.36)
+        .setScrollFactor(0).setDepth(depth + 1.5)
+        .setStrokeStyle(1, 0x8a6b2f, 0.5);
+      this.levelUpElements.push(descBg);
+
       // 效果描述
-      const desc = this.scene.add.text(cx, centerY + 35, opt.description, {
-        ...FONT.small, color: PALETTE.PARCHMENT,
-        wordWrap: { width: cardW - 30 }, align: 'center',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2);
+      const useTiny = opt.description.length > 92;
+      const descFont = useTiny ? FONT.tiny : FONT.small;
+      const wrappedDesc = this.wrapCJK(opt.description, descFont.fontSize, cardW - 42);
+      const desc = this.scene.add.text(cx, descTop, wrappedDesc, {
+        ...descFont, color: PALETTE.PARCHMENT,
+        align: 'center',
+        stroke: '#000', strokeThickness: 2,
+        lineSpacing: 3,
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 2);
       this.levelUpElements.push(desc);
 
       // 像素按钮
       const btnW = Math.ceil(100 / 2), btnH = Math.ceil(28 / 2);
       const btnKey = `btn_card_${cardGridW}_${i}`;
       genPixelButton(this.scene, btnKey, btnW, btnH, PALETTE.OAK_WOOD, PALETTE.DARK_GOLD);
-      const btnY = centerY + cardH / 2 - 30;
+      const btnY = centerY + cardH / 2 - 26;
       const btnImg = this.scene.add.image(cx, btnY, btnKey + '_normal')
         .setScrollFactor(0).setDepth(depth + 2).setInteractive({ useHandCursor: true });
       this.levelUpElements.push(btnImg);
@@ -370,7 +386,7 @@ export class HUD {
       this.levelUpElements.push(btnText);
 
       // hover 效果
-      bg.on('pointerover', () => { bg.setScale(1.02); btnImg.setTexture(btnKey + '_hover'); });
+      bg.on('pointerover', () => { bg.setScale(1.015); btnImg.setTexture(btnKey + '_hover'); });
       bg.on('pointerout', () => { bg.setScale(1); btnImg.setTexture(btnKey + '_normal'); });
       btnImg.on('pointerover', () => btnImg.setTexture(btnKey + '_hover'));
       btnImg.on('pointerout', () => btnImg.setTexture(btnKey + '_normal'));
@@ -423,6 +439,14 @@ export class HUD {
     return result;
   }
 
+  private estimateWrappedLineCount(text: string, fontSize: string, maxWidth: number): number {
+    const charW = parseInt(fontSize, 10);
+    const charsPerLine = Math.max(1, Math.floor(maxWidth / charW));
+    return text
+      .split('\n')
+      .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
+  }
+
   // ── 怪物首次遭遇科普弹窗（详细：灾害背景 + 游戏影响） ──
   showMonsterPopup(monsterType: MonsterType, onClose?: () => void): void {
     const data: Record<MonsterType, {
@@ -457,8 +481,8 @@ export class HUD {
 
     const depth = 350;
     const cx = GAME_WIDTH / 2, cy = GAME_HEIGHT / 2;
-    const w = 720, h = 400;
-    const illW = 160, illH = 160;
+    const w = 780, h = 430;
+    const illW = 148, illH = 148;
     const padding = 24;
     const leftX = cx - w / 2, topY = cy - h / 2;
 
@@ -476,7 +500,7 @@ export class HUD {
     this.popupElements.push(panel);
 
     // ═══ 左侧：怪物图标 ═══
-    const illX = leftX + padding + illW / 2, illY = topY + padding + illH / 2 + 20;
+    const illX = leftX + padding + illW / 2, illY = topY + padding + illH / 2 + 28;
     if (this.scene.textures.exists(info.illusKey)) {
       const illBg = this.scene.add.rectangle(illX, illY, illW + 12, illH + 12, 0x0a0806, 0.8)
         .setScrollFactor(0).setDepth(depth + 2);
@@ -488,43 +512,52 @@ export class HUD {
     }
 
     // ═══ 右侧：标题 + 描述 ═══
-    const rightX = leftX + illW + padding * 2;
-    const rightW = w - illW - padding * 3;
+    const rightX = leftX + illW + padding * 2 + 8;
+    const rightW = w - illW - padding * 3 - 12;
     const textTop = topY + padding + 14;
-    const textMaxH = h - padding * 2 - 40;
+    const descTop = textTop + 52;
+    const descBoxH = h - padding * 2 - 92;
 
     // 怪物名称
     const title = this.scene.add.text(rightX, textTop, info.name, {
-      fontSize: '24px', fontFamily: 'monospace', color: info.dangerColor,
+      ...FONT.title, color: info.dangerColor,
       stroke: '#000', strokeThickness: 4,
     }).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(title);
 
     // 分隔线
-    const sepY = textTop + 36;
+    const sepY = textTop + 38;
     const sepG = this.scene.add.graphics();
     sepG.fillStyle(0x5C3A1E, 0.6);
     sepG.fillRect(rightX, sepY, rightW, 1);
     sepG.setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(sepG);
 
-    // 描述文字 — 自动缩放字号防溢出
-    let fontSize = 14;
-    const maxCharsPerLine = Math.floor(rightW / (fontSize * 0.6));
-    const lines = info.desc.split('\n');
-    let totalLines = 0;
-    for (const line of lines) {
-      totalLines += Math.ceil(line.length / Math.max(1, maxCharsPerLine));
-    }
-    const neededH = totalLines * (fontSize + 6);
-    if (neededH > textMaxH) {
-      fontSize = Math.max(10, Math.floor(fontSize * textMaxH / neededH));
+    const descBg = this.scene.add.rectangle(rightX + rightW / 2, descTop + descBoxH / 2, rightW, descBoxH, 0x130f0b, 0.42)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(depth + 1.5)
+      .setStrokeStyle(1, 0x6a4a26, 0.6);
+    this.popupElements.push(descBg);
+
+    // 描述文字：优先保持阅读性，再按内容缩字号
+    let descFontSize = 14;
+    let descFont = `${descFontSize}px`;
+    let wrappedDesc = this.wrapCJK(info.desc, descFont, rightW - 24);
+    let estimatedLines = this.estimateWrappedLineCount(info.desc, descFont, rightW - 24);
+    while (descFontSize > 11 && estimatedLines * (descFontSize + 7) > descBoxH - 16) {
+      descFontSize -= 1;
+      descFont = `${descFontSize}px`;
+      wrappedDesc = this.wrapCJK(info.desc, descFont, rightW - 24);
+      estimatedLines = this.estimateWrappedLineCount(info.desc, descFont, rightW - 24);
     }
 
-    const desc = this.scene.add.text(rightX, sepY + 12, info.desc, {
-      fontSize: `${fontSize}px`, fontFamily: 'monospace',
-      color: PALETTE.PARCHMENT, lineSpacing: 4,
-      wordWrap: { width: rightW },
+    const desc = this.scene.add.text(rightX + 10, descTop + 10, wrappedDesc, {
+      fontSize: descFont,
+      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+      color: PALETTE.PARCHMENT,
+      lineSpacing: 5,
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'left',
     }).setScrollFactor(0).setDepth(depth + 2);
     this.popupElements.push(desc);
 
