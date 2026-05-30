@@ -163,6 +163,28 @@ export class VFX {
     // 元素色碎屑
     VFX.burst(scene, x, y, 3, particleColors, 60, 2, 200);
 
+    // 方向性冲击粒子（沿攻击方向的受力视觉）
+    if (_attackerX !== undefined && _attackerY !== undefined) {
+      const dir = Math.atan2(y - _attackerY, x - _attackerX);
+      const spread = 0.6; // ±35° 扇形
+      for (let i = 0; i < 3; i++) {
+        const a = dir + (Math.random() - 0.5) * spread;
+        const spd = 80 + Math.random() * 40;
+        const c = particleColors[Math.floor(Math.random() * particleColors.length)];
+        const p = scene.add.circle(x, y, 2, c, 0.8);
+        p.setDepth(40);
+        const cleanup = () => { if (p.active) p.destroy(); };
+        scene.tweens.add({
+          targets: p,
+          x: x + Math.cos(a) * spd * 0.25,
+          y: y + Math.sin(a) * spd * 0.25,
+          alpha: 0, scale: 0.2,
+          duration: 180, ease: 'Power2',
+          onComplete: cleanup, onStop: cleanup,
+        });
+      }
+    }
+
     // 伤害数字（按伤害值分层 + 元素底色）
     const tier: DamageNumberTier = damage >= 30 ? 'heavy' : 'normal';
     const style = DAMAGE_NUMBER_CONFIG[tier];
