@@ -37,6 +37,7 @@ interface Projectile {
   knockbackForce?: number;
   effectType?: 'wood' | 'paint' | 'whirlwind';
   bounceUsed?: boolean;
+  trail?: Phaser.GameObjects.Particles.ParticleEmitter;
 }
 
 // ── 持续区域 ──
@@ -188,6 +189,7 @@ export class SkillManager {
     switch (skill.id) {
       case 'wood_reinforce':
         SoundManager.skillWood(skill.level, player.x, player.y);
+        SoundManager.skillWoodTravel(player.x, player.y);
         VFX.skillWood(this.scene, player.x, player.y, 0, skill.level);
         this.castWoodReinforce(skill, player, monsters);
         break;
@@ -198,6 +200,7 @@ export class SkillManager {
         break;
       case 'waterproof':
         SoundManager.skillWater(skill.level, player.x, player.y);
+        SoundManager.skillWaterTravel(player.x, player.y);
         VFX.skillWater(this.scene, player.x, player.y, skill.range, skill.level);
         this.castWaterproof(skill, player, monsters);
         break;
@@ -208,6 +211,7 @@ export class SkillManager {
         break;
       case 'painting_restore':
         SoundManager.skillPaint(skill.level, player.x, player.y);
+        SoundManager.skillPaintTravel(player.x, player.y);
         VFX.skillPaint(this.scene, player.x, player.y, skill.level);
         this.castPaintingRestore(skill, player, monsters);
         break;
@@ -218,11 +222,13 @@ export class SkillManager {
         break;
       case 'whirlwind_slash':
         SoundManager.skillWhirlwind(skill.level, player.x, player.y);
+        SoundManager.skillWhirlwindTravel(player.x, player.y);
         VFX.skillWhirlwind(this.scene, player.x, player.y, skill.level);
         this.castWhirlwindSlash(skill, player, monsters);
         break;
       case 'chain_lightning':
         SoundManager.skillLightning(skill.level, player.x, player.y);
+        SoundManager.skillLightningTravel(player.x, player.y);
         VFX.skillLightningCast(this.scene, player.x, player.y, skill.level);
         this.castChainLightning(skill, player, monsters);
         break;
@@ -252,8 +258,12 @@ export class SkillManager {
       beam.setRotation(angle);
       beam.setScale(skill.widthMultiplier ?? 1.1, 1.05 + skill.level * 0.12);
 
+      // Travel 拖尾
+      const woodTrail = VFX.projectileTrail(this.scene, beam as any, [0xc4884d, 0xdaa060, 0x8b6914], 40, 120, 0.5);
+
       this.projectiles.push({
         graphic: beam as Phaser.GameObjects.Image,
+        trail: woodTrail,
         startX: player.x, startY: player.y,
         angle, speed, lifetime, elapsed: 0,
         damage: skill.damage,
@@ -395,8 +405,12 @@ export class SkillManager {
       blade.setRotation(angle);
       blade.setScale(skill.widthMultiplier ?? 1.15, 1.0 + skill.level * 0.06);
 
+      // Travel 拖尾
+      const whirlTrail = VFX.projectileTrail(this.scene, blade as any, [0x66ddff, 0xaaddff, 0xffffff], 20, 80, 0.4);
+
       this.projectiles.push({
         graphic: blade as Phaser.GameObjects.Rectangle,
+        trail: whirlTrail,
         startX: player.x, startY: player.y,
         angle, speed, lifetime, elapsed: 0,
         damage: skill.damage,
@@ -430,6 +444,7 @@ export class SkillManager {
         let fromY = player.y;
         let hops = 0;
         while (current && hops <= (skill.chainCount ?? 3)) {
+          SoundManager.skillLightningTravel(player.x, player.y);
           VFX.lightningArc(this.scene, fromX, fromY, current.x, current.y, hops === 0, skill.level);
           VFX.lightningImpact(this.scene, current.x, current.y, skill.level);
           current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08), undefined, undefined, true);
@@ -457,6 +472,8 @@ export class SkillManager {
       ball.setDepth(15);
       ball.setScale(skill.level >= 2 ? 1.25 : 1.05);
 
+      const paintTrail = VFX.projectileTrail(this.scene, ball as any, [0xff4488, 0xff8800, 0x4488ff, 0xcc44ff], 30, 150, 0.45);
+
       const glowTexKey = 'exp_orb';
       const glow = this.scene.textures.exists(glowTexKey)
         ? this.scene.add.image(player.x + offset, player.y - 6, glowTexKey)
@@ -471,6 +488,7 @@ export class SkillManager {
       this.projectiles.push({
         graphic: ball as Phaser.GameObjects.Image,
         glow: glow ?? undefined,
+        trail: paintTrail,
         startX: player.x, startY: player.y,
         angle: 0, speed: 360 + i * 25, lifetime: 3.2, elapsed: 0,
         damage: skill.damage,
@@ -834,6 +852,10 @@ export class SkillManager {
   }
 
   private destroyProjectile(p: Projectile): void {
+    if (p.trail && p.trail.active) {
+      p.trail.stop();
+      this.scene.time.delayedCall(200, () => { if (p.trail && p.trail.active) p.trail.destroy(); });
+    }
     if (p.glow?.active) p.glow.destroy();
     if (p.graphic.active) p.graphic.destroy();
   }

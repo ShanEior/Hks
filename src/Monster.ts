@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG } from './config';
+import { MonsterTemplate, MonsterType, StructureType, SPEED_FACTOR, KNOCKBACK_CONFIG, HIT_STOP_CONFIG } from './config';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
 
@@ -45,6 +45,7 @@ export class Monster {
   private knockbackVx = 0;
   private knockbackVy = 0;
   private hitStunTimer = 0;
+  private freezeTimer = 0;  // Hit Stop: 此怪冻结计时(ms)
 
   isDead = false;
 
@@ -111,6 +112,13 @@ export class Monster {
 
   update(time: number, delta: number): void {
     if (this.isDead) return;
+
+    // ── Hit Stop 单怪冻结 ──
+    if (this.freezeTimer > 0) {
+      this.freezeTimer -= delta;
+      this.drawHpBar();
+      return;
+    }
 
     const dt = delta / 1000;
 
@@ -197,23 +205,28 @@ export class Monster {
     this.knockbackVy += Math.sin(angle) * kbForce;
     this.hitStunTimer = Math.max(this.hitStunTimer, kbStun);
 
+    // ── 单怪 Hit Stop 冻结 ──
+    const freezeTier = amount >= 60 ? 'ultra' : amount >= 30 ? 'heavy' : amount >= 15 ? 'medium' : 'light';
+    this.freezeTimer = Math.max(this.freezeTimer, HIT_STOP_CONFIG[freezeTier].freezeMs);
+
     // ── 挤压+拉伸（暂停待机 tween） ──
     const origScaleX = this.sprite.scaleX;
     const origScaleY = this.sprite.scaleY;
     this.idleTween?.pause();
-    this.sprite.setScale(origScaleX * 0.75, origScaleY * 1.3);
+    const doDeform = amount >= 15;
+    this.sprite.setScale(origScaleX * (doDeform ? 0.88 : 1.0), origScaleY * (doDeform ? 1.12 : 1.0));
     this.scene.tweens.add({
       targets: this.sprite,
       scaleX: origScaleX,
       scaleY: origScaleY,
-      duration: 150,
+      duration: 120,  // was 150
       ease: 'Back.easeOut',
       overwrite: true,
       onComplete: () => { if (!this.isDead) this.idleTween?.resume(); },
     });
 
     // ── 受击闪白（减半时长，降低视觉疲劳） ──
-    const flashDuration = amount >= 30 ? 100 : 60;
+    const flashDuration = amount >= 30 ? 50 : 33;  // Vlambeer 1-2 frame standard
     if (amount >= 40) {
       // 重击：先红闪再白闪
       this.sprite.setTint(0xff4444);

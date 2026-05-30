@@ -183,8 +183,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // ── CombatFeel：计算 Hit Stop 后的有效 delta ──
-    const effectiveDelta = this.combatFeel.update(delta, time);
+    // ── CombatFeel：驱动 VFX/镜头（Hit Stop已移至单怪冻结） ──
+    this.combatFeel.update(delta, time);
 
     // ── VFX 创伤屏震：每帧衰减并应用累积震动 ──
     VFX.updateTrauma(this, delta);
@@ -195,7 +195,7 @@ export class GameScene extends Phaser.Scene {
     // 刷怪（使用有效 delta，Hit Stop 期间暂停生怪）
     const stage = this.getCurrentStage();
     if (stage) {
-      this.spawnTimer += effectiveDelta;
+      this.spawnTimer += delta;
       this.invincibleTimer = Math.max(0, this.invincibleTimer - delta);
       if (this.spawnTimer >= stage.spawnInterval) {
         this.spawnTimer -= stage.spawnInterval;
@@ -205,7 +205,7 @@ export class GameScene extends Phaser.Scene {
 
     // 怪物更新（使用有效 delta，Hit Stop 期间怪物几乎冻结）
     for (const m of this.monsters) {
-      m.update(time, effectiveDelta);
+      m.update(time, delta);
       this.resolveCollision(m.sprite, m.radius);
     }
 
@@ -218,9 +218,9 @@ export class GameScene extends Phaser.Scene {
     // 修补箱更新（全速）
     this.updateRepairCrates(delta);
 
-    // 自动普攻 + 技能（使用 effectiveDelta，Hit Stop 期间暂停）
-    this.updateAutoAttack(effectiveDelta);
-    this.skillManager.update(effectiveDelta, time);
+    // 自动普攻 + 技能（使用 delta，Hit Stop 期间暂停）
+    this.updateAutoAttack(delta);
+    this.skillManager.update(delta, time);
 
     // ═══ Boss 预警 & 出场逻辑 ═══
     if (!this.bossWarningDone && this.gameTime <= BOSS_CONFIG.appearTime + BOSS_CONFIG.warnDuration) {
@@ -232,7 +232,7 @@ export class GameScene extends Phaser.Scene {
 
     // Boss 更新
     if (this.boss && this.boss.isActive && !this.boss.isDead) {
-      this.boss.update(time, effectiveDelta);
+      this.boss.update(time, delta);
       const distToBuilding = Phaser.Math.Distance.Between(
         this.boss.x, this.boss.y, BUILDING_CONFIG.x, BUILDING_CONFIG.y,
       );

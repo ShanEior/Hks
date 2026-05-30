@@ -105,6 +105,58 @@ export class SoundManager {
     delay.connect(this.getMasterOut());
   }
 
+  /** Travel 层音效：带通滤波噪声频率扫频（嗖/嗡/嘶/噼啪四原型） */
+  private static playTravel(
+    archetype: 'whoosh' | 'buzz' | 'hiss' | 'crackle',
+    duration: number,
+    startFreq: number,
+    endFreq: number,
+    volume: number,
+    pan = 0,
+    priority = SOUND_CONFIG.voicePool.PRI_NORMAL,
+  ): void {
+    const durMs = duration * 1000;
+    if (!this.reserveVoice(priority, durMs)) return;
+    this.scheduleRelease(durMs);
+
+    try {
+      const ctx = this.getCtx();
+      const now = ctx.currentTime;
+      const bufSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = archetype === 'hiss' ? 'highpass' : 'bandpass';
+      bp.frequency.setValueAtTime(startFreq, now);
+      bp.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+      bp.Q.setValueAtTime(archetype === 'whoosh' ? 0.4 : archetype === 'buzz' ? 0.8 : 1.5, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(volume, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noise.connect(bp).connect(gain);
+
+      if (pan !== 0) {
+        const panner = ctx.createStereoPanner();
+        panner.pan.setValueAtTime(pan, now);
+        gain.connect(panner);
+        panner.connect(this.getMasterOut());
+      } else {
+        gain.connect(this.getMasterOut());
+      }
+
+      noise.start(now);
+      noise.stop(now + duration + 0.05);
+    } catch { /* silent */ }
+  }
+
   // ═══════════════════════════════════
   // 核心合成方法
   // ═══════════════════════════════════
@@ -613,6 +665,40 @@ export class SoundManager {
       this.playTone(1200, 0.08, 'square', 0.03, 900,
         SOUND_CONFIG.pitchVar.impact, pan, 'highpass', 2000, 1, pri);
     }
+  }
+
+  // ═══════════════════════════════════
+  // Travel 层音效 — 投射物飞行声音
+  // ═══════════════════════════════════
+
+  static skillWoodTravel(x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.wood_reinforce.travel;
+    if (!a) return;
+    this.playTravel(a.archetype as any, a.duration, a.startFreq, a.endFreq, a.volume, this.worldPan(x), SOUND_CONFIG.voicePool.PRI_NORMAL);
+  }
+
+  static skillWaterTravel(x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.waterproof.travel;
+    if (!a) return;
+    this.playTravel(a.archetype as any, a.duration, a.startFreq, a.endFreq, a.volume, this.worldPan(x), SOUND_CONFIG.voicePool.PRI_NORMAL);
+  }
+
+  static skillPaintTravel(x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.painting_restore.travel;
+    if (!a) return;
+    this.playTravel(a.archetype as any, a.duration, a.startFreq, a.endFreq, a.volume, this.worldPan(x), SOUND_CONFIG.voicePool.PRI_NORMAL);
+  }
+
+  static skillWhirlwindTravel(x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.whirlwind_slash.travel;
+    if (!a) return;
+    this.playTravel(a.archetype as any, a.duration, a.startFreq, a.endFreq, a.volume, this.worldPan(x), SOUND_CONFIG.voicePool.PRI_NORMAL);
+  }
+
+  static skillLightningTravel(x = 0, _y = 0): void {
+    const a = SKILL_AUDIO.chain_lightning.travel;
+    if (!a) return;
+    this.playTravel(a.archetype as any, a.duration, a.startFreq, a.endFreq, a.volume, this.worldPan(x), SOUND_CONFIG.voicePool.PRI_NORMAL);
   }
 
   // ═══════════════════════════════════

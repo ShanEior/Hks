@@ -3,7 +3,7 @@
  * 命中反馈、死亡爆破、升级庆祝、碎屑粒子、屏幕震动
  */
 import Phaser from 'phaser';
-import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier, SHAKE_TRAUMA_CONFIG, COMBAT_FEEL_EXTRA } from './config';
+import { MAP_WIDTH, MAP_HEIGHT, MonsterType, ELEMENT_COLORS, DAMAGE_NUMBER_CONFIG, DamageNumberTier, SHAKE_TRAUMA_CONFIG, COMBAT_FEEL_EXTRA, VFX_PERF } from './config';
 
 export class VFX {
   // ═══════════════════════════════════
@@ -51,6 +51,7 @@ export class VFX {
       tint: colors,
       emitting: false,
       gravityY: 80,
+      maxAliveParticles: VFX_PERF.maxAliveParticles,
     });
     emitter.setDepth(40);
     emitter.explode(count);
@@ -59,6 +60,36 @@ export class VFX {
     scene.time.delayedCall(lifetime + 200, () => {
       if (emitter && emitter.active) emitter.destroy();
     });
+  }
+
+  /** 投射物拖尾粒子发射器（Travel 层视觉反馈）
+   *  利用 Phaser ParticleEmitter.follow 参数追逐投射物
+   */
+  static projectileTrail(
+    scene: Phaser.Scene,
+    target: { x: number; y: number },
+    colors: number[],
+    freq = 40,
+    lifespan = 120,
+    alpha = 0.5,
+  ): Phaser.GameObjects.Particles.ParticleEmitter {
+    if (!scene.textures.exists('px_white')) {
+      // fallback: return a dummy that does nothing
+      return null as any;
+    }
+    const emitter = scene.add.particles(0, 0, 'px_white', {
+      follow: target,
+      quantity: 1,
+      frequency: freq,
+      lifespan: lifespan,
+      scale: { start: 0.3, end: 0 },
+      alpha: { start: alpha, end: 0 },
+      tint: colors,
+      maxAliveParticles: 12,
+      emitting: true,
+    });
+    emitter.setDepth(14);
+    return emitter;
   }
 
   /** 冲击波扩散圈：可选 damage 参数，伤害越高环越大 */
@@ -156,6 +187,13 @@ export class VFX {
 
   /** 怪物受击反馈 */
   static hitMonster(scene: Phaser.Scene, x: number, y: number, damage: number, _attackerX?: number, _attackerY?: number, monsterType?: MonsterType): void {
+    // 低伤害命中：仅浮动数字，不生成粒子（减少视觉噪声）
+    if (damage < VFX_PERF.hitParticleMinDamage) {
+      const color = damage >= 10 ? '#ffaa44' : '#ffffff';
+      VFX.floatText(scene, x + (Math.random() - 0.5) * 4, y, `${Math.round(damage)}`, color, '14px');
+      return;
+    }
+
     const elem = monsterType ? ELEMENT_COLORS[monsterType] : null;
     const particleColors = elem ? elem.particles : [0xffffff, 0xcccccc];
     const baseColor = elem ? elem.damageColor : '#ffffff';

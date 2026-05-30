@@ -5,7 +5,7 @@
  * 采用命中点局部反馈策略，不拖拽全局摄像机。
  */
 import Phaser from 'phaser';
-import { HIT_STOP_CONFIG, HitStopTier, IMPACT_FLASH_CONFIG, COMBAT_FEEL_EXTRA } from './config';
+import { HitStopTier, IMPACT_FLASH_CONFIG } from './config';
 import { VFX } from './VFX';
 
 export interface HitEvent {
@@ -20,10 +20,6 @@ export interface HitEvent {
 export class CombatFeel {
   private scene: Phaser.Scene;
 
-  // ── Hit Stop ──
-  private hitStopRemaining = 0;
-  private lastHitStopTime = 0;
-
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
@@ -33,29 +29,19 @@ export class CombatFeel {
   // ═══════════════════════════════════
 
   onHit(event: HitEvent): void {
-    const cfg = HIT_STOP_CONFIG[event.tier];
-    const now = this.scene.time.now;
+    // 命中点径向光晕（替代全屏闪白）
+    this.spawnImpactFlash(event);
 
-    // Hit Stop + 冷却（同一窗口内命中闪/镜头冲击也只触发一次）
-    const canActivate = now - this.lastHitStopTime >= HIT_STOP_CONFIG.cooldownMs;
-    if (canActivate) {
-      this.hitStopRemaining = Math.max(this.hitStopRemaining, cfg.freezeMs);
-      this.lastHitStopTime = now;
-
-      // ── 命中点径向光晕（替代全屏闪白） ──
-      this.spawnImpactFlash(event);
-
-      // ── 镜头冲击（仅重击/ultra） ──
-      if (event.tier === 'heavy' || event.tier === 'ultra') {
-        const zoomIn = event.tier === 'ultra' ? 1.04 : 1.025;
-        const recoverMs = event.tier === 'ultra' ? 250 : 180;
-        this.scene.cameras.main.zoomTo(zoomIn, 30, 'Power1', true);
-        this.scene.time.delayedCall(40, () => {
-          if (this.scene.cameras.main) {
-            this.scene.cameras.main.zoomTo(1.0, recoverMs, 'Power2', true);
-          }
-        });
-      }
+    // 镜头冲击（仅重击/ultra）
+    if (event.tier === 'heavy' || event.tier === 'ultra') {
+      const zoomIn = event.tier === 'ultra' ? 1.04 : 1.025;
+      const recoverMs = event.tier === 'ultra' ? 250 : 180;
+      this.scene.cameras.main.zoomTo(zoomIn, 30, 'Power1', true);
+      this.scene.time.delayedCall(40, () => {
+        if (this.scene.cameras.main) {
+          this.scene.cameras.main.zoomTo(1.0, recoverMs, 'Power2', true);
+        }
+      });
     }
   }
 
@@ -64,8 +50,8 @@ export class CombatFeel {
   // ═══════════════════════════════════
 
   private spawnImpactFlash(event: HitEvent): void {
+    if (event.tier === 'none') return;
     const cfg = IMPACT_FLASH_CONFIG[event.tier];
-    if (!cfg) return;
 
     // 核心光点：从命中点快速膨胀再缩小
     const core = this.scene.add.circle(
@@ -94,23 +80,8 @@ export class CombatFeel {
   // ═══════════════════════════════════
 
   update(delta: number, _time: number): number {
-    // ── Hit Stop ──
-    if (this.hitStopRemaining > 0) {
-      this.hitStopRemaining -= delta;
-      if (this.hitStopRemaining <= 0) {
-        this.hitStopRemaining = 0;
-      }
-      return COMBAT_FEEL_EXTRA.minEffectiveDelta;
-    }
-
+    // Hit Stop 已迁移至 Monster.freezeTimer（单怪冻结），不再管理全局时间
+    // CombatFeel 现仅负责命中 VFX（冲击光环 + 镜头冲击）
     return delta;
-  }
-
-  // ═══════════════════════════════════
-  // 查询
-  // ═══════════════════════════════════
-
-  get isInHitStop(): boolean {
-    return this.hitStopRemaining > 0;
   }
 }

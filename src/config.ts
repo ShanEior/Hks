@@ -370,6 +370,7 @@ export const IMPACT_FLASH_CONFIG = {
 // ============================================================
 
 export const HIT_STOP_CONFIG = {
+  none:    { freezeMs: 0   },
   light:   { freezeMs: 33  },
   medium:  { freezeMs: 66  },
   heavy:   { freezeMs: 100 },
@@ -378,7 +379,7 @@ export const HIT_STOP_CONFIG = {
   cooldownMs: 150,
 } as const;
 
-export type HitStopTier = keyof typeof HIT_STOP_CONFIG & ('light' | 'medium' | 'heavy' | 'ultra');
+export type HitStopTier = keyof typeof HIT_STOP_CONFIG & ('none' | 'light' | 'medium' | 'heavy' | 'ultra');
 
 // ============================================================
 // 战斗手感 — 击退
@@ -451,11 +452,13 @@ export const SKILL_AUDIO: Record<SkillId, {
   noiseHighpass: number;
   crackFilter: number;
   crackQ: number;
+  travel?: { archetype: string; startFreq: number; endFreq: number; duration: number; volume: number; };
 }> = {
   wood_reinforce: {
     theme: 'wood',
     primaryFreq: [200, 80], bodyFreq: [150, 100], bodyType: 'triangle',
     noiseLowpass: 300, noiseHighpass: 150, crackFilter: 1200, crackQ: 2,
+    travel: { archetype: 'whoosh', startFreq: 2000, endFreq: 400, duration: 0.5, volume: 0.04 },
   },
   stone_repair: {
     theme: 'stone',
@@ -466,6 +469,7 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'water',
     primaryFreq: [800, 600], bodyFreq: [200, 150], bodyType: 'sine',
     noiseLowpass: 600, noiseHighpass: 200, crackFilter: 1500, crackQ: 1,
+    travel: { archetype: 'hiss', startFreq: 4000, endFreq: 1200, duration: 0.35, volume: 0.03 },
   },
   insect_control: {
     theme: 'insect',
@@ -476,6 +480,7 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'paint',
     primaryFreq: [1000, 1400], bodyFreq: [1500, 1800], bodyType: 'sine',
     noiseLowpass: 5000, noiseHighpass: 2000, crackFilter: 5000, crackQ: 2,
+    travel: { archetype: 'buzz', startFreq: 600, endFreq: 200, duration: 0.45, volume: 0.04 },
   },
   repair_field: {
     theme: 'repair',
@@ -486,11 +491,13 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'wind',
     primaryFreq: [720, 300], bodyFreq: [180, 120], bodyType: 'triangle',
     noiseLowpass: 2200, noiseHighpass: 700, crackFilter: 2600, crackQ: 2,
+    travel: { archetype: 'whoosh', startFreq: 3000, endFreq: 600, duration: 0.35, volume: 0.05 },
   },
   chain_lightning: {
     theme: 'lightning',
     primaryFreq: [1400, 500], bodyFreq: [2200, 900], bodyType: 'square',
     noiseLowpass: 4200, noiseHighpass: 1200, crackFilter: 5200, crackQ: 4,
+    travel: { archetype: 'crackle', startFreq: 800, endFreq: 2000, duration: 0.15, volume: 0.05 },
   },
 } as const;
 
@@ -654,4 +661,15 @@ export const COMBAT_FEEL_EXTRA = {
   shockwaveCritMult: 2.0,
   /** Boss 扩散环倍数 */
   shockwaveBossMult: 3.0,
+} as const;
+
+// ============================================================
+// Batch 3/4 — VFX 性能控制
+// ============================================================
+
+export const VFX_PERF = {
+  /** burst() 全局同时存活粒子数上限 */
+  maxAliveParticles: 200,
+  /** 低于此伤害的命中不生成粒子 burst（仅浮动数字） */
+  hitParticleMinDamage: 8,
 } as const;
