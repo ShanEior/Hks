@@ -108,7 +108,10 @@ export type SkillId =
   | 'stone_repair'
   | 'waterproof'
   | 'insect_control'
-  | 'painting_restore';
+  | 'painting_restore'
+  | 'repair_field'
+  | 'whirlwind_slash'
+  | 'chain_lightning';
 
 export interface SkillLevelConfig {
   level: number;
@@ -187,6 +190,21 @@ export const SKILL_CONFIGS: Record<SkillId, SkillLevelConfig[]> = {
     { level: 2, name: '颜料补绘', cooldown: 2.8, damage: 34, range: 60, repairType: [], repairAmount: 0, shots: 3, splashRadius: 60 },
     { level: 3, name: '壁画护色', cooldown: 2.4, damage: 46, range: 78, repairType: ['painting'], repairAmount: 2, shots: 4, splashRadius: 78, projectileBounce: true, chainCount: 2 },
   ],
+  repair_field: [
+    { level: 1, name: '修复法阵', cooldown: 7, damage: 0, range: 145, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 3, zoneDuration: 4, tickInterval: 0.65, followPlayer: true, shots: 6 },
+    { level: 2, name: '生机回环', cooldown: 6.2, damage: 0, range: 170, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 5, zoneDuration: 5, tickInterval: 0.55, followPlayer: true, shots: 8 },
+    { level: 3, name: '结构复苏', cooldown: 5.4, damage: 0, range: 190, repairType: ['wood', 'stone', 'tile', 'painting'], repairAmount: 7, zoneDuration: 6, tickInterval: 0.42, followPlayer: true, shots: 10 },
+  ],
+  whirlwind_slash: [
+    { level: 1, name: '旋风斩', cooldown: 4.2, damage: 28, range: 250, repairType: [], repairAmount: 0, shots: 1, pierceCount: 4, widthMultiplier: 1.1 },
+    { level: 2, name: '烈风轮斩', cooldown: 3.8, damage: 40, range: 290, repairType: [], repairAmount: 0, shots: 2, pierceCount: 5, widthMultiplier: 1.2 },
+    { level: 3, name: '青岚风暴', cooldown: 3.3, damage: 54, range: 330, repairType: [], repairAmount: 0, shots: 3, pierceCount: 6, widthMultiplier: 1.3, knockbackForce: 220 },
+  ],
+  chain_lightning: [
+    { level: 1, name: '雷电链', cooldown: 4.1, damage: 34, range: 290, repairType: [], repairAmount: 0, chainCount: 3, shots: 1 },
+    { level: 2, name: '奔雷锁链', cooldown: 3.6, damage: 46, range: 330, repairType: [], repairAmount: 0, chainCount: 5, shots: 1 },
+    { level: 3, name: '九霄雷网', cooldown: 3.1, damage: 58, range: 360, repairType: [], repairAmount: 0, chainCount: 7, shots: 2 },
+  ],
 };
 
 // ---- 经验球 ----
@@ -201,6 +219,7 @@ export const EXP_ORB_CONFIG = {
 // ---- 全部技能 ID 列表（用于技能池生成） ----
 export const ALL_SKILL_IDS: SkillId[] = [
   'wood_reinforce', 'stone_repair', 'waterproof', 'insect_control', 'painting_restore',
+  'repair_field', 'whirlwind_slash', 'chain_lightning',
 ];
 
 // ---- 敌怪时间缩放 ----
@@ -457,6 +476,21 @@ export const SKILL_AUDIO: Record<SkillId, {
     theme: 'paint',
     primaryFreq: [1000, 1400], bodyFreq: [1500, 1800], bodyType: 'sine',
     noiseLowpass: 5000, noiseHighpass: 2000, crackFilter: 5000, crackQ: 2,
+  },
+  repair_field: {
+    theme: 'repair',
+    primaryFreq: [620, 820], bodyFreq: [220, 160], bodyType: 'sine',
+    noiseLowpass: 900, noiseHighpass: 120, crackFilter: 1800, crackQ: 1,
+  },
+  whirlwind_slash: {
+    theme: 'wind',
+    primaryFreq: [720, 300], bodyFreq: [180, 120], bodyType: 'triangle',
+    noiseLowpass: 2200, noiseHighpass: 700, crackFilter: 2600, crackQ: 2,
+  },
+  chain_lightning: {
+    theme: 'lightning',
+    primaryFreq: [1400, 500], bodyFreq: [2200, 900], bodyType: 'square',
+    noiseLowpass: 4200, noiseHighpass: 1200, crackFilter: 5200, crackQ: 4,
   },
 } as const;
 

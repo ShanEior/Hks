@@ -5,9 +5,12 @@ import {
 } from './config';
 import { Player } from './Player';
 import { Monster } from './Monster';
+import { Boss } from './Boss';
 import { Building } from './Building';
 import { SoundManager } from './SoundManager';
 import { VFX } from './VFX';
+
+type SkillTarget = Monster | Boss;
 
 // ── 投射物 ──
 interface Projectile {
@@ -23,15 +26,16 @@ interface Projectile {
   repairAmount: number;
   level: number;
   widthMultiplier?: number;
-  targetMonster?: Monster;  // 追踪型
-  hitTargets?: Set<Monster>;
+  targetMonster?: SkillTarget;  // 追踪型
+  hitTargets?: Set<SkillTarget>;
   remainingHits?: number;
   splashRadius?: number;
   chainRemaining?: number;
   hitRadius?: number;
   trailColor?: number;
   spinSpeed?: number;
-  effectType?: 'wood' | 'paint';
+  knockbackForce?: number;
+  effectType?: 'wood' | 'paint' | 'whirlwind';
   bounceUsed?: boolean;
 }
 
@@ -42,6 +46,7 @@ interface Zone {
   remaining: number;
   tickTimer: number;
   tickInterval: number;
+  kind: 'poison' | 'repair';
   damage: number;
   repairType: StructureType[];
   repairAmount: number;
@@ -64,17 +69,20 @@ export class SkillManager {
   getMonsters: () => Monster[];
   getPlayer: () => Player;
   getBuilding: () => Building;
+  getBoss: () => Boss | null;
 
   constructor(
     scene: Phaser.Scene,
     getMonsters: () => Monster[],
     getPlayer: () => Player,
     getBuilding: () => Building,
+    getBoss: () => Boss | null,
   ) {
     this.scene = scene;
     this.getMonsters = getMonsters;
     this.getPlayer = getPlayer;
     this.getBuilding = getBuilding;
+    this.getBoss = getBoss;
   }
 
   /** 添加技能（新获得 Lv.1） */
@@ -188,6 +196,21 @@ export class SkillManager {
         VFX.skillPaint(this.scene, player.x, player.y, skill.level);
         this.castPaintingRestore(skill, player, monsters);
         break;
+      case 'repair_field':
+        SoundManager.skillWater(skill.level, player.x, player.y);
+        VFX.skillRepairField(this.scene, player.x, player.y, skill.range, skill.level);
+        this.castRepairField(skill, player);
+        break;
+      case 'whirlwind_slash':
+        SoundManager.skillStone(skill.level, player.x, player.y);
+        VFX.skillWhirlwind(this.scene, player.x, player.y, skill.level);
+        this.castWhirlwindSlash(skill, player, monsters);
+        break;
+      case 'chain_lightning':
+        SoundManager.skillWater(skill.level, player.x, player.y);
+        VFX.skillLightningCast(this.scene, player.x, player.y, skill.level);
+        this.castChainLightning(skill, player, monsters);
+        break;
     }
   }
 
@@ -197,7 +220,7 @@ export class SkillManager {
     const lifetime = 0.75;
     const shots = skill.shots ?? 1;
     const spread = Phaser.Math.DegToRad(16);
-    const nearest = this.findNearestMonster(player.x, player.y, monsters);
+    const nearest = this.findNearestTarget(player.x, player.y, monsters);
     const baseAngle = nearest
       ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
       : -Math.PI / 2;
@@ -258,7 +281,7 @@ export class SkillManager {
 
   // ── 防水封护：多目标水幕打击 ──
   private castWaterproof(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
-    const targets = this.getNearestMonsters(player.x, player.y, monsters, skill.shots ?? 4, skill.range);
+    const targets = this.getNearestTargets(player.x, player.y, monsters, skill.shots ?? 4, skill.range);
     if (targets.length === 0) {
       this.damageInRadius(player.x, player.y, skill.range * 0.6, skill.damage, monsters, skill.repairType, skill.repairAmount);
       this.playAoeEffect(player.x, player.y, skill.range * 0.6, 0x4488cc);
@@ -271,11 +294,11 @@ export class SkillManager {
         const hitX = target.x;
         const hitY = target.y;
         let damage = skill.damage;
-        if (skill.bonusDamageVs && target.type === skill.bonusDamageVs) {
+        if (skill.bonusDamageVs && target instanceof Monster && target.type === skill.bonusDamageVs) {
           damage *= skill.bonusDamageMultiplier ?? 2;
         }
         target.takeDamage(damage);
-        this.applyRepair(skill.repairType, skill.repairAmount, target.type);
+        this.applyRepair(skill.repairType, skill.repairAmount);
         this.damageSplash(
           hitX, hitY, target, skill.splashRadius ?? 0, damage * 0.45,
           monsters, skill.repairType, skill.repairAmount,
@@ -288,10 +311,6 @@ export class SkillManager {
   // ── 防虫处理：跟随玩家的持续药雾 ──
   private castInsectControl(skill: ActiveSkill, player: Player): void {
     const g = this.scene.add.graphics();
-    g.fillStyle(0x44cc44, 0.15);
-    g.lineStyle(2, 0x88cc44, 0.35);
-    g.fillCircle(0, 0, skill.range);
-    g.strokeCircle(0, 0, skill.range * 0.92);
     g.setPosition(player.x, player.y);
     g.setDepth(4);
 
@@ -301,6 +320,7 @@ export class SkillManager {
       remaining: skill.zoneDuration ?? 3,
       tickTimer: 0,
       tickInterval: skill.tickInterval ?? 1,
+      kind: 'poison',
       damage: skill.damage,
       repairType: [...skill.repairType],
       repairAmount: skill.repairAmount,
@@ -314,10 +334,100 @@ export class SkillManager {
     });
   }
 
+  // ── 恢复结构血条：跟随玩家的修复法阵 ──
+  private castRepairField(skill: ActiveSkill, player: Player): void {
+    const g = this.scene.add.graphics();
+    g.setPosition(player.x, player.y);
+    g.setDepth(4);
+
+    this.zones.push({
+      x: player.x, y: player.y,
+      radius: skill.range,
+      remaining: skill.zoneDuration ?? 4,
+      tickTimer: 0,
+      tickInterval: skill.tickInterval ?? 0.6,
+      kind: 'repair',
+      damage: 0,
+      repairType: [...skill.repairType],
+      repairAmount: skill.repairAmount,
+      followPlayer: true,
+      owner: player,
+      extraShots: skill.shots ?? 6,
+      level: skill.level,
+      graphic: g,
+    });
+  }
+
+  // ── 旋风斩：朝目标方向发射旋风刃 ──
+  private castWhirlwindSlash(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
+    const speed = 460 + skill.level * 45;
+    const lifetime = skill.range / speed;
+    const shots = skill.shots ?? 1;
+    const spread = Phaser.Math.DegToRad(12);
+    const nearest = this.findNearestTarget(player.x, player.y, monsters);
+    const baseAngle = nearest
+      ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
+      : -Math.PI / 2;
+
+    for (let i = 0; i < shots; i++) {
+      const offset = shots === 1 ? 0 : (i - (shots - 1) / 2) * spread;
+      const angle = baseAngle + offset;
+      const blade = this.scene.add.rectangle(player.x, player.y, 58, 22, 0x66ddff, 0.95);
+      blade.setDepth(15);
+      blade.setRotation(angle);
+      blade.setScale(skill.widthMultiplier ?? 1.15, 1.0 + skill.level * 0.06);
+
+      this.projectiles.push({
+        graphic: blade as Phaser.GameObjects.Rectangle,
+        startX: player.x, startY: player.y,
+        angle, speed, lifetime, elapsed: 0,
+        damage: skill.damage,
+        repairType: [...skill.repairType],
+        repairAmount: skill.repairAmount,
+        level: skill.level,
+        widthMultiplier: skill.widthMultiplier,
+        hitTargets: new Set(),
+        remainingHits: skill.pierceCount ?? 4,
+        hitRadius: 24 * (skill.widthMultiplier ?? 1.1),
+        trailColor: 0x66ddff,
+        spinSpeed: 14,
+        knockbackForce: skill.knockbackForce,
+        effectType: 'whirlwind',
+      });
+    }
+  }
+
+  // ── 雷电链：锁定最近敌人并连续弹射 ──
+  private castChainLightning(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
+    const shots = skill.shots ?? 1;
+    const used = new Set<SkillTarget>();
+    for (let i = 0; i < shots; i++) {
+      const first = this.findNearestTarget(player.x, player.y, monsters, used);
+      if (!first) return;
+      used.add(first);
+      this.scene.time.delayedCall(i * 90, () => {
+        const hitSet = new Set<SkillTarget>();
+        let current: SkillTarget | null = first;
+        let fromX = player.x;
+        let fromY = player.y;
+        let hops = 0;
+        while (current && hops <= (skill.chainCount ?? 3)) {
+          VFX.lightningArc(this.scene, fromX, fromY, current.x, current.y, hops === 0, skill.level);
+          current.takeDamage(skill.damage * Math.max(0.62, 1 - hops * 0.08));
+          hitSet.add(current);
+          fromX = current.x;
+          fromY = current.y;
+          current = this.findNearestTarget(fromX, fromY, monsters, hitSet, 180);
+          hops++;
+        }
+      });
+    }
+  }
+
   // ── 彩绘修复：多枚追踪颜料弹 ──
   private castPaintingRestore(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
     const shots = skill.shots ?? 1;
-    const targets = this.getNearestMonsters(player.x, player.y, monsters, shots, 9999);
+    const targets = this.getNearestTargets(player.x, player.y, monsters, shots, 9999);
     if (targets.length === 0) return;
 
     for (let i = 0; i < shots; i++) {
@@ -374,7 +484,7 @@ export class SkillManager {
 
       if (p.targetMonster) {
         if (p.targetMonster.isDead) {
-          const nearest = this.findNearestMonster(p.graphic.x, p.graphic.y, monsters, p.hitTargets);
+          const nearest = this.findNearestTarget(p.graphic.x, p.graphic.y, monsters, p.hitTargets);
           if (nearest) {
             p.targetMonster = nearest;
           } else {
@@ -420,6 +530,15 @@ export class SkillManager {
             if (!p.graphic.active) break;
           }
         }
+
+        const boss = this.getBoss();
+        if (boss && !boss.isDead && !p.hitTargets?.has(boss) && p.graphic.active) {
+          const dist = Phaser.Math.Distance.Between(p.graphic.x, p.graphic.y, boss.x, boss.y);
+          const hitRadius = (p.hitRadius ?? 18) + boss.radius * 0.45;
+          if (dist < hitRadius) {
+            this.handleProjectileHit(p, boss, monsters);
+          }
+        }
       }
     }
   }
@@ -441,41 +560,47 @@ export class SkillManager {
         z.graphic.x = z.x;
         z.graphic.y = z.y;
       }
-      z.graphic.clear();
-      z.graphic.fillStyle(0x44cc44, 0.11 + Math.sin(this.scene.time.now / 140) * 0.03);
-      z.graphic.lineStyle(2, 0x88cc44, 0.28);
-      z.graphic.fillCircle(0, 0, z.radius);
-      z.graphic.strokeCircle(0, 0, z.radius * 0.92);
+      if (z.kind === 'poison') {
+        this.renderPoisonZone(z);
+      } else {
+        this.renderRepairZone(z);
+      }
 
       z.tickTimer += dt;
       while (z.tickTimer >= z.tickInterval) {
         z.tickTimer -= z.tickInterval;
-        VFX.insectTick(this.scene, z.x, z.y, Math.min(42, z.radius * 0.35));
-        for (const m of monsters) {
-          if (m.isDead) continue;
-          const dist = Phaser.Math.Distance.Between(z.x, z.y, m.x, m.y);
-          if (dist < z.radius) {
-            let dmg = z.damage;
-            if (z.bonusDamageVs && m.type === z.bonusDamageVs) {
-              dmg *= (z.bonusDamageMultiplier ?? 2);
-            }
-            m.takeDamage(dmg);
-            this.applyRepair(z.repairType, z.repairAmount, m.type);
-          }
-        }
 
-        const extraTargets = z.extraShots ?? 0;
-        if (extraTargets > 0) {
-          const spores = this.getNearestMonsters(z.x, z.y, monsters, extraTargets, z.radius + 70);
-          for (const target of spores) {
-            if (target.isDead) continue;
-            let sporeDamage = z.damage * 0.65;
-            if (z.bonusDamageVs && target.type === z.bonusDamageVs) {
-              sporeDamage *= z.bonusDamageMultiplier ?? 2;
+        if (z.kind === 'poison') {
+          VFX.insectTick(this.scene, z.x, z.y, Math.min(42, z.radius * 0.35));
+          for (const m of monsters) {
+            if (m.isDead) continue;
+            const dist = Phaser.Math.Distance.Between(z.x, z.y, m.x, m.y);
+            if (dist < z.radius) {
+              let dmg = z.damage;
+              if (z.bonusDamageVs && m.type === z.bonusDamageVs) {
+                dmg *= (z.bonusDamageMultiplier ?? 2);
+              }
+              m.takeDamage(dmg);
+              this.applyRepair(z.repairType, z.repairAmount);
             }
-            target.takeDamage(sporeDamage);
-            VFX.burst(this.scene, target.x, target.y, 4, [0x44cc44, 0x88cc44, 0xccee88], 70, 2, 220);
           }
+
+          const extraTargets = z.extraShots ?? 0;
+          if (extraTargets > 0) {
+            const spores = this.getNearestTargets(z.x, z.y, monsters, extraTargets, z.radius + 70);
+            for (const target of spores) {
+              if (target.isDead) continue;
+              let sporeDamage = z.damage * 0.65;
+              if (z.bonusDamageVs && target instanceof Monster && target.type === z.bonusDamageVs) {
+                sporeDamage *= z.bonusDamageMultiplier ?? 2;
+              }
+              target.takeDamage(sporeDamage);
+              VFX.burst(this.scene, target.x, target.y, 4, [0x44cc44, 0x88cc44, 0xccee88], 70, 2, 220);
+            }
+          }
+        } else {
+          this.applyRepair(z.repairType, z.repairAmount);
+          VFX.repairFieldPulse(this.scene, z.x, z.y, z.radius, z.level, z.extraShots ?? 6);
         }
       }
     }
@@ -492,13 +617,21 @@ export class SkillManager {
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
         m.takeDamage(damage);
-        this.applyRepair(repairType, repairAmount, m.type);
+        this.applyRepair(repairType, repairAmount);
+      }
+    }
+
+    const boss = this.getBoss();
+    if (boss && !boss.isDead) {
+      const dist = Phaser.Math.Distance.Between(cx, cy, boss.x, boss.y);
+      if (dist < radius) {
+        boss.takeDamage(damage);
       }
     }
   }
 
   private damageSplash(
-    cx: number, cy: number, primary: Monster, radius: number, damage: number,
+    cx: number, cy: number, primary: SkillTarget, radius: number, damage: number,
     monsters: Monster[],
     repairType: StructureType[], repairAmount: number,
   ): void {
@@ -508,13 +641,21 @@ export class SkillManager {
       const dist = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
       if (dist < radius) {
         m.takeDamage(damage);
-        this.applyRepair(repairType, repairAmount, m.type);
+        this.applyRepair(repairType, repairAmount);
+      }
+    }
+
+    const boss = this.getBoss();
+    if (boss && !boss.isDead && boss !== primary) {
+      const dist = Phaser.Math.Distance.Between(cx, cy, boss.x, boss.y);
+      if (dist < radius) {
+        boss.takeDamage(damage);
       }
     }
   }
 
   // ── 条件回血 ──
-  private applyRepair(repairTypes: StructureType[], amount: number, _monsterType: MonsterType): void {
+  private applyRepair(repairTypes: StructureType[], amount: number): void {
     if (amount <= 0 || repairTypes.length === 0) return;
     const building = this.getBuilding();
     for (const type of repairTypes) {
@@ -551,12 +692,12 @@ export class SkillManager {
     }
   }
 
-  private handleProjectileHit(p: Projectile, target: Monster, monsters: Monster[]): void {
+  private handleProjectileHit(p: Projectile, target: SkillTarget, monsters: Monster[]): void {
     const hitX = target.x;
     const hitY = target.y;
     p.hitTargets?.add(target);
     target.takeDamage(p.damage);
-    this.applyRepair(p.repairType, p.repairAmount, target.type);
+    this.applyRepair(p.repairType, p.repairAmount);
 
     if (p.splashRadius) {
       this.damageSplash(hitX, hitY, target, p.splashRadius, p.damage * 0.5, monsters, p.repairType, p.repairAmount);
@@ -566,11 +707,16 @@ export class SkillManager {
       VFX.woodImpact(this.scene, hitX, hitY, p.level);
     } else if (p.effectType === 'paint') {
       VFX.paintImpact(this.scene, hitX, hitY, p.splashRadius ?? 24, p.level);
+    } else if (p.effectType === 'whirlwind') {
+      VFX.whirlwindHit(this.scene, hitX, hitY, p.level);
+      if (p.knockbackForce) {
+        this.applyKnockbackInRadius(hitX, hitY, 70, p.knockbackForce, monsters);
+      }
     }
 
     if (p.targetMonster) {
       if ((p.chainRemaining ?? 0) > 0) {
-        const next = this.findNearestMonster(hitX, hitY, monsters, p.hitTargets);
+        const next = this.findNearestTarget(hitX, hitY, monsters, p.hitTargets);
         if (next) {
           p.targetMonster = next;
           p.chainRemaining = (p.chainRemaining ?? 0) - 1;
@@ -599,28 +745,36 @@ export class SkillManager {
     }
   }
 
-  private findNearestMonster(
+  private findNearestTarget(
     x: number, y: number, monsters: Monster[],
-    excluded: Set<Monster> = new Set(),
-  ): Monster | null {
-    let nearest: Monster | null = null;
+    excluded: Set<SkillTarget> = new Set(),
+    maxDistance = Infinity,
+  ): SkillTarget | null {
+    let nearest: SkillTarget | null = null;
     let nearestDist = Infinity;
     for (const m of monsters) {
       if (m.isDead || excluded.has(m)) continue;
       const d = Phaser.Math.Distance.Between(x, y, m.x, m.y);
-      if (d < nearestDist) {
+      if (d < nearestDist && d <= maxDistance) {
         nearestDist = d;
         nearest = m;
+      }
+    }
+    const boss = this.getBoss();
+    if (boss && !boss.isDead && !excluded.has(boss)) {
+      const d = Phaser.Math.Distance.Between(x, y, boss.x, boss.y);
+      if (d < nearestDist && d <= maxDistance) {
+        nearest = boss;
       }
     }
     return nearest;
   }
 
-  private getNearestMonsters(
+  private getNearestTargets(
     x: number, y: number, monsters: Monster[],
     count: number, maxDistance: number,
-  ): Monster[] {
-    return monsters
+  ): SkillTarget[] {
+    const result: SkillTarget[] = monsters
       .filter(m => !m.isDead && Phaser.Math.Distance.Between(x, y, m.x, m.y) <= maxDistance)
       .sort((a, b) => {
         const da = Phaser.Math.Distance.Between(x, y, a.x, a.y);
@@ -628,6 +782,17 @@ export class SkillManager {
         return da - db;
       })
       .slice(0, count);
+
+    const boss = this.getBoss();
+    if (boss && !boss.isDead && Phaser.Math.Distance.Between(x, y, boss.x, boss.y) <= maxDistance) {
+      result.push(boss);
+      result.sort((a, b) => {
+        const da = Phaser.Math.Distance.Between(x, y, a.x, a.y);
+        const db = Phaser.Math.Distance.Between(x, y, b.x, b.y);
+        return da - db;
+      });
+    }
+    return result.slice(0, count);
   }
 
   private spawnTrailDot(x: number, y: number, color: number): void {
@@ -646,6 +811,49 @@ export class SkillManager {
     if (p.glow?.active) p.glow.destroy();
     if (p.graphic.active) p.graphic.destroy();
   }
+
+  private renderPoisonZone(z: Zone): void {
+    const g = z.graphic;
+    const t = this.scene.time.now / 1000;
+    g.clear();
+    g.fillStyle(0x44cc44, 0.18);
+    g.lineStyle(3, 0x88cc44, 0.36);
+    g.fillCircle(0, 0, z.radius);
+    g.strokeCircle(0, 0, z.radius * 0.94);
+    g.lineStyle(2, 0xaaff66, 0.26);
+    g.strokeCircle(0, 0, z.radius * (0.72 + Math.sin(t * 3) * 0.03));
+    for (let i = 0; i < 26 + z.level * 8; i++) {
+      const a = t * (0.6 + i * 0.03) + i * 1.27;
+      const d = (0.18 + ((i * 17) % 100) / 100 * 0.7) * z.radius;
+      const x = Math.cos(a) * d;
+      const y = Math.sin(a * 1.15) * d * 0.72;
+      const r = 2 + (i % 4);
+      const alpha = 0.18 + ((i % 4) * 0.06);
+      g.fillStyle(i % 3 === 0 ? 0xccee88 : 0x66dd66, alpha);
+      g.fillCircle(x, y, r);
+    }
+  }
+
+  private renderRepairZone(z: Zone): void {
+    const g = z.graphic;
+    const t = this.scene.time.now / 1000;
+    g.clear();
+    g.lineStyle(3, 0x99ff66, 0.45);
+    g.strokeCircle(0, 0, z.radius);
+    g.lineStyle(2, 0x66ff88, 0.28);
+    g.strokeCircle(0, 0, z.radius * 0.72);
+    for (let i = 0; i < (z.extraShots ?? 6); i++) {
+      const a = t * 1.8 + (Math.PI * 2 * i) / (z.extraShots ?? 6);
+      const d = i % 2 === 0 ? z.radius * 0.72 : z.radius * 0.42;
+      const x = Math.cos(a) * d;
+      const y = Math.sin(a) * d;
+      g.fillStyle(0x99ff88, 0.9);
+      g.fillCircle(x, y, 4);
+      g.fillStyle(0xffffff, 0.45);
+      g.fillCircle(x, y, 2);
+    }
+  }
+
 
   // ── 工具 ──
   private createSkillFromConfig(skillId: SkillId, config: SkillLevelConfig): ActiveSkill {

@@ -156,7 +156,7 @@ export class GameScene extends Phaser.Scene {
     this.combatFeel = new CombatFeel(this);
 
     this.skillManager = new SkillManager(
-      this, () => this.monsters, () => this.player, () => this.building,
+      this, () => this.monsters, () => this.player, () => this.building, () => this.boss,
     );
     this.skillManager.addSkill('wood_reinforce');
 
@@ -918,6 +918,31 @@ export class GameScene extends Phaser.Scene {
           lines.push(`↑ 单弹伤害 +${cfg.damage - prevCfg.damage}  数量 ${cfg.shots ?? 1}`);
           if (cfg.chainCount && !(prevCfg.chainCount && prevCfg.chainCount > 0)) lines.push('↑ 新增强：弹射攻击');
         }
+        break;
+
+      case 'repair_field':
+        lines.push(`在脚下展开修复法阵，持续恢复全部结构`);
+        lines.push(`每跳回复 ${cfg.repairAmount}  CD ${cfg.cooldown}s  半径 ${cfg.range}  持续 ${cfg.zoneDuration}s`);
+        if (cfg.tickInterval) lines.push(`每 ${cfg.tickInterval}s 触发一次恢复`);
+        if (cfg.shots) lines.push(`法阵环绕 ${cfg.shots} 枚治愈光球`);
+        if (prevCfg) lines.push(`↑ 回复 +${cfg.repairAmount - prevCfg.repairAmount}  持续 +${(cfg.zoneDuration ?? 0) - (prevCfg.zoneDuration ?? 0)}s`);
+        break;
+
+      case 'whirlwind_slash':
+        lines.push(`朝前方发射旋风刃，沿路径切割敌人`);
+        lines.push(`单刃 ${cfg.damage}  CD ${cfg.cooldown}s  飞行距离 ${cfg.range}`);
+        if (cfg.shots) lines.push(`每次发射 ${cfg.shots} 枚旋风刃`);
+        if (cfg.pierceCount) lines.push(`单刃最多穿透 ${cfg.pierceCount} 个目标`);
+        if (cfg.knockbackForce) lines.push('命中后附带击退');
+        if (prevCfg) lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  数量 ${cfg.shots ?? 1}`);
+        break;
+
+      case 'chain_lightning':
+        lines.push(`释放雷电链，在敌人之间连续跳跃`);
+        lines.push(`首跳 ${cfg.damage}  CD ${cfg.cooldown}s  搜敌范围 ${cfg.range}`);
+        if (cfg.chainCount) lines.push(`最多连锁 ${cfg.chainCount} 次`);
+        if (cfg.shots && cfg.shots > 1) lines.push(`同时放出 ${cfg.shots} 条主雷链`);
+        if (prevCfg) lines.push(`↑ 伤害 +${cfg.damage - prevCfg.damage}  连锁数 ${cfg.chainCount ?? 1}`);
         break;
     }
 

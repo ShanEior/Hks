@@ -599,6 +599,9 @@ export class HUD {
       waterproof: '防水是古建保护的关键，雨水渗漏会造成严重损害。',
       insect_control: '木构古建需要注意白蚁和蛀虫防治。',
       painting_restore: '彩绘壁画受潮后颜料层会起甲、剥落。',
+      repair_field: '古建修缮讲究整体养护，结构健康需要持续维护。',
+      whirlwind_slash: '旋风刃适合朝尸潮前方穿透推进，能快速切开一条输出通道。',
+      chain_lightning: '连锁雷击善于清理分散敌群，能快速串联多个目标。',
     };
     const tip = this.scene.add.text(cx, cy + h / 2 - 30, tips[skillId] ?? '', {
       ...FONT.tiny, color: '#8A8A80',
