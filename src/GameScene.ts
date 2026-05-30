@@ -988,7 +988,7 @@ export class GameScene extends Phaser.Scene {
       if (this.boss && !this.boss.isDead) {
         SoundManager.autoAttack(this.player.x, this.player.y);
         this.player.applyAttackRecoil();
-        const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(2.5);
+        const bolt = this.add.image(this.player.x, this.player.y, 'bolt').setScale(1.3);
         bolt.setDepth(12);
         let bossTargetDead = false;
         const bossTarget = {

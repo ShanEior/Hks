@@ -1493,28 +1493,25 @@ function genExpOrb(scene: Phaser.Scene) {
 function genBolt(scene: Phaser.Scene) {
   const S = 12;
   const { canvas, ctx } = makeCanvas(S * PX, S * PX);
-  // 墨滴状弹丸 — 不规则椭圆黑色墨迹 + 飞白边缘
-  // 主体墨团
-  pxRect(ctx, 2, 3, 8, 6, '#1A1A2E');
-  pxRect(ctx, 3, 2, 6, 8, '#1A1A2E');
-  pxRect(ctx, 1, 4, 10, 4, '#222240');
-  // 墨色渐变层次
-  px(ctx, 3, 3, '#111128'); px(ctx, 8, 3, '#111128');
-  px(ctx, 3, 8, '#111128'); px(ctx, 8, 8, '#111128');
-  // 中心浓墨
-  pxRect(ctx, 4, 4, 4, 4, '#0A0A18');
-  px(ctx, 5, 5, '#000008');
-  // 墨点飞溅
-  px(ctx, 1, 3, '#2A2A50'); px(ctx, 10, 3, '#2A2A50');
-  px(ctx, 0, 5, '#3A3A60'); px(ctx, 11, 5, '#3A3A60');
-  px(ctx, 2, 1, '#333360'); px(ctx, 9, 1, '#333360');
-  px(ctx, 2, 10, '#333360'); px(ctx, 9, 10, '#333360');
-  // 飞白拖尾
-  px(ctx, 5, 0, '#444470'); px(ctx, 6, 0, '#444470');
-  px(ctx, 5, 11, '#444470'); px(ctx, 6, 11, '#444470');
-  px(ctx, 0, 6, '#3A3A60'); px(ctx, 11, 6, '#3A3A60');
-  // 金色光点（毛笔书写感）
-  px(ctx, 6, 4, '#FFD700'); px(ctx, 5, 6, '#FFD700');
+  // 月牙剑气 — 细弯弧刃
+  // 上弧
+  px(ctx, 2, 4, '#6699CC'); px(ctx, 3, 3, '#88CCFF'); px(ctx, 4, 2, '#AAE0FF');
+  px(ctx, 5, 2, '#BBEEFF'); px(ctx, 6, 1, '#CCEEFF'); px(ctx, 7, 1, '#DDEEFF');
+  px(ctx, 8, 2, '#DDF0FF'); px(ctx, 9, 2, '#CCEEFF');
+  // 核心白光
+  px(ctx, 4, 3, '#FFFFFF'); px(ctx, 5, 3, '#FFFFFF');
+  px(ctx, 6, 2, '#FFFFFF'); px(ctx, 7, 2, '#FFFFFF');
+  // 下弧
+  px(ctx, 2, 5, '#6699CC'); px(ctx, 3, 6, '#88CCFF'); px(ctx, 4, 7, '#AAE0FF');
+  px(ctx, 5, 7, '#BBEEFF'); px(ctx, 6, 8, '#CCEEFF'); px(ctx, 7, 8, '#DDEEFF');
+  px(ctx, 8, 7, '#DDF0FF'); px(ctx, 9, 7, '#CCEEFF');
+  // 两端收尖
+  px(ctx, 1, 4, '#4477AA'); px(ctx, 1, 5, '#4477AA');
+  px(ctx, 10, 3, '#88CCFF'); px(ctx, 10, 6, '#88CCFF');
+  // 弧内填充
+  px(ctx, 3, 4, '#AAE0FF'); px(ctx, 3, 5, '#AAE0FF');
+  px(ctx, 8, 3, '#BBEEFF'); px(ctx, 8, 5, '#BBEEFF');
+  px(ctx, 9, 3, '#99DDFF'); px(ctx, 9, 5, '#99DDFF');
 
   addTex(scene, 'bolt', canvas);
 }
