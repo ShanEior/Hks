@@ -40,6 +40,7 @@ export class Boss {
   isActive = false; // 是否已出场
 
   // 回调
+  onAttack: ((boss: Boss) => void) | null = null;
   onSummon: ((count: number, type: string) => void) | null = null;
   onDeath: ((boss: Boss) => void) | null = null;
 
@@ -62,6 +63,12 @@ export class Boss {
     this.attackInterval = BOSS_CONFIG.attackInterval;
     this.radius = BOSS_CONFIG.radius;
     this.expDrop = BOSS_CONFIG.expDrop;
+
+    // 初始化冷却为当前时间，避免首帧连放三技能
+    const now = scene.time.now;
+    this.lastAttackTime = now;
+    this.lastSummonTime = now;
+    this.lastEarthquakeTime = now;
 
     // 创建 Boss 精灵
     if (scene.textures.exists('calamity_core')) {
@@ -146,7 +153,7 @@ export class Boss {
     // ── 基础攻击：间隔攻击古建 ──
     if (time - this.lastAttackTime >= this.attackInterval) {
       this.lastAttackTime = time;
-      // 基础攻击动画：闪烁
+      this.onAttack?.(this);
       this.sprite.setTint(0xFF6688);
       this.scene.time.delayedCall(100, () => {
         if (this.sprite.active && !this.isDead) {
