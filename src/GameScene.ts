@@ -189,6 +189,11 @@ export class GameScene extends Phaser.Scene {
     this.checkLevelUp();
 
     this.gameTime -= delta / 1000;
+    // 最后 30 秒倒计时滴答
+    if (this.gameTime > 0 && this.gameTime <= 30 &&
+        Math.floor(this.gameTime + delta / 1000) !== Math.floor(this.gameTime)) {
+      SoundManager.countdownTick();
+    }
     if (this.gameTime <= 0) {
       this.gameTime = 0;
       this.endGame(true);
@@ -364,6 +369,9 @@ export class GameScene extends Phaser.Scene {
 
     this.monsters.push(monster);
 
+    // 怪物生成轻提示
+    SoundManager.monsterSpawn(type);
+
     // 首次遭遇弹窗（暂停游戏）
     if (!this.seenMonsterTypes.has(type)) {
       this.seenMonsterTypes.add(type);
@@ -448,7 +456,7 @@ export class GameScene extends Phaser.Scene {
             this.building.healStructure(type, 10);
           }
           VFX.burst(this, c.x, c.y, 12, [0x44ff88, 0xffdd44, 0xffffff], 80, 3, 400);
-          SoundManager.expPickup();
+          SoundManager.repairCratePickup();
           c.graphic.destroy();
         }
       }
@@ -669,7 +677,7 @@ export class GameScene extends Phaser.Scene {
       if (d < nearestDist) { nearestDist = d; nearest = m; }
     }
     if (!nearest) return;
-    SoundManager.autoAttack();
+    SoundManager.autoAttack(this.player.x, this.player.y);
     this.player.applyAttackRecoil();
     const bolt = this.add.image(this.player.x, this.player.y, 'bolt');
     bolt.setDepth(12);

@@ -144,27 +144,27 @@ export class SkillManager {
   private castSkill(skill: ActiveSkill, player: Player, monsters: Monster[]): void {
     switch (skill.id) {
       case 'wood_reinforce':
-        SoundManager.skillWood();
+        SoundManager.skillWood(skill.level, player.x, player.y);
         VFX.skillWood(this.scene, player.x, player.y, 0, skill.level);
         this.castWoodReinforce(skill, player, monsters);
         break;
       case 'stone_repair':
-        SoundManager.skillStone();
+        SoundManager.skillStone(skill.level, player.x, player.y);
         VFX.skillStone(this.scene, player.x, player.y, skill.range, skill.level);
         this.castStoneRepair(skill, player, monsters);
         break;
       case 'waterproof':
-        SoundManager.skillWater();
+        SoundManager.skillWater(skill.level, player.x, player.y);
         VFX.skillWater(this.scene, player.x, player.y, skill.range, skill.level);
         this.castWaterproof(skill, player, monsters);
         break;
       case 'insect_control':
-        SoundManager.skillInsect();
+        SoundManager.skillInsect(skill.level, player.x, player.y);
         VFX.skillInsect(this.scene, player.x, player.y, skill.range, skill.level);
         this.castInsectControl(skill, player);
         break;
       case 'painting_restore':
-        SoundManager.skillPaint();
+        SoundManager.skillPaint(skill.level, player.x, player.y);
         VFX.skillPaint(this.scene, player.x, player.y, skill.level);
         this.castPaintingRestore(skill, player, monsters);
         break;

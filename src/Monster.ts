@@ -208,7 +208,7 @@ export class Monster {
     });
 
     // ── 音效 + VFX ──
-    SoundManager.hitMonster();
+    SoundManager.hitMonster(this.sprite.x, this.sprite.y);
     VFX.hitMonster(this.scene, this.x, this.y, amount, attackerX, attackerY);
 
     // ── 命中反馈回调 → CombatFeel ──
@@ -216,7 +216,7 @@ export class Monster {
 
     if (this.hp <= 0) {
       this.hp = 0;
-      SoundManager.killMonster();
+      SoundManager.killMonster(this.type);
       this.die();
       return true;
     }

@@ -311,3 +311,86 @@ export const AUTO_ATTACK_CONFIG = {
   boltLifetime: 2,
   boltRadius: 12,
 } as const;
+
+// ============================================================
+// Batch 2 — 音频合成配置
+// ============================================================
+
+export const SOUND_CONFIG = {
+  compressor: {
+    threshold: -18,
+    ratio: 6,
+    attack: 0.003,
+    release: 0.08,
+    knee: 12,
+  },
+  voicePool: {
+    maxVoices: 24,
+    PRI_CRITICAL:  1,  // 玩家受伤、Boss 死亡、古建濒危
+    PRI_IMPORTANT: 2,  // 技能释放、怪物受击/死亡
+    PRI_NORMAL:    3,  // 普攻、古建回血
+    PRI_AMBIENT:   4,  // 拾取、UI
+  },
+  pitchVar: {
+    subBass:  0.02,
+    impact:   0.05,
+    lightAttack: 0.10,
+    pickup:   0.15,
+    ui:       0.03,
+  },
+  skillPower: {
+    levels: [
+      { layers: 2, durationMs: 150, volMul: 1.0, transientBoost: 1.0 },
+      { layers: 3, durationMs: 220, volMul: 1.2, transientBoost: 1.0 },
+      { layers: 3, durationMs: 280, volMul: 1.4, transientBoost: 1.5 },
+    ],
+  },
+} as const;
+
+export const SKILL_AUDIO: Record<SkillId, {
+  theme: string;
+  primaryFreq: [number, number];
+  bodyFreq: [number, number];
+  bodyType: 'triangle' | 'sawtooth' | 'square' | 'sine';
+  noiseLowpass: number;
+  noiseHighpass: number;
+  crackFilter: number;
+  crackQ: number;
+}> = {
+  wood_reinforce: {
+    theme: 'wood',
+    primaryFreq: [200, 80], bodyFreq: [150, 100], bodyType: 'triangle',
+    noiseLowpass: 300, noiseHighpass: 150, crackFilter: 1200, crackQ: 2,
+  },
+  stone_repair: {
+    theme: 'stone',
+    primaryFreq: [60, 30], bodyFreq: [120, 80], bodyType: 'sawtooth',
+    noiseLowpass: 400, noiseHighpass: 100, crackFilter: 2000, crackQ: 3,
+  },
+  waterproof: {
+    theme: 'water',
+    primaryFreq: [800, 600], bodyFreq: [200, 150], bodyType: 'sine',
+    noiseLowpass: 600, noiseHighpass: 200, crackFilter: 1500, crackQ: 1,
+  },
+  insect_control: {
+    theme: 'insect',
+    primaryFreq: [100, 60], bodyFreq: [300, 200], bodyType: 'triangle',
+    noiseLowpass: 2500, noiseHighpass: 800, crackFilter: 3000, crackQ: 4,
+  },
+  painting_restore: {
+    theme: 'paint',
+    primaryFreq: [1000, 1400], bodyFreq: [1500, 1800], bodyType: 'sine',
+    noiseLowpass: 5000, noiseHighpass: 2000, crackFilter: 5000, crackQ: 2,
+  },
+} as const;
+
+export const MONSTER_DEATH_AUDIO: Record<MonsterType, {
+  thumpFreq: number; bodyFreq: number; crunchHighpass: number;
+  duration: number; volume: number;
+}> = {
+  termite:     { thumpFreq: 100, bodyFreq: 300, crunchHighpass: 1200, duration: 0.25, volume: 0.08 },
+  wind:        { thumpFreq: 60,  bodyFreq: 200, crunchHighpass: 800,  duration: 0.3,  volume: 0.07 },
+  acid_rain:   { thumpFreq: 80,  bodyFreq: 250, crunchHighpass: 1000, duration: 0.28, volume: 0.06 },
+  fire:        { thumpFreq: 70,  bodyFreq: 180, crunchHighpass: 1500, duration: 0.22, volume: 0.09 },
+  freeze_thaw: { thumpFreq: 50,  bodyFreq: 150, crunchHighpass: 600,  duration: 0.35, volume: 0.07 },
+} as const;
